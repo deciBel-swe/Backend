@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:latest
+    container_name: DeciBel-postgres
+    environment:
+      POSTGRES_USER: DeciBel
+      POSTGRES_PASSWORD: mango
+      POSTGRES_DB: DeciBel
+      PGDATA: /data/postgres
+    volumes:
+      - postgres_data:/data/postgres
+    ports:
+      - "5332:5432"
+    networks:
+      - backend
+    restart: unless-stopped
+
+  cassandra:
+    image: cassandra:latest
+    container_name: DeciBel-cassandra
+    environment:
+      CASSANDRA_CLUSTER_NAME: "DeciBelCluster"
+      CASSANDRA_DC: datacenter1
+      CASSANDRA_RACK: rack1
+      CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+    ports:
+      - "9042:9042"
+    networks:
+      - backend
+    restart: unless-stopped
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  cassandra_data:
