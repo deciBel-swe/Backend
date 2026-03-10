@@ -1,6 +1,6 @@
-package Software.DeciBel.Entities;
+package software.decibel.entities;
 
-import Software.DeciBel.Enums.Visibility;
+import software.decibel.enums.Visibility;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

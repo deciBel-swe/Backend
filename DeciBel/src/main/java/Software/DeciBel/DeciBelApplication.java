@@ -1,4 +1,4 @@
-package Software.DeciBel;
+package software.decibel;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

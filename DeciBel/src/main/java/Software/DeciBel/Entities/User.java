@@ -1,6 +1,6 @@
-package Software.DeciBel.Entities;
+package software.decibel.entities;
 
-import Software.DeciBel.Enums.AccountTier;
+import software.decibel.enums.AccountTier;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -33,6 +33,7 @@ public class User {
     private String googleId; // For social identity login
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean isEmailVerified = false;
 
     @Column(nullable = false, unique = true)
@@ -53,16 +54,21 @@ public class User {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Builder.Default
     private AccountTier tier = AccountTier.LISTENER;
 
-    //    Privacy Toggles 
+    // Privacy Toggles 
     @Column(nullable = false)
+    @Builder.Default
     private boolean isPrivate = false;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean showHistory = true;
 
+    @Builder.Default
     private int followerCount = 0;
+    @Builder.Default
     private int followingCount = 0;
 
     @CreationTimestamp

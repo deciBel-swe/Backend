@@ -1,4 +1,4 @@
-package Software.DeciBel.Enums;
+package software.decibel.enums;
 
 public enum Visibility {
     PUBLIC,
