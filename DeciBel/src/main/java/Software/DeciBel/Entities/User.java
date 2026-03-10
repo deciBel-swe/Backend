@@ -1,4 +1,4 @@
-package Software.DeciBel.Models;
+package Software.DeciBel.Entities;
 
 import Software.DeciBel.Enums.AccountTier;
 import jakarta.persistence.*;
