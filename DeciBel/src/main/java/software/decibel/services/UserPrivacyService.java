@@ -1,14 +1,15 @@
 package software.decibel.services;
 
-import software.decibel.dtos.PrivacyUpdateRequest;
-import software.decibel.dtos.PrivacyUpdateResponse;
-import software.decibel.entities.User;
-import software.decibel.repositories.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
+import software.decibel.dtos.PrivacyUpdateRequest;
+import software.decibel.dtos.PrivacyUpdateResponse;
+import software.decibel.entities.User;
+import software.decibel.repositories.UserRepository;
 
 @Service
 public class UserPrivacyService {
@@ -39,6 +40,6 @@ public class UserPrivacyService {
 
         // Assuming the principal is the user ID for simplicity, For Now...
         return userRepository.findById(Long.parseLong(principal))
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     }
 }

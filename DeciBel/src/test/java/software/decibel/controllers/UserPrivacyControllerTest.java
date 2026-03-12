@@ -1,32 +1,33 @@
 package software.decibel.controllers;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import software.decibel.dtos.PrivacyUpdateRequest;
-import software.decibel.dtos.PrivacyUpdateResponse;
-import software.decibel.services.UserPrivacyService;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import org.mockito.Mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import software.decibel.dtos.PrivacyUpdateRequest;
+import software.decibel.dtos.PrivacyUpdateResponse;
+import software.decibel.services.UserPrivacyService;
 
 @ExtendWith(MockitoExtension.class)
 class UserPrivacyControllerTest {
@@ -55,10 +56,10 @@ class UserPrivacyControllerTest {
                 .thenReturn(new PrivacyUpdateResponse(true, false));
 
         mockMvc.perform(
-                        patch("/users/me/privacy")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"isPrivate\":true,\"showHistory\":false}")
-                )
+                patch("/users/me/privacy")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"isPrivate\":true,\"showHistory\":false}")
+        )
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.isPrivate").value(true))
                 .andExpect(jsonPath("$.showHistory").value(false));
@@ -74,10 +75,10 @@ class UserPrivacyControllerTest {
     @Test
     void updatePrivacy_whenMissingRequiredField_returnsBadRequest() throws Exception {
         mockMvc.perform(
-                        patch("/users/me/privacy")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"isPrivate\":true}")
-                )
+                patch("/users/me/privacy")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"isPrivate\":true}")
+        )
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(userPrivacyService);
@@ -91,11 +92,11 @@ class UserPrivacyControllerTest {
         Authentication authentication = new UsernamePasswordAuthenticationToken("1", "N/A");
 
         mockMvc.perform(
-                        patch("/users/me/privacy")
-                                .principal(authentication)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(new PrivacyUpdateRequest(false, true)))
-                )
+                patch("/users/me/privacy")
+                        .principal(authentication)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new PrivacyUpdateRequest(false, true)))
+        )
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.isPrivate").value(false))
                 .andExpect(jsonPath("$.showHistory").value(true));
