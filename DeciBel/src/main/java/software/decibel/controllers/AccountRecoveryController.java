@@ -1,4 +1,4 @@
 package software.decibel.controllers;
 
-public class ForgotPasswordController {
+public class AccountRecoveryController {
 }
