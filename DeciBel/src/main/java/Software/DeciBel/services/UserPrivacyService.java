@@ -30,15 +30,23 @@ public class UserPrivacyService {
     }
 
     private User resolveCurrentUser(Authentication authentication) {
-        // TODO: Add the authentication checks when authentication is implemented. For now, we will assume the user is authenticated and the principal is the user ID.
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
         }
 
         String principal = authentication.getName();
+        if (principal == null || principal.isBlank() || "anonymousUser".equalsIgnoreCase(principal)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
+        }
 
-        // Assuming the principal is the user ID for simplicity, For Now...
-        return userRepository.findById(Long.parseLong(principal))
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        final long userId;
+        try {
+            userId = Long.parseLong(principal);
+        } catch (NumberFormatException ex) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
+        }
+
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     }
 }

@@ -1,7 +1,11 @@
 package software.decibel.entities;
 
+import software.decibel.enums.AuthProvider;
+import software.decibel.enums.AuthType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -44,9 +48,11 @@ public class AuthIdentity {
     @Column(name = "email_verified", nullable = false)
     private boolean emailVerified = false;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String provider;
+    private AuthProvider provider;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String type;
+    private AuthType type;
 }

@@ -8,8 +8,8 @@ public record LoginLocalResponse(
         @NotBlank
         String accessToken,
 
-        @NotBlank
-        String refreshToken,
+        @NotNull
+        Long expiresIn,
 
         @NotNull
         UserInfo user
