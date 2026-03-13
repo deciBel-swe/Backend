@@ -1,7 +1,7 @@
 package software.decibel.entities;
 
-import java.time.LocalDateTime;
-
+import software.decibel.enums.AuthProvider;
+import software.decibel.enums.AuthType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -17,36 +17,42 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import software.decibel.enums.TokenType;
 
 @Entity
-@Table(name = "tokens")
+@Table(name = "auth_identities")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Token {
+public class AuthIdentity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "token_id")
-    private Long tokenId;
+    @Column(name = "auth_id")
+    private Long authId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "token_type", nullable = false)
-    private TokenType tokenType;
-
     @Column(nullable = false)
-    private String hash;
+    private String email;
 
-    @Column(name = "used_at")
-    private LocalDateTime usedAt;
+    @Column(name = "password_hash")
+    private String passwordHash;
 
-    @Column(name = "expires_at", nullable = false)
-    private LocalDateTime expiresAt;
+    @Column(name = "provider_user_id")
+    private String providerUserId;
 
+    @Builder.Default
+    @Column(name = "email_verified", nullable = false)
+    private boolean emailVerified = false;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private AuthProvider provider;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private AuthType type;
 }

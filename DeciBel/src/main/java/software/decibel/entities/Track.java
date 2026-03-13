@@ -46,6 +46,7 @@ public class Track {
     // ---Visibility ---
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Builder.Default
     private Visibility visibility = Visibility.PUBLIC;
 
     // --- Relationships ---

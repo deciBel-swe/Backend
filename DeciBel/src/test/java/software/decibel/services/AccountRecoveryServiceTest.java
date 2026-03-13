@@ -13,11 +13,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -92,8 +92,8 @@ class AccountRecoveryServiceTest {
         assertNotNull(savedToken);
         assertEquals(TokenType.PASSWORD_RESET, savedToken.getTokenType());
         assertEquals(user, savedToken.getUser());
-        assertNotNull(savedToken.getTokenHash());
-        assertFalse(savedToken.getTokenHash().isBlank());
+        assertNotNull(savedToken.getHash());
+        assertFalse(savedToken.getHash().isBlank());
         assertNotNull(savedToken.getExpiresAt());
         assertTrue(savedToken.getExpiresAt().isAfter(LocalDateTime.now()));
 
@@ -118,7 +118,7 @@ class AccountRecoveryServiceTest {
         accountRecoveryService.resetPassword("raw-reset-token", "NewPassword1!");
 
         assertEquals("encoded-password", user.getPasswordHash());
-        assertNotNull(token.getLastUsedAt());
+        assertNotNull(token.getUsedAt());
 
         verify(passwordEncoder).encode("NewPassword1!");
         verify(userRepository).save(user);

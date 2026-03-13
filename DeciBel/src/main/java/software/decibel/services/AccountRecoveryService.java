@@ -1,18 +1,5 @@
 package software.decibel.services;
 
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
-import software.decibel.entities.Token;
-import software.decibel.entities.User;
-import software.decibel.enums.TokenType;
-import software.decibel.repositories.TokenRepository;
-import software.decibel.repositories.UserRepository;
-
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -21,9 +8,23 @@ import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.Optional;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import lombok.RequiredArgsConstructor;
+import software.decibel.entities.Token;
+import software.decibel.entities.User;
+import software.decibel.enums.TokenType;
+import software.decibel.repositories.TokenRepository;
+import software.decibel.repositories.UserRepository;
+
 /**
- * Service class responsible for handling account recovery logic, including generating
- * and validating password reset tokens, and updating user passwords.
+ * Service class responsible for handling account recovery logic, including
+ * generating and validating password reset tokens, and updating user passwords.
  */
 @Service
 @RequiredArgsConstructor
@@ -41,9 +42,10 @@ public class AccountRecoveryService {
     private String frontendBaseUrl;
 
     /**
-     * Initiates the forgot password process for the given email.
-     * Generates a secure token, saves its hash, and sends a reset link to the user's email.
-     * To prevent email enumeration, it returns silently if the user is not found.
+     * Initiates the forgot password process for the given email. Generates a
+     * secure token, saves its hash, and sends a reset link to the user's email.
+     * To prevent email enumeration, it returns silently if the user is not
+     * found.
      */
     @Transactional
     public void forgotPassword(String email) {
@@ -66,9 +68,7 @@ public class AccountRecoveryService {
         emailService.sendPasswordResetEmail(user.getEmail(), resetLink);
     }
 
-
-      //Resets the user's password using a valid raw reset token.
-
+    //Resets the user's password using a valid raw reset token.
     @Transactional
     public void resetPassword(String rawToken, String newPassword) {
         Token token = findValidPasswordResetToken(rawToken);
@@ -80,7 +80,7 @@ public class AccountRecoveryService {
         }
 
         user.setPasswordHash(passwordEncoder.encode(newPassword));
-        token.setLastUsedAt(LocalDateTime.now());
+        token.setUsedAt(LocalDateTime.now());
 
         userRepository.save(user);
         tokenRepository.delete(token);
@@ -88,6 +88,7 @@ public class AccountRecoveryService {
 
     /**
      * Finds and validates a password reset token by its raw value.
+     *
      * @param rawToken the raw token to find and validate
      * @return the valid Token entity
      * @throws ResponseStatusException if the token is invalid or expired
@@ -108,6 +109,7 @@ public class AccountRecoveryService {
 
     /**
      * Creates a new password reset token for the specified user.
+     *
      * @param user the user for whom the token is created
      * @param rawToken the raw token to be hashed and stored
      * @return a new Token entity
@@ -115,7 +117,7 @@ public class AccountRecoveryService {
     private Token createPasswordResetToken(User user, String rawToken) {
         Token token = new Token();
         token.setTokenType(TokenType.PASSWORD_RESET);
-        token.setTokenHash(hashToken(rawToken));
+        token.setHash(hashToken(rawToken));
         token.setExpiresAt(LocalDateTime.now().plusMinutes(RESET_TOKEN_EXPIRATION_MINUTES));
         token.setUser(user);
         return token;
@@ -123,6 +125,7 @@ public class AccountRecoveryService {
 
     /**
      * Generates a cryptographically secure random token.
+     *
      * @return a URL-safe Base64 encoded raw token
      */
     private String generateRawToken() {
@@ -132,7 +135,6 @@ public class AccountRecoveryService {
     }
 
     // Hashes a raw token using SHA-256 and encodes the result in Base64.
-
     private String hashToken(String rawToken) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
