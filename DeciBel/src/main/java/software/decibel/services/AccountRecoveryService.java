@@ -96,7 +96,7 @@ public class AccountRecoveryService {
     private Token findValidPasswordResetToken(String rawToken) {
         String tokenHash = hashToken(rawToken);
 
-        Token token = tokenRepository.findByTokenHashAndTokenType(tokenHash, TokenType.PASSWORD_RESET)
+        Token token = tokenRepository.findByHashAndTokenType(tokenHash, TokenType.PASSWORD_RESET)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, INVALID_OR_EXPIRED_TOKEN_MESSAGE));
 
         if (token.getExpiresAt() == null || token.getExpiresAt().isBefore(LocalDateTime.now())) {

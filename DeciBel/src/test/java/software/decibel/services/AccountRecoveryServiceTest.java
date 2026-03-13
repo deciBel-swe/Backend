@@ -111,7 +111,7 @@ class AccountRecoveryServiceTest {
         token.setUser(user);
         token.setExpiresAt(LocalDateTime.now().plusMinutes(30));
 
-        when(tokenRepository.findByTokenHashAndTokenType(any(String.class), eq(TokenType.PASSWORD_RESET)))
+        when(tokenRepository.findByHashAndTokenType(any(String.class), eq(TokenType.PASSWORD_RESET)))
                 .thenReturn(Optional.of(token));
         when(passwordEncoder.encode("NewPassword1!")).thenReturn("encoded-password");
 
@@ -132,7 +132,7 @@ class AccountRecoveryServiceTest {
         token.setUser(user);
         token.setExpiresAt(LocalDateTime.now().minusMinutes(1));
 
-        when(tokenRepository.findByTokenHashAndTokenType(any(String.class), eq(TokenType.PASSWORD_RESET)))
+        when(tokenRepository.findByHashAndTokenType(any(String.class), eq(TokenType.PASSWORD_RESET)))
                 .thenReturn(Optional.of(token));
 
         ResponseStatusException ex = assertThrows(

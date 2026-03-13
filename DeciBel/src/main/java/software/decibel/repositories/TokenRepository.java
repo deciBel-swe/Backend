@@ -14,9 +14,8 @@ import software.decibel.enums.TokenType;
 @Repository
 public interface TokenRepository extends JpaRepository<Token, Long> {
 
-    Optional<Token> findByTokenHash(String tokenHash);
-
-    Optional<Token> findByTokenHashAndTokenType(String tokenHash, TokenType tokenType);
+    //Optional<Token> findByTokenHash(String tokenHash);
+    Optional<Token> findByHashAndTokenType(String Hash, TokenType tokenType);
 
     void deleteByUserAndTokenType(User user, TokenType tokenType);
 
