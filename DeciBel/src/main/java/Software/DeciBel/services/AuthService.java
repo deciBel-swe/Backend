@@ -119,7 +119,7 @@ public class AuthService {
                 .build();
         tokenRepository.save(verificationToken);
 
-        // Email sending will be integrated in the email module/PR.
+        // TODO: Make Email sending logic.
         return new MessageResponse("User Generated successfully");
     }
 
