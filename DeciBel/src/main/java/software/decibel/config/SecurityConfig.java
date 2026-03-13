@@ -15,7 +15,14 @@ public class SecurityConfig {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST, "/auth/forgot-password", "/auth/reset-password").permitAll()
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/auth/register/local",
+                                "/auth/login/local",
+                                "/auth/verify-email",
+                                "/auth/forgot-password",
+                                "/auth/reset-password"
+                        ).permitAll()
                         .anyRequest().authenticated()
                 )
                 .build();

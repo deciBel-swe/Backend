@@ -6,6 +6,7 @@ import software.decibel.entities.User;
 import software.decibel.enums.AuthProvider;
 import software.decibel.enums.AuthType;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface AuthIdentityRepository extends JpaRepository<AuthIdentity, Long> {
@@ -24,4 +25,6 @@ public interface AuthIdentityRepository extends JpaRepository<AuthIdentity, Long
      * Locates a specific identity record for a user and authentication channel.
      */
     Optional<AuthIdentity> findByUserAndProviderAndType(User user, AuthProvider provider, AuthType type);
+
+    List<AuthIdentity> findAllByUser(User user);
 }
