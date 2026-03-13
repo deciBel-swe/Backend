@@ -1,5 +1,6 @@
 package software.decibel.entities;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -25,10 +26,10 @@ public class Token {
     @Enumerated(EnumType.STRING)
     private TokenType tokenType;
 
-    @jakarta.persistence.Column(unique = true, nullable = false)
+    @Column(unique = true, nullable = false)
     private String tokenHash;
 
-    @jakarta.persistence.Column(nullable = false)
+    @Column(nullable = false)
     private LocalDateTime expiresAt;
     private LocalDateTime lastUsedAt;
 

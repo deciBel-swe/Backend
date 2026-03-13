@@ -21,6 +21,10 @@ import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.Optional;
 
+/**
+ * Service class responsible for handling account recovery logic, including generating
+ * and validating password reset tokens, and updating user passwords.
+ */
 @Service
 @RequiredArgsConstructor
 public class AccountRecoveryService {
@@ -36,6 +40,11 @@ public class AccountRecoveryService {
     @Value("${app.frontend-base-url}")
     private String frontendBaseUrl;
 
+    /**
+     * Initiates the forgot password process for the given email.
+     * Generates a secure token, saves its hash, and sends a reset link to the user's email.
+     * To prevent email enumeration, it returns silently if the user is not found.
+     */
     @Transactional
     public void forgotPassword(String email) {
         Optional<User> optionalUser = userRepository.findByEmail(email);
@@ -57,6 +66,9 @@ public class AccountRecoveryService {
         emailService.sendPasswordResetEmail(user.getEmail(), resetLink);
     }
 
+
+      //Resets the user's password using a valid raw reset token.
+
     @Transactional
     public void resetPassword(String rawToken, String newPassword) {
         Token token = findValidPasswordResetToken(rawToken);
@@ -74,6 +86,12 @@ public class AccountRecoveryService {
         tokenRepository.delete(token);
     }
 
+    /**
+     * Finds and validates a password reset token by its raw value.
+     * @param rawToken the raw token to find and validate
+     * @return the valid Token entity
+     * @throws ResponseStatusException if the token is invalid or expired
+     */
     private Token findValidPasswordResetToken(String rawToken) {
         String tokenHash = hashToken(rawToken);
 
@@ -88,6 +106,12 @@ public class AccountRecoveryService {
         return token;
     }
 
+    /**
+     * Creates a new password reset token for the specified user.
+     * @param user the user for whom the token is created
+     * @param rawToken the raw token to be hashed and stored
+     * @return a new Token entity
+     */
     private Token createPasswordResetToken(User user, String rawToken) {
         Token token = new Token();
         token.setTokenType(TokenType.PASSWORD_RESET);
@@ -97,11 +121,17 @@ public class AccountRecoveryService {
         return token;
     }
 
+    /**
+     * Generates a cryptographically secure random token.
+     * @return a URL-safe Base64 encoded raw token
+     */
     private String generateRawToken() {
         byte[] bytes = new byte[32];
         new SecureRandom().nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
+
+    // Hashes a raw token using SHA-256 and encodes the result in Base64.
 
     private String hashToken(String rawToken) {
         try {
