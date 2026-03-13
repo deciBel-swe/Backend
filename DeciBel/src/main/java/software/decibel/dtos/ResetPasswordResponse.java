@@ -1,4 +1,6 @@
 package software.decibel.dtos;
 
-public record ResetPasswordResponse() {
+public record ResetPasswordResponse(
+        String message
+) {
 }

@@ -1,4 +1,6 @@
 package software.decibel.dtos;
 
-public record ForgotPasswordResponse() {
-}
+public record ForgotPasswordResponse(
+        String message
+)
+{ }
