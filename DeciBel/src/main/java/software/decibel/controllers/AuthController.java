@@ -22,8 +22,11 @@ public class AuthController {
 
     private final AuthService authService;
 
-    public AuthController(AuthService authService) {
+    private final String activeProfile;
+
+    public AuthController(AuthService authService, @org.springframework.beans.factory.annotation.Value("${spring.profiles.active:default}") String activeProfile) {
         this.authService = authService;
+        this.activeProfile = activeProfile;
     }
 
     @PostMapping("/register/local")
@@ -51,12 +54,12 @@ public class AuthController {
     }
 
     private ResponseCookie buildRefreshCookie(String refreshToken, long maxAgeSeconds) {
-        // TODO: Set secure to true in production when using HTTPS
+        boolean isProduction = !"default".equals(activeProfile) && !"local".equals(activeProfile) && !"dev".equals(activeProfile);
         return ResponseCookie.from("refreshToken", refreshToken)
-                .httpOnly(true)
-                .secure(false)
-                .sameSite("Lax")
-                .path("/auth")
+                .httpOnly(true) // Prevent JavaScript access to mitigate XSS
+                .secure(isProduction)
+                .sameSite("Lax") // Protection against CSRF
+                .path("/auth") // Limit cookie scope to auth endpoints
                 .maxAge(maxAgeSeconds)
                 .build();
     }

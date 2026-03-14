@@ -42,7 +42,7 @@ class AuthControllerTest {
 
     @BeforeEach
     void setUp() {
-        AuthController controller = new AuthController(authService);
+        AuthController controller = new AuthController(authService, "local");
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
 
