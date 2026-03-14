@@ -45,12 +45,16 @@ public class JwtService {
         this.jwtSigningKey = Keys.hmacShaKeyFor(keyBytes);
     }
 
+    /**
+     * Builds a short-lived JWT access token carrying the minimum identity claims
+     * required for frontend session management and authorization.
+     */
     public String buildAccessToken(User user) {
         Date issuedAt = new Date();
         Date expiresAt = Date
                 .from(LocalDateTime.now().plusSeconds(ACCESS_TOKEN_EXPIRES_IN_SECONDS).toInstant(ZoneOffset.UTC));
 
-        // Create JWT with user ID as subject and additional identity claims
+
         return Jwts.builder()
                 .subject(String.valueOf(user.getId()))
                 .claim("email", user.getEmail())

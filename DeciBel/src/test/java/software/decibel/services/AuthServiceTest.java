@@ -69,6 +69,8 @@ class AuthServiceTest {
 
     @BeforeEach
     void setUp() {
+//        authService.initSigningKey();
+        // now handled by jwt service
     }
 
     @Test
@@ -153,6 +155,7 @@ class AuthServiceTest {
 
         AuthService.AuthLoginResult result = authService.loginLocal(request);
 
+        assertNotNull(result.response().accessToken());
         assertEquals("access-token", result.response().accessToken());
         assertEquals(1800L, result.response().expiresIn());
         assertEquals("refresh-token", result.refreshToken());

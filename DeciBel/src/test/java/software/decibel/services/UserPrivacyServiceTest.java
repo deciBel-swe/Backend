@@ -51,6 +51,7 @@ class UserPrivacyServiceTest {
         assertFalse(user.isShowHistory());
         assertTrue(response.isPrivate());
         assertFalse(response.showHistory());
+        verifyNoMoreInteractions(userRepository);
     }
 
     @Test
