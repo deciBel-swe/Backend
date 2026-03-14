@@ -51,6 +51,7 @@ public class AuthController {
     }
 
     private ResponseCookie buildRefreshCookie(String refreshToken, long maxAgeSeconds) {
+        // TODO: Set secure to true in production when using HTTPS
         return ResponseCookie.from("refreshToken", refreshToken)
                 .httpOnly(true)
                 .secure(false)

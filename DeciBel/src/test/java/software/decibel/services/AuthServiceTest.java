@@ -8,6 +8,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
 import software.decibel.dtos.auth.DeviceInfo;
 import software.decibel.dtos.auth.LoginLocalRequest;
@@ -23,10 +24,7 @@ import software.decibel.enums.AuthType;
 import software.decibel.enums.DeviceType;
 import software.decibel.enums.TokenType;
 import software.decibel.repositories.AuthIdentityRepository;
-import software.decibel.repositories.TokenRepository;
 import software.decibel.repositories.UserRepository;
-import software.decibel.utils.PasswordUtility;
-import software.decibel.utils.TokenUtility;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -53,13 +51,16 @@ class AuthServiceTest {
     private AuthIdentityRepository authIdentityRepository;
 
     @Mock
-    private TokenRepository tokenRepository;
+    private PasswordEncoder passwordEncoder;
 
     @Mock
-    private PasswordUtility passwordUtility;
+    private TokenService tokenService;
 
     @Mock
-    private TokenUtility tokenUtility;
+    private EmailService emailService;
+
+    @Mock
+    private FrontendLinkService frontendLinkService;
 
     @InjectMocks
     private AuthService authService;
@@ -76,15 +77,22 @@ class AuthServiceTest {
         when(authIdentityRepository.existsByEmailIgnoreCaseAndProviderAndType(
                 request.email(), AuthProvider.LOCAL, AuthType.PASSWORD)).thenReturn(false);
         when(userRepository.findByUsername(request.username())).thenReturn(Optional.empty());
-        when(passwordUtility.hashPassword(request.password())).thenReturn("hashed-password");
+        when(passwordEncoder.encode(request.password())).thenReturn("hashed-password");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User user = invocation.getArgument(0);
             user.setId(7L);
             return user;
         });
-        when(tokenUtility.generateToken()).thenReturn("raw-verification-token");
-        when(tokenUtility.hashToken("raw-verification-token")).thenReturn("verification-token-hash");
-        when(tokenUtility.expiresInMinutes(30)).thenReturn(LocalDateTime.of(2026, 3, 13, 12, 30));
+        Token verificationToken = Token.builder()
+                .user(User.builder().id(7L).build())
+                .tokenType(TokenType.EMAIL_VERIFICATION)
+                .hash("verification-token-hash")
+                .expiresAt(LocalDateTime.of(2026, 3, 13, 12, 30))
+                .build();
+        when(tokenService.createEmailVerificationToken(any(User.class)))
+                .thenReturn(new TokenService.IssuedToken("raw-verification-token", verificationToken));
+        when(frontendLinkService.buildEmailVerificationLink("raw-verification-token"))
+                .thenReturn("https://decibel.foo/verify-email?token=raw-verification-token");
 
         MessageResponse response = authService.registerLocal(request);
 
@@ -110,13 +118,11 @@ class AuthServiceTest {
         assertNotNull(savedIdentity.getUser());
         assertEquals(7L, savedIdentity.getUser().getId());
 
-        ArgumentCaptor<Token> tokenCaptor = ArgumentCaptor.forClass(Token.class);
-        verify(tokenRepository).save(tokenCaptor.capture());
-        Token savedToken = tokenCaptor.getValue();
-        assertEquals(TokenType.EMAIL_VERIFICATION, savedToken.getTokenType());
-        assertEquals("verification-token-hash", savedToken.getHash());
-        assertEquals(LocalDateTime.of(2026, 3, 13, 12, 30), savedToken.getExpiresAt());
-        assertEquals(7L, savedToken.getUser().getId());
+        verify(tokenService).createEmailVerificationToken(any(User.class));
+        verify(emailService).sendEmailVerificationEmail(
+                "new@example.com",
+                "https://decibel.foo/verify-email?token=raw-verification-token"
+        );
     }
 
     @Test
@@ -130,7 +136,7 @@ class AuthServiceTest {
         assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
         verify(userRepository).findByEmail(request.email());
         verify(authIdentityRepository, never()).save(any(AuthIdentity.class));
-        verify(tokenRepository, never()).save(any(Token.class));
+        verify(tokenService, never()).createEmailVerificationToken(any(User.class));
     }
 
     @Test
@@ -142,11 +148,15 @@ class AuthServiceTest {
 
         when(authIdentityRepository.findByEmailIgnoreCaseAndProviderAndType(
                 request.email(), AuthProvider.LOCAL, AuthType.PASSWORD)).thenReturn(Optional.of(identity));
-        when(passwordUtility.matches(request.password(), identity.getPasswordHash())).thenReturn(true);
-        when(tokenUtility.generateToken(48)).thenReturn("refresh-token");
-        when(tokenUtility.hashToken("refresh-token")).thenReturn("refresh-token-hash");
-        when(tokenUtility.expiresInMinutes(60L * 24L * 30L))
-                .thenReturn(LocalDateTime.of(2026, 4, 12, 10, 0));
+        when(passwordEncoder.matches(request.password(), identity.getPasswordHash())).thenReturn(true);
+        Token refreshToken = Token.builder()
+                .user(user)
+                .tokenType(TokenType.REFRESH_TOKEN)
+                .hash("refresh-token-hash")
+                .expiresAt(LocalDateTime.of(2026, 4, 12, 10, 0))
+                .build();
+        when(tokenService.createRefreshToken(user))
+                .thenReturn(new TokenService.IssuedToken("refresh-token", refreshToken));
 
         AuthService.AuthLoginResult result = authService.loginLocal(request);
 
@@ -158,12 +168,7 @@ class AuthServiceTest {
         assertEquals("verified-user", result.response().user().username());
         assertEquals(AccountTier.ARTIST, result.response().user().tier());
 
-        ArgumentCaptor<Token> tokenCaptor = ArgumentCaptor.forClass(Token.class);
-        verify(tokenRepository).save(tokenCaptor.capture());
-        Token refreshToken = tokenCaptor.getValue();
-        assertEquals(TokenType.REFRESH_TOKEN, refreshToken.getTokenType());
-        assertEquals("refresh-token-hash", refreshToken.getHash());
-        assertEquals(LocalDateTime.of(2026, 4, 12, 10, 0), refreshToken.getExpiresAt());
+        verify(tokenService).createRefreshToken(user);
     }
 
     @Test
@@ -174,13 +179,13 @@ class AuthServiceTest {
 
         when(authIdentityRepository.findByEmailIgnoreCaseAndProviderAndType(
                 request.email(), AuthProvider.LOCAL, AuthType.PASSWORD)).thenReturn(Optional.of(identity));
-        when(passwordUtility.matches(request.password(), identity.getPasswordHash())).thenReturn(false);
+        when(passwordEncoder.matches(request.password(), identity.getPasswordHash())).thenReturn(false);
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> authService.loginLocal(request));
 
         assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatusCode());
-        verify(tokenRepository, never()).save(any(Token.class));
+        verify(tokenService, never()).createRefreshToken(any(User.class));
     }
 
     @Test
@@ -192,13 +197,13 @@ class AuthServiceTest {
 
         when(authIdentityRepository.findByEmailIgnoreCaseAndProviderAndType(
                 request.email(), AuthProvider.LOCAL, AuthType.PASSWORD)).thenReturn(Optional.of(identity));
-        when(passwordUtility.matches(request.password(), identity.getPasswordHash())).thenReturn(true);
+        when(passwordEncoder.matches(request.password(), identity.getPasswordHash())).thenReturn(true);
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> authService.loginLocal(request));
 
         assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
-        verify(tokenRepository, never()).save(any(Token.class));
+        verify(tokenService, never()).createRefreshToken(any(User.class));
     }
 
     @Test
@@ -228,16 +233,18 @@ class AuthServiceTest {
                 .expiresAt(LocalDateTime.now().plusMinutes(10))
                 .build();
 
-        when(tokenUtility.hashToken("raw-token")).thenReturn("hashed-verify-token");
-        when(tokenRepository.findByHashAndTokenTypeAndUsedAtIsNull("hashed-verify-token", TokenType.EMAIL_VERIFICATION))
-                .thenReturn(Optional.of(verificationToken));
-        when(tokenUtility.isExpired(verificationToken.getExpiresAt())).thenReturn(false);
+        when(tokenService.findValidUnusedToken("raw-token", TokenType.EMAIL_VERIFICATION, "Invalid verification token"))
+                .thenReturn(verificationToken);
         when(authIdentityRepository.findByUserAndProviderAndType(user, AuthProvider.LOCAL, AuthType.PASSWORD))
                 .thenReturn(Optional.of(identity));
-        when(tokenUtility.generateToken(48)).thenReturn("refresh-token");
-        when(tokenUtility.hashToken("refresh-token")).thenReturn("refresh-token-hash");
-        when(tokenUtility.expiresInMinutes(60L * 24L * 30L))
-                .thenReturn(LocalDateTime.of(2026, 4, 12, 10, 0));
+        Token refreshToken = Token.builder()
+                .user(user)
+                .tokenType(TokenType.REFRESH_TOKEN)
+                .hash("refresh-token-hash")
+                .expiresAt(LocalDateTime.of(2026, 4, 12, 10, 0))
+                .build();
+        when(tokenService.createRefreshToken(user))
+                .thenReturn(new TokenService.IssuedToken("refresh-token", refreshToken));
 
         AuthService.AuthRefreshTokenResult result = authService.verifyEmail(request);
 
@@ -245,18 +252,17 @@ class AuthServiceTest {
         assertEquals(2592000L, result.refreshTokenExpiresIn());
         assertTrue(user.isEmailVerified());
         assertTrue(identity.isEmailVerified());
-        assertNotNull(verificationToken.getUsedAt());
 
         verify(userRepository).save(user);
         verify(authIdentityRepository).save(identity);
-        verify(tokenRepository, times(2)).save(any(Token.class));
+        verify(tokenService).markTokenUsed(verificationToken);
+        verify(tokenService).createRefreshToken(user);
     }
 
     @Test
     void verifyEmail_whenTokenDoesNotExist_throwsBadRequest() {
-        when(tokenUtility.hashToken("missing-token")).thenReturn("missing-token-hash");
-        when(tokenRepository.findByHashAndTokenTypeAndUsedAtIsNull("missing-token-hash", TokenType.EMAIL_VERIFICATION))
-                .thenReturn(Optional.empty());
+        when(tokenService.findValidUnusedToken("missing-token", TokenType.EMAIL_VERIFICATION, "Invalid verification token"))
+                .thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid verification token"));
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> authService.verifyEmail(new VerifyEmailRequest("missing-token")));
@@ -268,18 +274,8 @@ class AuthServiceTest {
 
     @Test
     void verifyEmail_whenTokenIsExpired_throwsBadRequest() {
-        User user = User.builder().id(3L).email("expired@example.com").username("expired-user").build();
-        Token verificationToken = Token.builder()
-                .user(user)
-                .tokenType(TokenType.EMAIL_VERIFICATION)
-                .hash("expired-token-hash")
-                .expiresAt(LocalDateTime.now().minusMinutes(1))
-                .build();
-
-        when(tokenUtility.hashToken("expired-token")).thenReturn("expired-token-hash");
-        when(tokenRepository.findByHashAndTokenTypeAndUsedAtIsNull("expired-token-hash", TokenType.EMAIL_VERIFICATION))
-                .thenReturn(Optional.of(verificationToken));
-        when(tokenUtility.isExpired(verificationToken.getExpiresAt())).thenReturn(true);
+        when(tokenService.findValidUnusedToken("expired-token", TokenType.EMAIL_VERIFICATION, "Invalid verification token"))
+                .thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid verification token"));
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> authService.verifyEmail(new VerifyEmailRequest("expired-token")));

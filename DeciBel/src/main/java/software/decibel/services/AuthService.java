@@ -5,6 +5,7 @@ import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -20,10 +21,7 @@ import software.decibel.enums.AuthProvider;
 import software.decibel.enums.AuthType;
 import software.decibel.enums.TokenType;
 import software.decibel.repositories.AuthIdentityRepository;
-import software.decibel.repositories.TokenRepository;
 import software.decibel.repositories.UserRepository;
-import software.decibel.utils.PasswordUtility;
-import software.decibel.utils.TokenUtility;
 
 import javax.crypto.SecretKey;
 import java.time.LocalDateTime;
@@ -44,22 +42,25 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final AuthIdentityRepository authIdentityRepository;
-    private final TokenRepository tokenRepository;
-    private final PasswordUtility passwordUtility;
-    private final TokenUtility tokenUtility;
+    private final PasswordEncoder passwordEncoder;
+    private final TokenService tokenService;
+    private final EmailService emailService;
+    private final FrontendLinkService frontendLinkService;
     private SecretKey jwtSigningKey;
 
     public AuthService(
             UserRepository userRepository,
             AuthIdentityRepository authIdentityRepository,
-            TokenRepository tokenRepository,
-            PasswordUtility passwordUtility,
-            TokenUtility tokenUtility) {
+            PasswordEncoder passwordEncoder,
+            TokenService tokenService,
+            EmailService emailService,
+            FrontendLinkService frontendLinkService) {
         this.userRepository = userRepository;
         this.authIdentityRepository = authIdentityRepository;
-        this.tokenRepository = tokenRepository;
-        this.passwordUtility = passwordUtility;
-        this.tokenUtility = tokenUtility;
+        this.passwordEncoder = passwordEncoder;
+        this.tokenService = tokenService;
+        this.emailService = emailService;
+        this.frontendLinkService = frontendLinkService;
     }
 
     @PostConstruct
@@ -89,7 +90,7 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already exists");
         }
 
-        String hashedPassword = passwordUtility.hashPassword(request.password());
+        String hashedPassword = passwordEncoder.encode(request.password());
         User user = User.builder()
                 .email(request.email())
                 .username(request.username())
@@ -109,17 +110,9 @@ public class AuthService {
                 .build();
         authIdentityRepository.save(authIdentity);
 
-        String rawVerificationToken = tokenUtility.generateToken();
-        String verificationTokenHash = tokenUtility.hashToken(rawVerificationToken);
-        Token verificationToken = Token.builder()
-                .user(savedUser)
-                .tokenType(TokenType.EMAIL_VERIFICATION)
-                .hash(verificationTokenHash)
-                .expiresAt(tokenUtility.expiresInMinutes(30))
-                .build();
-        tokenRepository.save(verificationToken);
-
-        // TODO: Make Email sending logic.
+        TokenService.IssuedToken verificationToken = tokenService.createEmailVerificationToken(savedUser);
+        String verificationLink = frontendLinkService.buildEmailVerificationLink(verificationToken.rawToken());
+        emailService.sendEmailVerificationEmail(request.email(), verificationLink);
         return new MessageResponse("User Generated successfully");
     }
 
@@ -129,7 +122,7 @@ public class AuthService {
                 .findByEmailIgnoreCaseAndProviderAndType(request.email(), AuthProvider.LOCAL, AuthType.PASSWORD)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password"));
 
-        if (!passwordUtility.matches(request.password(), identity.getPasswordHash())) {
+        if (!passwordEncoder.matches(request.password(), identity.getPasswordHash())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
         }
 
@@ -147,16 +140,10 @@ public class AuthService {
 
     @Transactional
     public AuthRefreshTokenResult verifyEmail(VerifyEmailRequest request) {
-        String tokenHash = tokenUtility.hashToken(request.token());
-        // Verification token must be valid, unexpired, and one-time-use (usedAt is
-        // null).
-        Token verificationToken = tokenRepository
-                .findByHashAndTokenTypeAndUsedAtIsNull(tokenHash, TokenType.EMAIL_VERIFICATION)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid verification token"));
-
-        if (tokenUtility.isExpired(verificationToken.getExpiresAt())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Verification token has expired");
-        }
+        Token verificationToken = tokenService.findValidUnusedToken(
+                request.token(),
+                TokenType.EMAIL_VERIFICATION,
+                "Invalid verification token");
 
         User user = verificationToken.getUser();
         user.setEmailVerified(true);
@@ -168,8 +155,7 @@ public class AuthService {
                     authIdentityRepository.save(identity);
                 });
 
-        verificationToken.setUsedAt(LocalDateTime.now());
-        tokenRepository.save(verificationToken);
+        tokenService.markTokenUsed(verificationToken);
 
         return issueRefreshToken(user);
     }
@@ -197,18 +183,8 @@ public class AuthService {
     }
 
     private AuthRefreshTokenResult issueRefreshToken(User user) {
-        String refreshToken = tokenUtility.generateToken(48);
-        String refreshTokenHash = tokenUtility.hashToken(refreshToken);
-
-        Token refreshTokenEntity = Token.builder()
-                .user(user)
-                .tokenType(TokenType.REFRESH_TOKEN)
-                .hash(refreshTokenHash)
-                .expiresAt(tokenUtility.expiresInMinutes(60L * 24L * 30L))
-                .build();
-        tokenRepository.save(refreshTokenEntity);
-
-        return new AuthRefreshTokenResult(refreshToken, REFRESH_TOKEN_EXPIRES_IN_SECONDS);
+        TokenService.IssuedToken issuedToken = tokenService.createRefreshToken(user);
+        return new AuthRefreshTokenResult(issuedToken.rawToken(), REFRESH_TOKEN_EXPIRES_IN_SECONDS);
     }
 
     /**
