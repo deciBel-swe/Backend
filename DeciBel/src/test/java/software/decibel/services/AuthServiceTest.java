@@ -61,12 +61,14 @@ class AuthServiceTest {
     @Mock
     private TokenUtility tokenUtility;
 
+    @Mock
+    private JwtService jwtService;
+
     @InjectMocks
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
-        authService.initSigningKey();
     }
 
     @Test
@@ -147,10 +149,11 @@ class AuthServiceTest {
         when(tokenUtility.hashToken("refresh-token")).thenReturn("refresh-token-hash");
         when(tokenUtility.expiresInMinutes(60L * 24L * 30L))
                 .thenReturn(LocalDateTime.of(2026, 4, 12, 10, 0));
+        when(jwtService.buildAccessToken(any(User.class))).thenReturn("access-token");
 
         AuthService.AuthLoginResult result = authService.loginLocal(request);
 
-        assertNotNull(result.response().accessToken());
+        assertEquals("access-token", result.response().accessToken());
         assertEquals(1800L, result.response().expiresIn());
         assertEquals("refresh-token", result.refreshToken());
         assertEquals(2592000L, result.refreshTokenExpiresIn());

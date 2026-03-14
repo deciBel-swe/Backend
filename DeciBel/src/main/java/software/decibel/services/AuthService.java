@@ -33,11 +33,6 @@ import java.util.Date;
 @Service
 public class AuthService {
     /**
-     * Access token lifetime in seconds (30 minutes).
-     */
-    private static final long ACCESS_TOKEN_EXPIRES_IN_SECONDS = 30L * 60L;
-
-    /**
      * Refresh token lifetime in seconds (30 days).
      */
     private static final long REFRESH_TOKEN_EXPIRES_IN_SECONDS = 30L * 24L * 60L * 60L;
@@ -47,34 +42,21 @@ public class AuthService {
     private final TokenRepository tokenRepository;
     private final PasswordUtility passwordUtility;
     private final TokenUtility tokenUtility;
-    private SecretKey jwtSigningKey;
+    private final JwtService jwtService;
 
     public AuthService(
             UserRepository userRepository,
             AuthIdentityRepository authIdentityRepository,
             TokenRepository tokenRepository,
             PasswordUtility passwordUtility,
-            TokenUtility tokenUtility) {
+            TokenUtility tokenUtility,
+            JwtService jwtService) {
         this.userRepository = userRepository;
         this.authIdentityRepository = authIdentityRepository;
         this.tokenRepository = tokenRepository;
         this.passwordUtility = passwordUtility;
         this.tokenUtility = tokenUtility;
-    }
-
-    @PostConstruct
-    void initSigningKey() {
-        String envSecret = System.getenv("JWT_SECRET");
-        String secretToUse = envSecret;
-        if (envSecret == null || envSecret.isBlank()) {
-            // TODO: provide JWT_SECRET from environment or a secrets manager in all
-            // deployed environments.
-            // Temporary fallback for local development only.
-            secretToUse = "ZGVjaWJlbC1kZXYtb25seS1qd3Qtc2VjcmV0LWNoYW5nZS1iZWZvcmUtcHJvZA==";
-        }
-
-        byte[] keyBytes = Decoders.BASE64.decode(secretToUse);
-        this.jwtSigningKey = Keys.hmacShaKeyFor(keyBytes);
+        this.jwtService = jwtService;
     }
 
     @Transactional
@@ -118,6 +100,7 @@ public class AuthService {
                 .expiresAt(tokenUtility.expiresInMinutes(30))
                 .build();
         tokenRepository.save(verificationToken);
+        
 
         // TODO: Make Email sending logic.
         return new MessageResponse("User Generated successfully");
@@ -179,12 +162,12 @@ public class AuthService {
      * token value.
      */
     private AuthLoginResult issueLoginTokens(User user) {
-        String accessToken = buildAccessToken(user);
+        String accessToken = jwtService.buildAccessToken(user);
         AuthRefreshTokenResult refreshTokenResult = issueRefreshToken(user);
 
         LoginLocalResponse response = new LoginLocalResponse(
                 accessToken,
-                ACCESS_TOKEN_EXPIRES_IN_SECONDS,
+                JwtService.ACCESS_TOKEN_EXPIRES_IN_SECONDS,
                 new LoginLocalResponse.UserInfo(
                         user.getId(),
                         user.getUsername(),
@@ -209,25 +192,6 @@ public class AuthService {
         tokenRepository.save(refreshTokenEntity);
 
         return new AuthRefreshTokenResult(refreshToken, REFRESH_TOKEN_EXPIRES_IN_SECONDS);
-    }
-
-    /**
-     * Builds a short-lived JWT access token carrying the minimum identity claims
-     * required for frontend session management and authorization.
-     */
-    private String buildAccessToken(User user) {
-        Date issuedAt = new Date();
-        Date expiresAt = Date
-                .from(LocalDateTime.now().plusSeconds(ACCESS_TOKEN_EXPIRES_IN_SECONDS).toInstant(ZoneOffset.UTC));
-
-        return Jwts.builder()
-                .subject(String.valueOf(user.getId()))
-                .claim("email", user.getEmail())
-                .claim("username", user.getUsername())
-                .issuedAt(issuedAt)
-                .expiration(expiresAt)
-                .signWith(jwtSigningKey)
-                .compact();
     }
 
     /**

@@ -37,13 +37,10 @@ class UserPrivacyServiceTest {
     void updateMyPrivacy_updatesPrivacyAndReturnsUpdatedResponse() {
         Authentication authentication = mock(Authentication.class);
         when(authentication.isAuthenticated()).thenReturn(true);
-        when(authentication.getName()).thenReturn("1");
-
         User user = User.builder().id(1L).build();
         user.setPrivate(false);
         user.setShowHistory(true);
-
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(authentication.getPrincipal()).thenReturn(user);
 
         PrivacyUpdateResponse response = userPrivacyService.updateMyPrivacy(
                 authentication,
@@ -54,8 +51,6 @@ class UserPrivacyServiceTest {
         assertFalse(user.isShowHistory());
         assertTrue(response.isPrivate());
         assertFalse(response.showHistory());
-        verify(userRepository).findById(1L);
-        verifyNoMoreInteractions(userRepository);
     }
 
     @Test

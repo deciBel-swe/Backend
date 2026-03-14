@@ -22,6 +22,7 @@ public class UserPrivacyService {
 
     @Transactional
     public PrivacyUpdateResponse updateMyPrivacy(Authentication authentication, PrivacyUpdateRequest request) {
+        // Resolve the full User entity from the current security context
         User currentUser = resolveCurrentUser(authentication);
 
         currentUser.setPrivate(request.isPrivate());
@@ -35,18 +36,25 @@ public class UserPrivacyService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
         }
 
-        String principal = authentication.getName();
-        if (principal == null || principal.isBlank() || "anonymousUser".equalsIgnoreCase(principal)) {
+        // The JwtAuthenticationFilter sets the full User object as the principal
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof User user) {
+            return user;
+        }
+
+        // Fallback for unexpected principal types (e.g., simple string ID from older filter versions)
+        String name = authentication.getName();
+        if (name == null || name.isBlank() || "anonymousUser".equalsIgnoreCase(name)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
         }
 
         final long userId;
         try {
-            userId = Long.parseLong(principal);
+            userId = Long.parseLong(name);
         } catch (NumberFormatException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid ID format");
         }
-        // Assuming the principal is the user ID for simplicity, For Now...
+        // Load from DB if only ID is available in the principal
         return userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     }
