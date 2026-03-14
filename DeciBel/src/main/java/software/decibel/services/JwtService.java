@@ -49,7 +49,7 @@ public class JwtService {
      * Builds a short-lived JWT access token carrying the minimum identity claims
      * required for frontend session management and authorization.
      */
-    public String buildAccessToken(User user) {
+    public String buildAccessToken(User user, String email) {
         Date issuedAt = new Date();
         Date expiresAt = Date
                 .from(LocalDateTime.now().plusSeconds(ACCESS_TOKEN_EXPIRES_IN_SECONDS).toInstant(ZoneOffset.UTC));
@@ -57,7 +57,7 @@ public class JwtService {
 
         return Jwts.builder()
                 .subject(String.valueOf(user.getId()))
-                .claim("email", user.getEmail())
+                .claim("email", email)
                 .claim("username", user.getUsername())
                 .claim("tier", user.getTier().name()) // Include role for easy frontend access
                 .issuedAt(issuedAt)

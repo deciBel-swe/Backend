@@ -39,7 +39,7 @@ class TokenServiceTest {
 
     @Test
     void createEmailVerificationToken_savesTokenAndReturnsRawValue() {
-        User user = User.builder().id(1L).email("user@example.com").username("user").build();
+        User user = User.builder().id(1L).username("user").build();
         when(tokenUtility.generateToken(32)).thenReturn("raw-token");
         when(tokenUtility.hashToken("raw-token")).thenReturn("hashed-token");
         when(tokenUtility.expiresInMinutes(30L)).thenReturn(LocalDateTime.of(2026, 3, 13, 13, 0));

@@ -61,7 +61,13 @@ class UserEmailServiceTest {
     @Test
     void requestMyEmailChange_whenRequestIsValid_createsPendingRequestAndSendsEmail() {
         Authentication authentication = authenticatedUser("1");
-        User user = User.builder().id(1L).email("old@example.com").username("user").build();
+        User user = User.builder().id(1L).username("user").build();
+        AuthIdentity currentIdentity = AuthIdentity.builder()
+                .user(user)
+                .email("old@example.com")
+                .provider(AuthProvider.LOCAL)
+                .type(AuthType.PASSWORD)
+                .build();
         Token token = Token.builder()
                 .tokenId(8L)
                 .tokenType(TokenType.EMAIL_CHANGE)
@@ -70,7 +76,9 @@ class UserEmailServiceTest {
                 .build();
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userRepository.existsByEmailIgnoreCase("new@example.com")).thenReturn(false);
+        when(authIdentityRepository.findByUserAndProviderAndType(user, AuthProvider.LOCAL, AuthType.PASSWORD))
+                .thenReturn(Optional.of(currentIdentity));
+        when(authIdentityRepository.existsByEmailIgnoreCase("new@example.com")).thenReturn(false);
         when(pendingEmailChangeRepository.existsByNewEmailIgnoreCase("new@example.com")).thenReturn(false);
         when(pendingEmailChangeRepository.findByUser(user)).thenReturn(Optional.empty());
         when(tokenService.createEmailChangeToken(user))
@@ -93,10 +101,18 @@ class UserEmailServiceTest {
     @Test
     void requestMyEmailChange_whenEmailAlreadyExists_throwsConflict() {
         Authentication authentication = authenticatedUser("1");
-        User user = User.builder().id(1L).email("old@example.com").username("user").build();
+        User user = User.builder().id(1L).username("user").build();
+        AuthIdentity currentIdentity = AuthIdentity.builder()
+                .user(user)
+                .email("old@example.com")
+                .provider(AuthProvider.LOCAL)
+                .type(AuthType.PASSWORD)
+                .build();
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userRepository.existsByEmailIgnoreCase("used@example.com")).thenReturn(true);
+        when(authIdentityRepository.findByUserAndProviderAndType(user, AuthProvider.LOCAL, AuthType.PASSWORD))
+                .thenReturn(Optional.of(currentIdentity));
+        when(authIdentityRepository.existsByEmailIgnoreCase("used@example.com")).thenReturn(true);
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
@@ -109,7 +125,7 @@ class UserEmailServiceTest {
     @Test
     void verifyMyEmailChange_whenTokenIsValid_updatesEmailAndMarksTokenUsed() {
         Authentication authentication = authenticatedUser("1");
-        User user = User.builder().id(1L).email("old@example.com").username("user").build();
+        User user = User.builder().id(1L).username("user").build();
         Token token = Token.builder()
                 .tokenId(8L)
                 .user(user)
@@ -135,7 +151,7 @@ class UserEmailServiceTest {
         when(tokenService.findValidUnusedToken("raw-token", TokenType.EMAIL_CHANGE, "Invalid or expired token"))
                 .thenReturn(token);
         when(pendingEmailChangeRepository.findByToken(token)).thenReturn(Optional.of(pendingEmailChange));
-        when(userRepository.existsByEmailIgnoreCase("new@example.com")).thenReturn(false);
+        when(authIdentityRepository.existsByEmailIgnoreCase("new@example.com")).thenReturn(false);
         when(authIdentityRepository.findAllByUser(user)).thenReturn(List.of(identity));
 
         MessageResponse response = userEmailService.verifyMyEmailChange(
@@ -143,9 +159,8 @@ class UserEmailServiceTest {
                 new VerifyEmailChangeRequest("raw-token"));
 
         assertEquals("Email changed successfully", response.message());
-        assertEquals("new@example.com", user.getEmail());
         assertEquals("new@example.com", identity.getEmail());
-        verify(userRepository).save(user);
+        verify(userRepository, never()).save(any(User.class));
         verify(authIdentityRepository).saveAll(List.of(identity));
         verify(pendingEmailChangeRepository).delete(pendingEmailChange);
         verify(tokenService).markTokenUsed(token);
@@ -154,8 +169,8 @@ class UserEmailServiceTest {
     @Test
     void verifyMyEmailChange_whenPendingRequestBelongsToAnotherUser_throwsForbidden() {
         Authentication authentication = authenticatedUser("1");
-        User currentUser = User.builder().id(1L).email("old@example.com").username("user").build();
-        User anotherUser = User.builder().id(2L).email("another@example.com").username("another").build();
+        User currentUser = User.builder().id(1L).username("user").build();
+        User anotherUser = User.builder().id(2L).username("another").build();
         Token token = Token.builder()
                 .tokenId(8L)
                 .user(anotherUser)

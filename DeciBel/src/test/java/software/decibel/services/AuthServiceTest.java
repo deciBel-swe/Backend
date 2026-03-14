@@ -40,6 +40,7 @@ class AuthServiceTest {
     @Mock private AuthIdentityRepository authIdentityRepository;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private TokenService tokenService;
+    @Mock private SessionService sessionService;
     @Mock private EmailService emailService;
     @Mock private FrontendLinkService frontendLinkService;
     @Mock private JwtService jwtService;
@@ -50,12 +51,12 @@ class AuthServiceTest {
     @Test
     void registerLocal_whenRequestIsValid_savesUserAndSendsEmail() {
         RegisterLocalRequest request = registerRequest();
-        when(userRepository.findByEmail(request.email())).thenReturn(Optional.empty());
+        when(authIdentityRepository.existsByEmailIgnoreCase(request.email())).thenReturn(false);
         when(authIdentityRepository.existsByEmailIgnoreCaseAndProviderAndType(anyString(), any(), any())).thenReturn(false);
         when(userRepository.findByUsername(request.username())).thenReturn(Optional.empty());
         when(passwordEncoder.encode(request.password())).thenReturn("hashed-password");
         
-        User savedUser = User.builder().id(7L).email(request.email()).username(request.username()).build();
+        User savedUser = User.builder().id(7L).username(request.username()).build();
         when(userRepository.save(any(User.class))).thenReturn(savedUser);
 
         Token verificationToken = Token.builder().hash("hash").build();
@@ -89,7 +90,7 @@ class AuthServiceTest {
                 .thenReturn(new TokenService.IssuedToken("refresh-token", mockToken));
         
         // Mock JwtService - Ensures Role (ARTIST) is mapped!
-        when(jwtService.buildAccessToken(user)).thenReturn("access-token");
+        when(jwtService.buildAccessToken(user, identity.getEmail())).thenReturn("access-token");
 
         AuthService.AuthLoginResult result = authService.loginLocal(request);
 
@@ -97,14 +98,15 @@ class AuthServiceTest {
         assertEquals("refresh-token", result.refreshToken());
         assertEquals(AccountTier.ARTIST, result.response().user().tier()); // Role verified!
         verify(tokenService).createRefreshToken(user);
+        verify(sessionService).createSession(user, mockToken, request.deviceInfo());
     }
 
     @Test
     void loginLocal_whenEmailIsNotVerified_throwsForbidden() {
         LoginLocalRequest request = loginRequest();
         User user = verifiedUser();
-        user.setEmailVerified(false);
         AuthIdentity identity = verifiedIdentity(user);
+        identity.setEmailVerified(false);
 
         when(authIdentityRepository.findByEmailIgnoreCaseAndProviderAndType(anyString(), any(), any()))
                 .thenReturn(Optional.of(identity));
@@ -117,7 +119,7 @@ class AuthServiceTest {
     @Test
     void verifyEmail_whenTokenIsValid_marksUserVerified() {
         VerifyEmailRequest request = new VerifyEmailRequest("raw-token");
-        User user = User.builder().id(9L).isEmailVerified(false).build();
+        User user = User.builder().id(9L).username("verified-user").build();
         AuthIdentity identity = AuthIdentity.builder().user(user).emailVerified(false).build();
         Token verificationToken = Token.builder().user(user).build();
 
@@ -132,10 +134,10 @@ class AuthServiceTest {
 
         authService.verifyEmail(request);
 
-        assertTrue(user.isEmailVerified());
         assertTrue(identity.isEmailVerified());
-        verify(userRepository).save(user);
+        verify(userRepository, never()).save(any(User.class));
         verify(tokenService).markTokenUsed(verificationToken);
+        verify(sessionService, never()).createSession(any(), any(), any());
     }
 
     // Helper methods
@@ -151,10 +153,10 @@ class AuthServiceTest {
     }
 
     private User verifiedUser() {
-        return User.builder().email("verified@example.com").username("user").tier(AccountTier.ARTIST).isEmailVerified(true).build();
+        return User.builder().username("user").tier(AccountTier.ARTIST).build();
     }
 
     private AuthIdentity verifiedIdentity(User user) {
-        return AuthIdentity.builder().user(user).email(user.getEmail()).passwordHash("hash").emailVerified(true).provider(AuthProvider.LOCAL).type(AuthType.PASSWORD).build();
+        return AuthIdentity.builder().user(user).email("verified@example.com").passwordHash("hash").emailVerified(true).provider(AuthProvider.LOCAL).type(AuthType.PASSWORD).build();
     }
 }
