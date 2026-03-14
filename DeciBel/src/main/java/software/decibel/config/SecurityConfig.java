@@ -21,6 +21,9 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
 
+    @org.springframework.beans.factory.annotation.Value("${app.cors.allowed-origins:*}")
+    private String allowedOrigins;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
@@ -40,8 +43,10 @@ public class SecurityConfig {
                 // Harden security headers
                 .headers(headers -> headers
                         .frameOptions(frameOptions -> frameOptions.deny())
-                        .xssProtection(xss -> xss.disable()) // Modern browsers handle this, but Spring default is fine.
-                        .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'; script-src 'self'; object-src 'none';"))
+                        // Disable XSS protection header for modern browsers which use CSP instead
+                        .xssProtection(xss -> xss.disable())
+                        .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none';"))
+                        .permissionsPolicyHeader(permissions -> permissions.policy("geolocation=(), microphone=(), camera=()"))
                 )
                 .build();
     }
@@ -49,12 +54,19 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Allow all origins for development; restrict this in production
-        configuration.setAllowedOriginPatterns(List.of("*"));
+        
+        // Browsers reject wildcard origins when credentials are allowed.
+        // We use a property to define allowed origins, falling back to wildcard for local dev only if needed.
+        if ("*".equals(allowedOrigins)) {
+            configuration.setAllowedOriginPatterns(List.of("*"));
+        } else {
+            configuration.setAllowedOrigins(List.of(allowedOrigins.split(",")));
+        }
+
         // Standard HTTP methods allowed for the frontend
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         // Required headers for authentication and JSON requests
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"));
         // Allow sending credentials (cookies, auth headers)
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);

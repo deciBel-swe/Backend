@@ -13,13 +13,12 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import software.decibel.dtos.auth.UserPrincipal;
 import software.decibel.entities.User;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.JwtService;
 
 import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -50,7 +49,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (jwtService.isTokenValid(jwt)) {
 
                 userId = jwtService.extractSubject(jwt);
-                
+
 
                 if (userId != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                     Long id = Long.parseLong(userId);
@@ -58,28 +57,40 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     User user = userRepository.findById(id).orElse(null);
 
                     if (user != null) {
-                        // Map account tier to Spring Security role (e.g., ROLE_LISTENER)
-                        List<SimpleGrantedAuthority> authorities = Collections.singletonList(
-                                new SimpleGrantedAuthority("ROLE_" + user.getTier().name())
-                        );
-                        
-                        // Populate SecurityContext with full User object as principal
+                        // Create lightweight principal instead of using JPA entity
+                        UserPrincipal principal = UserPrincipal.fromUser(user);
+
+                        // Populate SecurityContext with UserPrincipal object as principal
                         UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                                user,
+                                principal,
                                 null,
-                                authorities
+                                principal.getAuthorities()
                         );
                         authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                         SecurityContextHolder.getContext().setAuthentication(authToken);
                     } else {
                         log.debug("User with ID {} not found in database", userId);
+                        sendErrorResponse(response, "User not found");
+                        return;
                     }
                 }
+            } else {
+                log.debug("Invalid JWT token provided");
+                sendErrorResponse(response, "Invalid token");
+                return;
             }
         } catch (Exception e) {
             log.debug("JWT authentication failed: {}", e.getMessage());
+            sendErrorResponse(response, "Authentication failed");
+            return;
         }
-        
+
         filterChain.doFilter(request, response);
+    }
+
+    private void sendErrorResponse(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json");
+        response.getWriter().write("{\"error\": \"Unauthorized\", \"message\": \"" + message + "\"}");
     }
 }
