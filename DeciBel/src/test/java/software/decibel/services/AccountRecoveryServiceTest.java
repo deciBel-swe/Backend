@@ -20,16 +20,19 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
 
+import software.decibel.entities.AuthIdentity;
 import software.decibel.entities.Token;
 import software.decibel.entities.User;
+import software.decibel.enums.AuthProvider;
+import software.decibel.enums.AuthType;
 import software.decibel.enums.TokenType;
-import software.decibel.repositories.UserRepository;
+import software.decibel.repositories.AuthIdentityRepository;
 
 @ExtendWith(MockitoExtension.class)
 class AccountRecoveryServiceTest {
 
     @Mock
-    private UserRepository userRepository;
+    private AuthIdentityRepository authIdentityRepository;
 
     @Mock
     private EmailService emailService;
@@ -52,24 +55,31 @@ class AccountRecoveryServiceTest {
     void setUp() {
         user = User.builder()
                 .id(1L)
-                .email("test@example.com")
                 .username("tester")
                 .build();
     }
 
     @Test
     void forgotPassword_shouldDoNothing_whenUserDoesNotExist() {
-        when(userRepository.findByEmail("missing@example.com")).thenReturn(Optional.empty());
+        when(authIdentityRepository.findByEmailIgnoreCaseAndProviderAndType("missing@example.com", AuthProvider.LOCAL, AuthType.PASSWORD))
+                .thenReturn(Optional.empty());
 
         assertDoesNotThrow(() -> accountRecoveryService.forgotPassword("missing@example.com"));
 
-        verify(userRepository).findByEmail("missing@example.com");
+        verify(authIdentityRepository).findByEmailIgnoreCaseAndProviderAndType("missing@example.com", AuthProvider.LOCAL, AuthType.PASSWORD);
         verifyNoInteractions(tokenService, emailService, passwordEncoder);
     }
 
     @Test
     void forgotPassword_shouldCreateAndSaveResetToken_whenUserExists() {
-        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+        AuthIdentity identity = AuthIdentity.builder()
+                .user(user)
+                .email("test@example.com")
+                .provider(AuthProvider.LOCAL)
+                .type(AuthType.PASSWORD)
+                .build();
+        when(authIdentityRepository.findByEmailIgnoreCaseAndProviderAndType("test@example.com", AuthProvider.LOCAL, AuthType.PASSWORD))
+                .thenReturn(Optional.of(identity));
 
         Token token = new Token();
         token.setTokenType(TokenType.PASSWORD_RESET);
@@ -83,7 +93,7 @@ class AccountRecoveryServiceTest {
 
         accountRecoveryService.forgotPassword("test@example.com");
 
-        verify(userRepository).findByEmail("test@example.com");
+        verify(authIdentityRepository).findByEmailIgnoreCaseAndProviderAndType("test@example.com", AuthProvider.LOCAL, AuthType.PASSWORD);
         verify(tokenService).deleteTokensForUserAndType(user, TokenType.PASSWORD_RESET);
         verify(tokenService).deleteExpiredTokens();
         verify(tokenService).createPasswordResetToken(user);
@@ -104,14 +114,22 @@ class AccountRecoveryServiceTest {
 
         when(tokenService.findValidUnusedToken("raw-reset-token", TokenType.PASSWORD_RESET, "Invalid or expired token"))
                 .thenReturn(token);
+        AuthIdentity identity = AuthIdentity.builder()
+                .user(user)
+                .email("test@example.com")
+                .provider(AuthProvider.LOCAL)
+                .type(AuthType.PASSWORD)
+                .build();
+        when(authIdentityRepository.findByUserAndProviderAndType(user, AuthProvider.LOCAL, AuthType.PASSWORD))
+                .thenReturn(Optional.of(identity));
         when(passwordEncoder.encode("NewPassword1!")).thenReturn("encoded-password");
 
         accountRecoveryService.resetPassword("raw-reset-token", "NewPassword1!");
 
-        assertEquals("encoded-password", user.getPasswordHash());
+        assertEquals("encoded-password", identity.getPasswordHash());
 
         verify(passwordEncoder).encode("NewPassword1!");
-        verify(userRepository).save(user);
+        verify(authIdentityRepository).save(identity);
         verify(tokenService).deleteToken(token);
     }
 

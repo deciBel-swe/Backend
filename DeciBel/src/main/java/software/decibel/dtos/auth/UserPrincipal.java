@@ -25,14 +25,12 @@ import java.util.Collections;
 public class UserPrincipal implements UserDetails {
 
     private Long id;
-    private String email;
     private String username;
     private AccountTier tier;
 
     public static UserPrincipal fromUser(User user) {
         return UserPrincipal.builder()
                 .id(user.getId())
-                .email(user.getEmail())
                 .username(user.getUsername())
                 .tier(user.getTier())
                 .build();

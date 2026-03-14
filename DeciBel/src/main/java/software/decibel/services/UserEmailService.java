@@ -8,9 +8,12 @@ import org.springframework.web.server.ResponseStatusException;
 import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.user.ChangeEmailRequest;
 import software.decibel.dtos.user.VerifyEmailChangeRequest;
+import software.decibel.entities.AuthIdentity;
 import software.decibel.entities.PendingEmailChange;
 import software.decibel.entities.Token;
 import software.decibel.entities.User;
+import software.decibel.enums.AuthProvider;
+import software.decibel.enums.AuthType;
 import software.decibel.enums.TokenType;
 import software.decibel.repositories.AuthIdentityRepository;
 import software.decibel.repositories.PendingEmailChangeRepository;
@@ -48,13 +51,18 @@ public class UserEmailService {
     @Transactional
     public MessageResponse requestMyEmailChange(Authentication authentication, ChangeEmailRequest request) {
         User currentUser = resolveCurrentUser(authentication);
+        AuthIdentity currentIdentity = authIdentityRepository.findByUserAndProviderAndType(
+                currentUser,
+                AuthProvider.LOCAL,
+                AuthType.PASSWORD
+        ).orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "No local auth identity found"));
         String newEmail = request.newEmail().trim();
 
-        if (currentUser.getEmail().equalsIgnoreCase(newEmail)) {
+        if (currentIdentity.getEmail().equalsIgnoreCase(newEmail)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "New email must be different from current email");
         }
 
-        if (userRepository.existsByEmailIgnoreCase(newEmail)
+        if (authIdentityRepository.existsByEmailIgnoreCase(newEmail)
                 || pendingEmailChangeRepository.existsByNewEmailIgnoreCase(newEmail)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already exists");
         }
@@ -102,15 +110,14 @@ public class UserEmailService {
         }
 
         String newEmail = pendingEmailChange.getNewEmail();
-        if (userRepository.existsByEmailIgnoreCase(newEmail) && !currentUser.getEmail().equalsIgnoreCase(newEmail)) {
+        boolean emailExists = authIdentityRepository.existsByEmailIgnoreCase(newEmail);
+        boolean currentUserAlreadyOwnsEmail = authIdentityRepository.findAllByUser(currentUser).stream()
+                .anyMatch(identity -> identity.getEmail().equalsIgnoreCase(newEmail));
+        if (emailExists && !currentUserAlreadyOwnsEmail) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already exists");
         }
 
-        currentUser.setEmail(newEmail);
-        currentUser.setEmailVerified(true);
-        userRepository.save(currentUser);
-
-        List<software.decibel.entities.AuthIdentity> identities = authIdentityRepository.findAllByUser(currentUser);
+        List<AuthIdentity> identities = authIdentityRepository.findAllByUser(currentUser);
         identities.forEach(identity -> {
             identity.setEmail(newEmail);
             identity.setEmailVerified(true);

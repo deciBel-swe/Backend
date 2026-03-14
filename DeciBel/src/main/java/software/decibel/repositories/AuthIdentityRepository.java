@@ -21,6 +21,8 @@ public interface AuthIdentityRepository extends JpaRepository<AuthIdentity, Long
      */
     boolean existsByEmailIgnoreCaseAndProviderAndType(String email, AuthProvider provider, AuthType type);
 
+    boolean existsByEmailIgnoreCase(String email);
+
     /**
      * Locates a specific identity record for a user and authentication channel.
      */

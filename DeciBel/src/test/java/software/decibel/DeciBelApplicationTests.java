@@ -46,7 +46,7 @@ class DeciBelApplicationTests {
 
     @Test
     void pendingEmailChange_builderStoresValues() {
-        User user = User.builder().id(1L).email("old@example.com").username("user").build();
+        User user = User.builder().id(1L).username("user").build();
         Token token = Token.builder().tokenId(2L).hash("hashed-token").expiresAt(LocalDateTime.now().plusMinutes(15)).build();
         PendingEmailChange pendingEmailChange = PendingEmailChange.builder()
                 .pendingEmailChangeId(3L)

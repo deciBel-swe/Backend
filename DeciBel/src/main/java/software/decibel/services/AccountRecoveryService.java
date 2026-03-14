@@ -9,10 +9,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import lombok.RequiredArgsConstructor;
+import software.decibel.entities.AuthIdentity;
 import software.decibel.entities.Token;
 import software.decibel.entities.User;
+import software.decibel.enums.AuthProvider;
+import software.decibel.enums.AuthType;
 import software.decibel.enums.TokenType;
-import software.decibel.repositories.UserRepository;
+import software.decibel.repositories.AuthIdentityRepository;
 
 /**
  * Service class responsible for handling account recovery logic, including
@@ -24,7 +27,7 @@ public class AccountRecoveryService {
 
     private static final String INVALID_OR_EXPIRED_TOKEN_MESSAGE = "Invalid or expired token";
 
-    private final UserRepository userRepository;
+    private final AuthIdentityRepository authIdentityRepository;
     private final TokenService tokenService;
     private final EmailService emailService;
     private final FrontendLinkService frontendLinkService;
@@ -38,19 +41,21 @@ public class AccountRecoveryService {
      */
     @Transactional
     public void forgotPassword(String email) {
-        Optional<User> optionalUser = userRepository.findByEmail(email);
+        Optional<AuthIdentity> optionalIdentity = authIdentityRepository
+                .findByEmailIgnoreCaseAndProviderAndType(email, AuthProvider.LOCAL, AuthType.PASSWORD);
 
-        if (optionalUser.isEmpty()) {
+        if (optionalIdentity.isEmpty()) {
             return; // to prevent email enumeration
         }
 
-        User user = optionalUser.get();
+        AuthIdentity identity = optionalIdentity.get();
+        User user = identity.getUser();
         tokenService.deleteTokensForUserAndType(user, TokenType.PASSWORD_RESET);
         tokenService.deleteExpiredTokens();
         TokenService.IssuedToken issuedToken = tokenService.createPasswordResetToken(user);
 
         String resetLink = frontendLinkService.buildPasswordResetLink(issuedToken.rawToken());
-        emailService.sendPasswordResetEmail(user.getEmail(), resetLink);
+        emailService.sendPasswordResetEmail(identity.getEmail(), resetLink);
     }
 
     // Resets the user's password using a valid raw reset token.
@@ -63,9 +68,12 @@ public class AccountRecoveryService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, INVALID_OR_EXPIRED_TOKEN_MESSAGE);
         }
 
-        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        AuthIdentity identity = authIdentityRepository
+                .findByUserAndProviderAndType(user, AuthProvider.LOCAL, AuthType.PASSWORD)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, INVALID_OR_EXPIRED_TOKEN_MESSAGE));
 
-        userRepository.save(user);
+        identity.setPasswordHash(passwordEncoder.encode(newPassword));
+        authIdentityRepository.save(identity);
         tokenService.deleteToken(token);
     }
 

@@ -5,6 +5,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import software.decibel.dtos.auth.DeviceInfo;
 import software.decibel.dtos.auth.LoginLocalRequest;
 import software.decibel.dtos.auth.LoginLocalResponse;
 import software.decibel.dtos.auth.MessageResponse;
@@ -32,6 +33,7 @@ public class AuthService {
     private final AuthIdentityRepository authIdentityRepository;
     private final PasswordEncoder passwordEncoder;     
     private final TokenService tokenService;          
+    private final SessionService sessionService;
     private final EmailService emailService;           
     private final FrontendLinkService frontendLinkService; 
     private final JwtService jwtService;               
@@ -41,6 +43,7 @@ public class AuthService {
             AuthIdentityRepository authIdentityRepository,
             PasswordEncoder passwordEncoder,
             TokenService tokenService,
+            SessionService sessionService,
             EmailService emailService,
             FrontendLinkService frontendLinkService,
             JwtService jwtService) {
@@ -48,6 +51,7 @@ public class AuthService {
         this.authIdentityRepository = authIdentityRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
+        this.sessionService = sessionService;
         this.emailService = emailService;
         this.frontendLinkService = frontendLinkService;
         this.jwtService = jwtService;
@@ -55,7 +59,7 @@ public class AuthService {
 
     @Transactional
     public MessageResponse registerLocal(RegisterLocalRequest request) {
-        if (userRepository.findByEmail(request.email()).isPresent()
+        if (authIdentityRepository.existsByEmailIgnoreCase(request.email())
                 || authIdentityRepository.existsByEmailIgnoreCaseAndProviderAndType(
                         request.email(), AuthProvider.LOCAL, AuthType.PASSWORD)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already exists");
@@ -67,10 +71,7 @@ public class AuthService {
 
         String hashedPassword = passwordEncoder.encode(request.password());
         User user = User.builder()
-                .email(request.email())
                 .username(request.username())
-                .passwordHash(hashedPassword)
-                .isEmailVerified(false)
                 .location(buildLocation(request.city(), request.country()))
                 .build();
         User savedUser = userRepository.save(user);
@@ -103,11 +104,11 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
         }
 
-        if (!identity.isEmailVerified() || !identity.getUser().isEmailVerified()) {
+        if (!identity.isEmailVerified()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Email is not verified");
         }
 
-        return issueLoginTokens(identity.getUser());
+        return issueLoginTokens(identity, request.deviceInfo());
     }
 
     @Transactional
@@ -118,8 +119,6 @@ public class AuthService {
                 "Invalid verification token");
 
         User user = verificationToken.getUser();
-        user.setEmailVerified(true);
-        userRepository.save(user);
 
         authIdentityRepository.findByUserAndProviderAndType(user, AuthProvider.LOCAL, AuthType.PASSWORD)
                 .ifPresent(identity -> {
@@ -129,13 +128,16 @@ public class AuthService {
 
         tokenService.markTokenUsed(verificationToken);
 
+        // The current API contract for /auth/verify-email accepts only the token,
+        // but this flow still issues a refresh token after successful verification.
         return issueRefreshToken(user);
     }
 
-    private AuthLoginResult issueLoginTokens(User user) {
+    private AuthLoginResult issueLoginTokens(AuthIdentity identity, DeviceInfo deviceInfo) {
+        User user = identity.getUser();
         // JwtService (feat) to ensure Artist/Listener roles are in the token
-        String accessToken = jwtService.buildAccessToken(user);
-        AuthRefreshTokenResult refreshTokenResult = issueRefreshToken(user);
+        String accessToken = jwtService.buildAccessToken(user, identity.getEmail());
+        AuthRefreshTokenResult refreshTokenResult = issueRefreshToken(user, deviceInfo);
 
         LoginLocalResponse response = new LoginLocalResponse(
                 accessToken,
@@ -144,15 +146,21 @@ public class AuthService {
                         user.getId(),
                         user.getUsername(),
                         user.getTier(), // Role differentiation
-                        null,
+                        "/users/" + user.getUsername(), // TODO: Correct URL structure if needed
                         user.getAvatarUrl()));
 
         return new AuthLoginResult(response, refreshTokenResult.refreshToken(),
                 refreshTokenResult.refreshTokenExpiresIn());
     }
 
-    private AuthRefreshTokenResult issueRefreshToken(User user) {
+    private AuthRefreshTokenResult issueRefreshToken(User user, DeviceInfo deviceInfo) {
         // Use TokenService for token persistence
+        TokenService.IssuedToken issuedToken = tokenService.createRefreshToken(user);
+        sessionService.createSession(user, issuedToken.token(), deviceInfo);
+        return new AuthRefreshTokenResult(issuedToken.rawToken(), REFRESH_TOKEN_EXPIRES_IN_SECONDS);
+    }
+
+    private AuthRefreshTokenResult issueRefreshToken(User user) {
         TokenService.IssuedToken issuedToken = tokenService.createRefreshToken(user);
         return new AuthRefreshTokenResult(issuedToken.rawToken(), REFRESH_TOKEN_EXPIRES_IN_SECONDS);
     }
