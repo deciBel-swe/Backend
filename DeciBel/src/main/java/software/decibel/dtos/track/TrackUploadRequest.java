@@ -5,11 +5,12 @@ import java.time.LocalDate;
 import java.util.List;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.multipart.MultipartFile;
+import software.decibel.customValidation.ValidAudioFile;
+import software.decibel.customValidation.ValidImageFile;
 
 public record TrackUploadRequest(
-    // No valid annotation available for audioFile so checking will take place in service layer
-    MultipartFile audioFile,
-    MultipartFile coverImage,
+    @ValidAudioFile MultipartFile audioFile,
+    @ValidImageFile MultipartFile coverImage,
     @NotBlank(message = "Title is required")
         @Size(max = 200, message = "Title must be less than 200 characters")
         String title,

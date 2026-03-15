@@ -10,7 +10,6 @@ import software.decibel.dtos.track.TrackUploadResponse;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
-import software.decibel.exceptions.custom.file.FileTypeNotAllowedException;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.UserRepository;
@@ -32,13 +31,9 @@ public class TrackService {
   public TrackUploadResponse uploadTrack(TrackUploadRequest request) {
 
     MultipartFile audioFile = request.audioFile();
-    if (audioFile.isEmpty()) {
-      throw new FileTypeNotAllowedException("Audio File is required.");
-    }
 
     MultipartFile coverImage = request.coverImage();
 
-    fileUtility.validateAudio(audioFile);
     Path audioPath = fileUtility.saveFile(audioFile);
     String trackUrl = "/uploads/" + audioPath.getFileName();
 
@@ -46,7 +41,6 @@ public class TrackService {
 
     String coverUrl = null;
     if (coverImage != null && !coverImage.isEmpty()) {
-      fileUtility.validateImage(coverImage);
       Path coverPath = fileUtility.saveFile(coverImage);
       coverUrl = "/uploads/" + coverPath.getFileName();
     }
