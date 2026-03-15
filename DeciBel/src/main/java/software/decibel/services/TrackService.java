@@ -31,6 +31,7 @@ public class TrackService {
   // Takes track upload request and saves track
   public TrackUploadResponse uploadTrack(TrackUploadRequest request) {
 
+    // save audio file in azure
     MultipartFile audioFile = request.audioFile();
     String trackUrl = fileUtilityAzure.saveFile(audioFile, FileType.AUDIO);
 
@@ -41,22 +42,22 @@ public class TrackService {
       coverUrl = fileUtilityAzure.saveFile(coverImage, FileType.TRACK_COVERS);
     }
 
-    int duration = audioUtility.getAudioFileDurationInSeconds(audioFile, request.title());
-
+    // get userid and user from jwt
+    Long userId = JwtService.getCurrentUserId();
     User uploader =
         userRepository
-            .findById(request.userId())
+            .findById(userId)
             .orElseThrow(
-                () ->
-                    new ResourceNotFoundException(
-                        "User with id " + request.userId() + " not found"));
+                () -> new ResourceNotFoundException("User with id " + userId + " not found"));
 
+    // convert track to entity and save
     Track track = trackMapper.toEntity(request, uploader);
 
     // Set file-related fields manually
     track.setTrackUrl(trackUrl);
     track.setCoverUrl(coverUrl);
-    track.setDurationSeconds(duration);
+    track.setDurationSeconds(
+        audioUtility.getAudioFileDurationInSeconds(audioFile, request.title()));
 
     Track saved = trackRepository.save(track);
 

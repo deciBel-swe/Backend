@@ -20,6 +20,5 @@ public record TrackUploadRequest(
     @Size(max = 2000, message = "Description must be less than 2000 characters") String description,
     @NotNull(message = "isPrivate flag is required") Boolean isPrivate,
     @NotEmpty(message = "Waveform data is required") List<Float> waveFormData,
-    @NotNull(message = "User Id is required") Long userId,
     @NotNull(message = "Release date is required") @DateTimeFormat(pattern = "yyyy-MM-dd")
         LocalDate releaseDate) {}

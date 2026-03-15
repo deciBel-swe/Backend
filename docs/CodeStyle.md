@@ -151,7 +151,7 @@ The DTO pattern is a **mandatory standard** in our Spring Boot architecture. We 
 
 ### DTO Implementation Rules
 
-#### 1. Use Java Records for DTOs
+#### 1. Use Java gis for DTOs
 
 Since Java 14, `record` is the perfect structure for DTOs. They are immutable, concise, and automatically generate getters, `equals()`, `hashCode()`, and `toString()`.
 
