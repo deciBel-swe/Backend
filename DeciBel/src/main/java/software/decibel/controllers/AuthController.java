@@ -5,6 +5,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -52,6 +53,20 @@ public class AuthController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                 .body(new MessageResponse("Email verified"));
+    }
+
+    @GetMapping("/oauth2/authorization/google")
+    public ResponseEntity<Void> triggerGoogleLogin() {
+        // Placeholder endpoint definition for the Google OAuth entry point.
+        // The final implementation should be handled by Spring Security OAuth2 client configuration.
+        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+    }
+
+    @GetMapping("/login/oauth2/code/google")
+    public ResponseEntity<Void> googleCallback() {
+        // Placeholder endpoint definition for the Google OAuth callback.
+        // The final implementation should exchange the Google callback through Spring Security and then run the success handler.
+        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
     }
 
     private ResponseCookie buildRefreshCookie(String refreshToken, long maxAgeSeconds) {
