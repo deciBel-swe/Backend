@@ -1,6 +1,7 @@
 package software.decibel.mappers;
 
 import org.mapstruct.*;
+import software.decibel.dtos.track.TrackStatusResponse;
 import software.decibel.dtos.track.TrackUploadRequest;
 import software.decibel.dtos.track.TrackUploadResponse;
 import software.decibel.entities.Track;
@@ -28,4 +29,10 @@ public interface TrackMapper {
           "java(dto.isPrivate() ? software.decibel.enums.Visibility.PRIVATE : software.decibel.enums.Visibility.PUBLIC)")
   @Mapping(target = "uploader", source = "uploader")
   Track toEntity(TrackUploadRequest dto, User uploader);
+
+  // ----------------- TrackStatus DTOs ---------------------
+
+  // Track -> TrackStatusResponse DTO
+  @Mapping(source = "id", target = "trackId")
+  TrackStatusResponse toTrackStatusResponse(Track track);
 }
