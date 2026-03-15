@@ -1,4 +1,4 @@
-package software.decibel.exceptions.custom.file;
+package software.decibel.exceptions.custom;
 
 public class AudioDurationReadingException extends RuntimeException {
   public AudioDurationReadingException(String title, Throwable cause) {

@@ -9,7 +9,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class ValidAudioFileValidator implements ConstraintValidator<ValidAudioFile, MultipartFile> {
 
   private static final List<String> ALLOWED_TYPES =
-      List.of("audio/mp3", "audio/mpeg", "audio/wav", "audio/wave");
+      List.of("audio/mp3", "audio/wav", "audio/wave");
   private static final long MAX_SIZE = 100L * 1024 * 1024; // 100MB in bytes
 
   @Override
