@@ -1,15 +1,16 @@
 package software.decibel.entities;
 
-import software.decibel.enums.Visibility;
 import jakarta.persistence.*;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-import java.time.LocalDateTime;
-import java.util.List;
+import software.decibel.enums.Visibility;
 
 @Entity
 @Table(name = "tracks")
@@ -19,44 +20,59 @@ import java.util.List;
 @Builder
 public class Track {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
 
-    // --- Track Metadata ---
-    @Column(nullable = false)
-    private String title;
+  // --- Track Metadata ---
+  @Column(nullable = false)
+  private String title;
 
-    @ElementCollection
-    private List<String> tags;
+  // TODO: Handle tags in future iteration
 
-    private String releaseDate;
+  @ElementCollection private List<String> tags;
 
-    private String artworkUrl;
+  @Column(nullable = false)
+  private LocalDate releaseDate;
 
-    // --- File & Storage Details ---
-    @Column(nullable = false)
-    private String TrackUrl;
+  private String coverUrl;
 
-    private Integer durationSeconds;
+  @Column(nullable = false)
+  private String genre;
 
-    //Change this part as you see fit
-    private String waveformData;
+  private String description;
 
-    // ---Visibility ---
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    @Builder.Default
-    private Visibility visibility = Visibility.PUBLIC;
+  private int likesCount = 0;
+  private int repostsCount = 0;
+  private int playsCount = 0;
 
-    // --- Relationships ---
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "uploader_id", nullable = false)
-    private User uploader;
+  private double playThroughRate = 0.0;
 
-    @CreationTimestamp
-    private LocalDateTime createdAt;
+  // TODO: Change into enum in the next task
+  private String trackState;
 
-    @UpdateTimestamp
-    private LocalDateTime updatedAt;
+  // --- File & Storage Details ---
+  @Column(nullable = false)
+  private String trackUrl;
+
+  @Column(nullable = false)
+  private int durationSeconds;
+
+  // Change this part as you see fit
+  private List<Float> waveformData;
+
+  // ---Visibility ---
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false)
+  @Builder.Default
+  private Visibility visibility = Visibility.PUBLIC;
+
+  // --- Relationships ---
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "uploader_id", nullable = false)
+  private User uploader;
+
+  @CreationTimestamp private LocalDateTime createdAt;
+
+  @UpdateTimestamp private LocalDateTime updatedAt;
 }
