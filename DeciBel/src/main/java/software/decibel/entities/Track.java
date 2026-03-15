@@ -10,6 +10,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import software.decibel.enums.TrackState;
 import software.decibel.enums.Visibility;
 
 @Entity
@@ -48,14 +49,12 @@ public class Track {
 
   private double playThroughRate = 0.0;
 
-  // TODO: Change into enum in the next task
-  private String trackState;
+  @Enumerated(EnumType.STRING)
+  private TrackState trackState;
 
   // --- File & Storage Details ---
-  @Column(nullable = false)
   private String trackUrl;
 
-  @Column(nullable = false)
   private int durationSeconds;
 
   // Change this part as you see fit

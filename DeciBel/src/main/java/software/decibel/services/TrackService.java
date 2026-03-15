@@ -4,11 +4,13 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import software.decibel.dtos.track.TrackStatusResponse;
 import software.decibel.dtos.track.TrackUploadRequest;
 import software.decibel.dtos.track.TrackUploadResponse;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
 import software.decibel.enums.FileType;
+import software.decibel.enums.TrackState;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.TrackRepository;
@@ -27,20 +29,21 @@ public class TrackService {
   private final AudioUtility audioUtility;
   private final TrackMapper trackMapper;
 
-  @Transactional
+  // Returns track's status
+  public TrackStatusResponse getTrackStatus(Long trackId) {
+
+    Track track =
+        trackRepository
+            .findById(trackId)
+            .orElseThrow(
+                () -> new ResourceNotFoundException("Track with id " + trackId + " not found"));
+
+    return trackMapper.toTrackStatusResponse(track);
+  }
+
   // Takes track upload request and saves track
+  // Not transactional as track's insertions an updates must survive to reflect track states
   public TrackUploadResponse uploadTrack(TrackUploadRequest request) {
-
-    // save audio file in azure
-    MultipartFile audioFile = request.audioFile();
-    String trackUrl = fileUtilityAzure.saveFile(audioFile, FileType.AUDIO);
-
-    // Extract image file, validate, save, and get its url inside the server (if image provided)
-    MultipartFile coverImage = request.coverImage();
-    String coverUrl = null;
-    if (coverImage != null && !coverImage.isEmpty()) {
-      coverUrl = fileUtilityAzure.saveFile(coverImage, FileType.TRACK_COVERS);
-    }
 
     // get userid and user from jwt
     Long userId = JwtService.getCurrentUserId();
@@ -50,17 +53,58 @@ public class TrackService {
             .orElseThrow(
                 () -> new ResourceNotFoundException("User with id " + userId + " not found"));
 
-    // convert track to entity and save
+    // convert track to entity and save as UPLOADING
     Track track = trackMapper.toEntity(request, uploader);
+    Track createdTrack = createUploadingTrack(track);
 
-    // Set file-related fields manually
-    track.setTrackUrl(trackUrl);
-    track.setCoverUrl(coverUrl);
-    track.setDurationSeconds(
-        audioUtility.getAudioFileDurationInSeconds(audioFile, request.title()));
+    // Uploading audio/image files & Processing the audio file for duration may cause exceptions to
+    // be handled
+    try {
+      // save audio file in azure and get its url inside the server
+      MultipartFile audioFile = request.audioFile();
+      String trackUrl = fileUtilityAzure.saveFile(audioFile, FileType.AUDIO);
 
-    Track saved = trackRepository.save(track);
+      // Extract image file, save, and get its url inside the server (if image provided)
+      MultipartFile coverImage = request.coverImage();
+      String coverUrl = null;
+      if (coverImage != null && !coverImage.isEmpty()) {
+        coverUrl = fileUtilityAzure.saveFile(coverImage, FileType.TRACK_COVERS);
+      }
 
-    return trackMapper.toTrackUploadResponse(saved);
+      // Set urls manually
+      createdTrack.setTrackUrl(trackUrl);
+      createdTrack.setCoverUrl(coverUrl);
+
+      // save track as PROCESSING
+      updateTrackState(createdTrack, TrackState.PROCESSING);
+
+      createdTrack.setDurationSeconds(
+          audioUtility.getAudioFileDurationInSeconds(audioFile, request.title()));
+
+      // after processing (getting duration is done) save track as FINISHED
+      updateTrackState(createdTrack, TrackState.FINISHED);
+      Track saved = trackRepository.save(createdTrack);
+
+      return trackMapper.toTrackUploadResponse(saved);
+
+    } catch (Exception e) {
+      updateTrackState(track, TrackState.FAILED);
+      throw e;
+    }
+  }
+
+  // Function to save track entity & set state = uploading
+  @Transactional
+  public Track createUploadingTrack(Track track) {
+    track.setTrackState(TrackState.UPLOADING);
+    return trackRepository.save(track);
+  }
+
+  // Function to update track entity's state and save
+  @Transactional
+  public void updateTrackState(Track t, TrackState state) {
+
+    t.setTrackState(state);
+    trackRepository.save(t);
   }
 }
