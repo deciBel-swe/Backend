@@ -151,6 +151,19 @@
             <version>${mapstruct-lombok.version}</version>
         </dependency>
 
+        <!-- Microsoft azure -->
+        <dependency>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-storage-blob</artifactId>
+            <version>12.20.0</version>
+        </dependency>
+
+        <!-- to get file extension -->
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>2.15.1</version>
+        </dependency>
 
     </dependencies>
 
