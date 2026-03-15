@@ -1,4 +1,4 @@
-package software.decibel.exceptions.custom.file;
+package software.decibel.exceptions.custom;
 
 public class FileStorageException extends RuntimeException {
   public FileStorageException(Throwable cause) {

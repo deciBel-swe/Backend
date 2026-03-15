@@ -9,12 +9,10 @@ import org.springframework.http.*;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
+import software.decibel.exceptions.custom.AudioDurationReadingException;
 import software.decibel.exceptions.custom.DuplicateResourceException;
+import software.decibel.exceptions.custom.FileStorageException;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
-import software.decibel.exceptions.custom.file.AudioDurationReadingException;
-import software.decibel.exceptions.custom.file.FileSizeTooLargeException;
-import software.decibel.exceptions.custom.file.FileStorageException;
-import software.decibel.exceptions.custom.file.FileTypeNotAllowedException;
 import software.decibel.exceptions.response.ApiErrorResponse;
 
 @RestControllerAdvice
@@ -117,41 +115,9 @@ public class GlobalExceptionHandler {
     return ResponseEntity.badRequest().body(error);
   }
 
-  @ExceptionHandler(FileSizeTooLargeException.class)
-  public ResponseEntity<ApiErrorResponse> handleFileSizeTooLargeException(
-      FileSizeTooLargeException ex, HttpServletRequest request) {
-
-    ApiErrorResponse error =
-        ApiErrorResponse.builder()
-            .timestamp(LocalDateTime.now())
-            .status(HttpStatus.BAD_REQUEST.value())
-            .error("Business Rule Violation")
-            .message(ex.getMessage())
-            .path(request.getRequestURI())
-            .build();
-
-    return ResponseEntity.badRequest().body(error);
-  }
-
   @ExceptionHandler(FileStorageException.class)
   public ResponseEntity<ApiErrorResponse> handleFileStorageException(
       FileStorageException ex, HttpServletRequest request) {
-
-    ApiErrorResponse error =
-        ApiErrorResponse.builder()
-            .timestamp(LocalDateTime.now())
-            .status(HttpStatus.BAD_REQUEST.value())
-            .error("Business Rule Violation")
-            .message(ex.getMessage())
-            .path(request.getRequestURI())
-            .build();
-
-    return ResponseEntity.badRequest().body(error);
-  }
-
-  @ExceptionHandler(FileTypeNotAllowedException.class)
-  public ResponseEntity<ApiErrorResponse> handleFileTypeNotAllowedException(
-      FileTypeNotAllowedException ex, HttpServletRequest request) {
 
     ApiErrorResponse error =
         ApiErrorResponse.builder()

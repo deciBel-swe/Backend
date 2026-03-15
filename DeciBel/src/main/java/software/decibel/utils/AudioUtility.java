@@ -8,7 +8,7 @@ import org.jaudiotagger.audio.AudioFile;
 import org.jaudiotagger.audio.AudioFileIO;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
-import software.decibel.exceptions.custom.file.AudioDurationReadingException;
+import software.decibel.exceptions.custom.AudioDurationReadingException;
 
 @Component
 public class AudioUtility {

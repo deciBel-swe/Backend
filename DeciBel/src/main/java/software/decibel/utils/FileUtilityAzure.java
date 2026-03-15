@@ -9,7 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 import software.decibel.enums.FileType;
-import software.decibel.exceptions.custom.file.FileStorageException;
+import software.decibel.exceptions.custom.FileStorageException;
 
 // Utility class to save files using microsoft azure
 // further info:
