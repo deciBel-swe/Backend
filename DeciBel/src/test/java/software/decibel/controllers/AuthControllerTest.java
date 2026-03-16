@@ -14,6 +14,7 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import software.decibel.dtos.auth.DeviceInfo;
 import software.decibel.dtos.auth.LoginLocalRequest;
 import software.decibel.dtos.auth.LoginLocalResponse;
+import software.decibel.dtos.auth.RefreshTokenResponse;
 import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.auth.RegisterLocalRequest;
 import software.decibel.dtos.auth.VerifyEmailRequest;
@@ -120,6 +121,24 @@ class AuthControllerTest {
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(authService);
+    }
+
+    @Test
+    void refreshToken_whenCookieIsPresent_returnsNewAccessToken() throws Exception {
+        RefreshTokenResponse response = new RefreshTokenResponse("new-access-token", 1800L);
+        when(authService.refreshToken("valid-refresh-token")).thenReturn(response);
+
+        mockMvc.perform(post("/auth/refreshtoken")
+                        .cookie(new jakarta.servlet.http.Cookie("refreshToken", "valid-refresh-token")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").value("new-access-token"))
+                .andExpect(jsonPath("$.expiresIn").value(1800));
+    }
+
+    @Test
+    void refreshToken_whenCookieIsMissing_returnsBadRequest() throws Exception {
+        mockMvc.perform(post("/auth/refreshtoken"))
+                .andExpect(status().isBadRequest());
     }
 
     private RegisterLocalRequest registerRequest() {

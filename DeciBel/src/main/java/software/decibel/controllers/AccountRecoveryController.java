@@ -6,10 +6,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import software.decibel.dtos.ForgotPasswordRequest;
-import software.decibel.dtos.ForgotPasswordResponse;
-import software.decibel.dtos.ResetPasswordRequest;
-import software.decibel.dtos.ResetPasswordResponse;
+import software.decibel.dtos.auth.ForgotPasswordRequest;
+import software.decibel.dtos.auth.ForgotPasswordResponse;
+import software.decibel.dtos.auth.ResetPasswordRequest;
+import software.decibel.dtos.auth.ResetPasswordResponse;
 import software.decibel.services.AccountRecoveryService;
 
 //Controller for handling account recovery operations, such as forgot password and reset password.

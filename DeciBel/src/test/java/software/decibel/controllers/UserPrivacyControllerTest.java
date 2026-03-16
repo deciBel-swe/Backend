@@ -25,8 +25,8 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import software.decibel.dtos.PrivacyUpdateRequest;
-import software.decibel.dtos.PrivacyUpdateResponse;
+import software.decibel.dtos.auth.PrivacyUpdateRequest;
+import software.decibel.dtos.auth.PrivacyUpdateResponse;
 import software.decibel.services.UserPrivacyService;
 
 @ExtendWith(MockitoExtension.class)

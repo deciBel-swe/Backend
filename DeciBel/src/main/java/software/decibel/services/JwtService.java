@@ -19,6 +19,7 @@ import software.decibel.entities.User;
 public class JwtService {
 
   public static final long ACCESS_TOKEN_EXPIRES_IN_SECONDS = 30L * 60L;
+  public static final long REFRESH_TOKEN_EXPIRES_IN_SECONDS = 30L * 24L * 60L * 60L;
 
   private final String activeProfile;
   private SecretKey jwtSigningKey;
@@ -64,11 +65,22 @@ public class JwtService {
    * frontend session management and authorization.
    */
   public String buildAccessToken(User user, String email) {
+    return buildToken(user, email, ACCESS_TOKEN_EXPIRES_IN_SECONDS);
+  }
+
+  /**
+   * Builds a long-lived JWT refresh token used for session renewal.
+   */
+  public String buildRefreshToken(User user, String email) {
+    return buildToken(user, email, REFRESH_TOKEN_EXPIRES_IN_SECONDS);
+  }
+
+  private String buildToken(User user, String email, long expiresInSeconds) {
     Date issuedAt = new Date();
     Date expiresAt =
         Date.from(
             LocalDateTime.now()
-                .plusSeconds(ACCESS_TOKEN_EXPIRES_IN_SECONDS)
+                .plusSeconds(expiresInSeconds)
                 .toInstant(ZoneOffset.UTC));
 
     return Jwts.builder()

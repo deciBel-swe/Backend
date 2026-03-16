@@ -10,6 +10,7 @@ import software.decibel.dtos.auth.LoginLocalRequest;
 import software.decibel.dtos.auth.LoginLocalResponse;
 import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.auth.RegisterLocalRequest;
+import software.decibel.dtos.auth.RefreshTokenResponse;
 import software.decibel.dtos.auth.VerifyEmailRequest;
 import software.decibel.entities.AuthIdentity;
 import software.decibel.entities.Token;
@@ -131,6 +132,22 @@ public class AuthService {
         // The current API contract for /auth/verify-email accepts only the token,
         // but this flow still issues a refresh token after successful verification.
         return issueRefreshToken(user);
+    }
+
+    @Transactional
+    public RefreshTokenResponse refreshToken(String rawRefreshToken) {
+        Token token = tokenService.findValidUnusedToken(
+                rawRefreshToken,
+                TokenType.REFRESH_TOKEN,
+                "Invalid refresh token");
+
+        User user = token.getUser();
+        AuthIdentity identity = authIdentityRepository.findByUserAndProviderAndType(user, AuthProvider.LOCAL, AuthType.PASSWORD)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User identity not found"));
+
+        String newAccessToken = jwtService.buildAccessToken(user, identity.getEmail());
+
+        return new RefreshTokenResponse(newAccessToken, JwtService.ACCESS_TOKEN_EXPIRES_IN_SECONDS);
     }
 
     private AuthLoginResult issueLoginTokens(AuthIdentity identity, DeviceInfo deviceInfo) {

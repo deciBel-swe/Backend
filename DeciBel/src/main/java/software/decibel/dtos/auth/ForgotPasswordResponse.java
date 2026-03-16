@@ -1,4 +1,4 @@
-package software.decibel.dtos;
+package software.decibel.dtos.auth;
 
 
 // Data Transfer Object for forgot password responses.

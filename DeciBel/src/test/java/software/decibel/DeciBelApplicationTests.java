@@ -1,7 +1,7 @@
 package software.decibel;
 
-import software.decibel.dtos.PrivacyUpdateRequest;
-import software.decibel.dtos.PrivacyUpdateResponse;
+import software.decibel.dtos.auth.PrivacyUpdateRequest;
+import software.decibel.dtos.auth.PrivacyUpdateResponse;
 import software.decibel.dtos.user.ChangeEmailRequest;
 import software.decibel.dtos.user.VerifyEmailChangeRequest;
 import software.decibel.entities.PendingEmailChange;
