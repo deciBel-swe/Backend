@@ -124,13 +124,16 @@ class AuthControllerTest {
     }
 
     @Test
-    void refreshToken_whenCookieIsPresent_returnsNewAccessToken() throws Exception {
-        RefreshTokenResponse response = new RefreshTokenResponse("new-access-token", 1800L);
-        when(authService.refreshToken("valid-refresh-token")).thenReturn(response);
+    void refreshToken_whenCookieIsPresent_returnsNewAccessTokenAndNewCookie() throws Exception {
+        RefreshTokenResponse body = new RefreshTokenResponse("new-access-token", 1800L);
+        AuthService.AuthTokenRotationResult result = new AuthService.AuthTokenRotationResult(body, "new-refresh-token", 2592000L);
+        when(authService.refreshToken("valid-refresh-token")).thenReturn(result);
 
         mockMvc.perform(post("/auth/refreshtoken")
                         .cookie(new jakarta.servlet.http.Cookie("refreshToken", "valid-refresh-token")))
                 .andExpect(status().isOk())
+                .andExpect(cookie().value("refreshToken", "new-refresh-token"))
+                .andExpect(cookie().httpOnly("refreshToken", true))
                 .andExpect(jsonPath("$.accessToken").value("new-access-token"))
                 .andExpect(jsonPath("$.expiresIn").value(1800));
     }

@@ -135,19 +135,31 @@ public class AuthService {
     }
 
     @Transactional
-    public RefreshTokenResponse refreshToken(String rawRefreshToken) {
-        Token token = tokenService.findValidUnusedToken(
+    public AuthTokenRotationResult refreshToken(String rawRefreshToken) {
+        Token oldToken = tokenService.findValidUnusedToken(
                 rawRefreshToken,
                 TokenType.REFRESH_TOKEN,
                 "Invalid refresh token");
 
-        User user = token.getUser();
+        User user = oldToken.getUser();
         AuthIdentity identity = authIdentityRepository.findByUserAndProviderAndType(user, AuthProvider.LOCAL, AuthType.PASSWORD)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User identity not found"));
 
+        // 1- Mark old token as used (Rotation)
+        tokenService.markTokenUsed(oldToken);
+
+        // 2- Issue NEW Refresh Token
+        AuthRefreshTokenResult newRefreshTokenResult = issueRefreshToken(user);
+
+        // 3- Issue NEW Access Token
         String newAccessToken = jwtService.buildAccessToken(user, identity.getEmail());
 
-        return new RefreshTokenResponse(newAccessToken, JwtService.ACCESS_TOKEN_EXPIRES_IN_SECONDS);
+        RefreshTokenResponse response = new RefreshTokenResponse(newAccessToken, JwtService.ACCESS_TOKEN_EXPIRES_IN_SECONDS);
+
+        return new AuthTokenRotationResult(
+                response,
+                newRefreshTokenResult.refreshToken(),
+                newRefreshTokenResult.refreshTokenExpiresIn());
     }
 
     private AuthLoginResult issueLoginTokens(AuthIdentity identity, DeviceInfo deviceInfo) {
@@ -202,6 +214,12 @@ public class AuthService {
     }
 
     public record AuthRefreshTokenResult(
+            String refreshToken,
+            long refreshTokenExpiresIn) {
+    }
+
+    public record AuthTokenRotationResult(
+            RefreshTokenResponse response,
             String refreshToken,
             long refreshTokenExpiresIn) {
     }

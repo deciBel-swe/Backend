@@ -58,8 +58,11 @@ public class AuthController {
 
     @PostMapping("/refreshtoken")
     public ResponseEntity<RefreshTokenResponse> refreshToken(@CookieValue(name = "refreshToken") String refreshToken) {
-        RefreshTokenResponse response = authService.refreshToken(refreshToken);
-        return ResponseEntity.ok(response);
+        AuthService.AuthTokenRotationResult result = authService.refreshToken(refreshToken);
+        ResponseCookie refreshCookie = buildRefreshCookie(result.refreshToken(), result.refreshTokenExpiresIn());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
+                .body(result.response());
     }
 
     private ResponseCookie buildRefreshCookie(String refreshToken, long maxAgeSeconds) {
