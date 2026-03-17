@@ -38,13 +38,8 @@ public class TrackService {
   public void deleteTrack(Long trackId) {
     Track track = getTrackById(trackId);
 
-    if (track.getTrackUrl() != null) {
-      fileUtilityAzure.deleteFileByUrl(track.getTrackUrl());
-    }
-
-    if (track.getCoverUrl() != null) {
-      fileUtilityAzure.deleteFileByUrl(track.getCoverUrl());
-    }
+    deleteTrackCover(trackId);
+    deleteTrackAudio(trackId);
     // TODO: DELETE WAVEFORM FILE IN AZURE AFTER IMPLEMENTING WAVEFORM_URL
 
     trackRepository.delete(track);
@@ -124,5 +119,27 @@ public class TrackService {
         .findById(trackId)
         .orElseThrow(
             () -> new ResourceNotFoundException("Track with id " + trackId + " not found"));
+  }
+
+  // Deletes track cover from azure & sets coverUrl = null
+  public void deleteTrackCover(Long trackId) {
+    Track track = getTrackById(trackId);
+
+    if (track.getCoverUrl() != null) {
+      fileUtilityAzure.deleteFileByUrl(track.getCoverUrl());
+      track.setCoverUrl(null);
+      trackRepository.save(track);
+    }
+  }
+
+  // Deletes track audio from azure & sets trackUrl = null
+
+  public void deleteTrackAudio(Long trackId) {
+    Track track = getTrackById(trackId);
+    if (track.getTrackUrl() != null) {
+      fileUtilityAzure.deleteFileByUrl(track.getTrackUrl());
+      track.setTrackUrl(null);
+      trackRepository.save(track);
+    }
   }
 }
