@@ -3,13 +3,14 @@ package software.decibel.utils;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
+import com.azure.storage.blob.models.BlobStorageException;
 import java.io.IOException;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 import software.decibel.enums.FileType;
-import software.decibel.exceptions.custom.FileStorageException;
+import software.decibel.exceptions.custom.AzureFileStorageException;
 
 // Utility class to save files using microsoft azure
 // further info:
@@ -53,7 +54,21 @@ public class FileUtilityAzure {
       return blobContainerClient.getBlobContainerUrl() + "/" + fileName;
 
     } catch (IOException e) {
-      throw new FileStorageException(e);
+      throw new AzureFileStorageException(
+          "Could not save '" + file.getOriginalFilename() + "' from Microsoft Azure", e);
+    }
+  }
+
+  // Deletes file @ azure using url
+  public void deleteFileByUrl(String url) {
+    String fileName = url.replace(blobContainerClient.getBlobContainerUrl() + "/", "");
+
+    try {
+      blobContainerClient.getBlobClient(fileName).delete();
+
+    } catch (BlobStorageException ex) {
+      throw new AzureFileStorageException(
+          "Could not delete '" + fileName + "' from Microsoft Azure", ex);
     }
   }
 }

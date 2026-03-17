@@ -10,8 +10,8 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 import software.decibel.exceptions.custom.AudioDurationReadingException;
+import software.decibel.exceptions.custom.AzureFileStorageException;
 import software.decibel.exceptions.custom.DuplicateResourceException;
-import software.decibel.exceptions.custom.FileStorageException;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.exceptions.response.ApiErrorResponse;
 
@@ -99,6 +99,8 @@ public class GlobalExceptionHandler {
 
   // ── 400 — Business Rule Violations
 
+  // -- 500 --internal service error
+
   @ExceptionHandler(AudioDurationReadingException.class)
   public ResponseEntity<ApiErrorResponse> handleAudioDurationReadingException(
       AudioDurationReadingException ex, HttpServletRequest request) {
@@ -106,32 +108,35 @@ public class GlobalExceptionHandler {
     ApiErrorResponse error =
         ApiErrorResponse.builder()
             .timestamp(LocalDateTime.now())
-            .status(HttpStatus.BAD_REQUEST.value())
-            .error("Business Rule Violation")
+            .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+            .error("File Reading Error")
             .message(ex.getMessage())
             .path(request.getRequestURI())
             .build();
 
-    return ResponseEntity.badRequest().body(error);
+    return ResponseEntity.internalServerError().body(error);
   }
 
-  @ExceptionHandler(FileStorageException.class)
-  public ResponseEntity<ApiErrorResponse> handleFileStorageException(
-      FileStorageException ex, HttpServletRequest request) {
+  // -- 503 -- Service Unavailable Violations
+
+  // For Azure Microsoft related errors
+
+  @ExceptionHandler(AzureFileStorageException.class)
+  public ResponseEntity<ApiErrorResponse> handleAzureFileStorageException(
+      AzureFileStorageException ex, HttpServletRequest request) {
 
     ApiErrorResponse error =
         ApiErrorResponse.builder()
             .timestamp(LocalDateTime.now())
-            .status(HttpStatus.BAD_REQUEST.value())
-            .error("Business Rule Violation")
+            .status(HttpStatus.SERVICE_UNAVAILABLE.value())
+            .error("File Storage Error")
             .message(ex.getMessage())
             .path(request.getRequestURI())
             .build();
 
-    return ResponseEntity.badRequest().body(error);
-  }
+    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(error);
+  } // ── 500 — Catch All Safety Net
 
-  // ── 500 — Catch All Safety Net
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ApiErrorResponse> handleGenericException(
       Exception ex, HttpServletRequest request) {

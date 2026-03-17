@@ -26,6 +26,13 @@ public class TrackController {
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 
+  // For deleting track
+  @DeleteMapping("/{trackId}")
+  public ResponseEntity<Void> deleteTrack(@PathVariable Long trackId) {
+    trackService.deleteTrack(trackId);
+    return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+  }
+
   // For returning track's status
   @GetMapping("/{trackId}/status")
   public ResponseEntity<TrackStatusResponse> getTrackStatus(@PathVariable Long trackId) {

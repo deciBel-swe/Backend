@@ -32,13 +32,22 @@ public class TrackService {
   // Returns track's status
   public TrackStatusResponse getTrackStatus(Long trackId) {
 
-    Track track =
-        trackRepository
-            .findById(trackId)
-            .orElseThrow(
-                () -> new ResourceNotFoundException("Track with id " + trackId + " not found"));
+    return trackMapper.toTrackStatusResponse(getTrackById(trackId));
+  }
 
-    return trackMapper.toTrackStatusResponse(track);
+  public void deleteTrack(Long trackId) {
+    Track track = getTrackById(trackId);
+
+    if (track.getTrackUrl() != null) {
+      fileUtilityAzure.deleteFileByUrl(track.getTrackUrl());
+    }
+
+    if (track.getCoverUrl() != null) {
+      fileUtilityAzure.deleteFileByUrl(track.getCoverUrl());
+    }
+    // TODO: DELETE WAVEFORM FILE IN AZURE AFTER IMPLEMENTING WAVEFORM_URL
+
+    trackRepository.delete(track);
   }
 
   // Takes track upload request and saves track
@@ -93,6 +102,7 @@ public class TrackService {
     }
   }
 
+  // ------------- TRACK SERVICE HELPER FUNCTIONS ---------------------
   // Function to save track entity & set state = uploading
   @Transactional
   public Track createUploadingTrack(Track track) {
@@ -106,5 +116,13 @@ public class TrackService {
 
     t.setTrackState(state);
     trackRepository.save(t);
+  }
+
+  // Returns track entity by id and throws exception if not found
+  public Track getTrackById(Long trackId) {
+    return trackRepository
+        .findById(trackId)
+        .orElseThrow(
+            () -> new ResourceNotFoundException("Track with id " + trackId + " not found"));
   }
 }
