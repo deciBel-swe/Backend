@@ -12,6 +12,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import software.decibel.dtos.auth.DeviceInfo;
+import software.decibel.dtos.auth.GoogleOauthRequest;
 import software.decibel.dtos.auth.LoginLocalRequest;
 import software.decibel.dtos.auth.LoginLocalResponse;
 import software.decibel.dtos.auth.MessageResponse;
@@ -122,6 +123,36 @@ class AuthControllerTest {
         verifyNoInteractions(authService);
     }
 
+    @Test
+    void exchangeGoogleOauthToken_whenRequestIsValid_returnsBodyAndRefreshCookie() throws Exception {
+        LoginLocalResponse response = new LoginLocalResponse(
+                "google-access-token",
+                1800L,
+                new LoginLocalResponse.UserInfo(3L, "google-user", AccountTier.LISTENER, "/users/google-user", "avatar.png"));
+        when(authService.loginWithGoogle(any(GoogleOauthRequest.class)))
+                .thenReturn(new AuthService.AuthLoginResult(response, "google-refresh-token", 2592000L));
+
+        mockMvc.perform(post("/auth/oauth/google")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(googleOauthRequest())))
+                .andExpect(status().isOk())
+                .andExpect(cookie().value("refreshToken", "google-refresh-token"))
+                .andExpect(cookie().httpOnly("refreshToken", true))
+                .andExpect(jsonPath("$.accessToken").value("google-access-token"))
+                .andExpect(jsonPath("$.user.id").value(3))
+                .andExpect(jsonPath("$.user.username").value("google-user"));
+    }
+
+    @Test
+    void exchangeGoogleOauthToken_whenBodyIsInvalid_returnsBadRequest() throws Exception {
+        mockMvc.perform(post("/auth/oauth/google")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"authTokenDto\":\"\",\"deviceInfo\":null}"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(authService);
+    }
+
     private RegisterLocalRequest registerRequest() {
         return new RegisterLocalRequest(
                 "new@example.com",
@@ -140,5 +171,11 @@ class AuthControllerTest {
                 "verified@example.com",
                 "Password123",
                 new DeviceInfo(DeviceType.MOBILE, "fingerprint-2", "Phone"));
+    }
+
+    private GoogleOauthRequest googleOauthRequest() {
+        return new GoogleOauthRequest(
+                "google-id-token",
+                new DeviceInfo(DeviceType.DESKTOP, "fingerprint-3", "Chrome on Windows"));
     }
 }

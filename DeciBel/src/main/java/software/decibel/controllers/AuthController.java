@@ -5,7 +5,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -13,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import software.decibel.dtos.auth.LoginLocalRequest;
 import software.decibel.dtos.auth.LoginLocalResponse;
 import software.decibel.dtos.auth.MessageResponse;
+import software.decibel.dtos.auth.GoogleOauthRequest;
 import software.decibel.dtos.auth.RegisterLocalRequest;
 import software.decibel.dtos.auth.VerifyEmailRequest;
 import software.decibel.services.AuthService;
@@ -55,18 +55,14 @@ public class AuthController {
                 .body(new MessageResponse("Email verified"));
     }
 
-    @GetMapping("/oauth2/authorization/google")
-    public ResponseEntity<Void> triggerGoogleLogin() {
-        // Placeholder endpoint definition for the Google OAuth entry point.
-        // The final implementation should be handled by Spring Security OAuth2 client configuration.
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
-    }
-
-    @GetMapping("/login/oauth2/code/google")
-    public ResponseEntity<Void> googleCallback() {
-        // Placeholder endpoint definition for the Google OAuth callback.
-        // The final implementation should exchange the Google callback through Spring Security and then run the success handler.
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+    @PostMapping("/oauth/google")
+    public ResponseEntity<LoginLocalResponse> exchangeGoogleOauthToken(
+            @Valid @RequestBody GoogleOauthRequest request) {
+        AuthService.AuthLoginResult result = authService.loginWithGoogle(request);
+        ResponseCookie refreshCookie = buildRefreshCookie(result.refreshToken(), result.refreshTokenExpiresIn());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
+                .body(result.response());
     }
 
     private ResponseCookie buildRefreshCookie(String refreshToken, long maxAgeSeconds) {

@@ -16,6 +16,8 @@ public interface AuthIdentityRepository extends JpaRepository<AuthIdentity, Long
      */
     Optional<AuthIdentity> findByEmailIgnoreCaseAndProviderAndType(String email, AuthProvider provider, AuthType type);
 
+    Optional<AuthIdentity> findByProviderUserIdAndProviderAndType(String providerUserId, AuthProvider provider, AuthType type);
+
     /**
      * Checks whether an identity already exists for the supplied email/provider/type tuple.
      */

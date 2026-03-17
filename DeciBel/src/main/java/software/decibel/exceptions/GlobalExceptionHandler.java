@@ -11,7 +11,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 import software.decibel.exceptions.custom.AudioDurationReadingException;
 import software.decibel.exceptions.custom.DuplicateResourceException;
+import software.decibel.exceptions.custom.ExternalAuthConfigurationException;
 import software.decibel.exceptions.custom.FileStorageException;
+import software.decibel.exceptions.custom.InvalidGoogleTokenException;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.exceptions.response.ApiErrorResponse;
 
@@ -131,6 +133,36 @@ public class GlobalExceptionHandler {
     return ResponseEntity.badRequest().body(error);
   }
 
+  @ExceptionHandler(ExternalAuthConfigurationException.class)
+  public ResponseEntity<ApiErrorResponse> handleExternalAuthConfigurationException(
+      ExternalAuthConfigurationException ex, HttpServletRequest request) {
+
+    ApiErrorResponse error =
+        ApiErrorResponse.builder()
+            .timestamp(LocalDateTime.now())
+            .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+            .error("External Authentication Configuration Error")
+            .message(ex.getMessage())
+            .path(request.getRequestURI())
+            .build();
+
+    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+  }
+  @ExceptionHandler(InvalidGoogleTokenException.class)
+  public ResponseEntity<ApiErrorResponse> handleInvalidGoogleTokenException(
+      InvalidGoogleTokenException ex, HttpServletRequest request) {
+
+    ApiErrorResponse error =
+        ApiErrorResponse.builder()
+            .timestamp(LocalDateTime.now())
+            .status(HttpStatus.UNAUTHORIZED.value())
+            .error("Unauthorized")
+            .message(ex.getMessage())
+            .path(request.getRequestURI())
+            .build();
+
+    return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+  }
   // ── 500 — Catch All Safety Net
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ApiErrorResponse> handleGenericException(
@@ -151,3 +183,5 @@ public class GlobalExceptionHandler {
     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
   }
 }
+
+

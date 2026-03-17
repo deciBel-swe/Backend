@@ -2,7 +2,6 @@ package software.decibel.services;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -10,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
 import software.decibel.dtos.auth.DeviceInfo;
+import software.decibel.dtos.auth.GoogleOauthRequest;
 import software.decibel.dtos.auth.LoginLocalRequest;
 import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.auth.RegisterLocalRequest;
@@ -21,12 +21,11 @@ import software.decibel.enums.AccountTier;
 import software.decibel.enums.AuthProvider;
 import software.decibel.enums.AuthType;
 import software.decibel.enums.DeviceType;
-import software.decibel.enums.TokenType;
+import software.decibel.exceptions.custom.InvalidGoogleTokenException;
 import software.decibel.repositories.AuthIdentityRepository;
 import software.decibel.repositories.UserRepository;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -44,6 +43,7 @@ class AuthServiceTest {
     @Mock private EmailService emailService;
     @Mock private FrontendLinkService frontendLinkService;
     @Mock private JwtService jwtService;
+    @Mock private GoogleTokenVerificationService googleTokenVerificationService;
 
     @InjectMocks
     private AuthService authService;
@@ -138,6 +138,108 @@ class AuthServiceTest {
         verify(userRepository, never()).save(any(User.class));
         verify(tokenService).markTokenUsed(verificationToken);
         verify(sessionService, never()).createSession(any(), any(), any());
+    }
+
+    @Test
+    void loginWithGoogle_whenIdentityExists_returnsTokensAndCreatesSession() {
+        GoogleOauthRequest request = new GoogleOauthRequest(
+                "google-token",
+                new DeviceInfo(DeviceType.DESKTOP, "fp-google", "Chrome"));
+        User user = User.builder().id(11L).username("google-user").tier(AccountTier.LISTENER).build();
+        AuthIdentity identity = AuthIdentity.builder()
+                .user(user)
+                .email("google@example.com")
+                .providerUserId("google-subject")
+                .emailVerified(true)
+                .provider(AuthProvider.GOOGLE)
+                .type(AuthType.OAUTH)
+                .build();
+        Token refreshToken = Token.builder().hash("hash").build();
+
+        when(googleTokenVerificationService.verifyIdToken("google-token"))
+                .thenReturn(new GoogleTokenVerificationService.VerifiedGoogleToken(
+                        "google-subject", "google@example.com", true, "Google User", "avatar.png"));
+        when(authIdentityRepository.findByProviderUserIdAndProviderAndType(
+                "google-subject", AuthProvider.GOOGLE, AuthType.OAUTH))
+                .thenReturn(Optional.of(identity));
+        when(jwtService.buildAccessToken(user, identity.getEmail())).thenReturn("google-access-token");
+        when(tokenService.createRefreshToken(user))
+                .thenReturn(new TokenService.IssuedToken("google-refresh-token", refreshToken));
+
+        AuthService.AuthLoginResult result = authService.loginWithGoogle(request);
+
+        assertEquals("google-access-token", result.response().accessToken());
+        assertEquals("google-refresh-token", result.refreshToken());
+        verify(sessionService).createSession(user, refreshToken, request.deviceInfo());
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void loginWithGoogle_whenIdentityIsNew_registersUserAndIdentity() {
+        GoogleOauthRequest request = new GoogleOauthRequest(
+                "google-token",
+                new DeviceInfo(DeviceType.MOBILE, "fp-google-new", "Pixel"));
+        Token refreshToken = Token.builder().hash("hash").build();
+        User savedUser = User.builder().id(15L).username("googleuser_345678").tier(AccountTier.LISTENER).build();
+
+        when(googleTokenVerificationService.verifyIdToken("google-token"))
+                .thenReturn(new GoogleTokenVerificationService.VerifiedGoogleToken(
+                        "123456789012345678", "new-google@example.com", true, "Google User", "avatar.png"));
+        when(authIdentityRepository.findByProviderUserIdAndProviderAndType(
+                "123456789012345678", AuthProvider.GOOGLE, AuthType.OAUTH))
+                .thenReturn(Optional.empty());
+        when(authIdentityRepository.existsByEmailIgnoreCase("new-google@example.com")).thenReturn(false);
+        when(userRepository.findByUsername("googleuser_345678")).thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class))).thenReturn(savedUser);
+        when(authIdentityRepository.save(any(AuthIdentity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(jwtService.buildAccessToken(savedUser, "new-google@example.com")).thenReturn("google-access-token");
+        when(tokenService.createRefreshToken(savedUser))
+                .thenReturn(new TokenService.IssuedToken("google-refresh-token", refreshToken));
+
+        AuthService.AuthLoginResult result = authService.loginWithGoogle(request);
+
+        assertEquals("google-access-token", result.response().accessToken());
+        assertEquals("/users/" + savedUser.getUsername(), result.response().user().profileUrl());
+        verify(userRepository).save(any(User.class));
+        verify(authIdentityRepository).save(any(AuthIdentity.class));
+        verify(sessionService).createSession(savedUser, refreshToken, request.deviceInfo());
+    }
+
+    @Test
+    void loginWithGoogle_whenEmailAlreadyExists_throwsConflict() {
+        GoogleOauthRequest request = new GoogleOauthRequest(
+                "google-token",
+                new DeviceInfo(DeviceType.DESKTOP, "fp-google", "Chrome"));
+
+        when(googleTokenVerificationService.verifyIdToken("google-token"))
+                .thenReturn(new GoogleTokenVerificationService.VerifiedGoogleToken(
+                        "google-subject", "existing@example.com", true, "Google User", "avatar.png"));
+        when(authIdentityRepository.findByProviderUserIdAndProviderAndType(
+                "google-subject", AuthProvider.GOOGLE, AuthType.OAUTH))
+                .thenReturn(Optional.empty());
+        when(authIdentityRepository.existsByEmailIgnoreCase("existing@example.com")).thenReturn(true);
+
+        ResponseStatusException exception =
+                assertThrows(ResponseStatusException.class, () -> authService.loginWithGoogle(request));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void loginWithGoogle_whenTokenIsInvalid_propagatesUnauthorizedError() {
+        GoogleOauthRequest request = new GoogleOauthRequest(
+                "bad-google-token",
+                new DeviceInfo(DeviceType.DESKTOP, "fp-google", "Chrome"));
+
+        when(googleTokenVerificationService.verifyIdToken("bad-google-token"))
+                .thenThrow(new InvalidGoogleTokenException("Invalid Google token."));
+
+        InvalidGoogleTokenException exception =
+                assertThrows(InvalidGoogleTokenException.class, () -> authService.loginWithGoogle(request));
+
+        assertEquals("Invalid Google token.", exception.getMessage());
+        verifyNoInteractions(userRepository, authIdentityRepository, tokenService, sessionService);
     }
 
     // Helper methods

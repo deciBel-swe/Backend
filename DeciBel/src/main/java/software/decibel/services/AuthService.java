@@ -1,11 +1,13 @@
 package software.decibel.services;
 
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import software.decibel.dtos.auth.DeviceInfo;
+import software.decibel.dtos.auth.GoogleOauthRequest;
 import software.decibel.dtos.auth.LoginLocalRequest;
 import software.decibel.dtos.auth.LoginLocalResponse;
 import software.decibel.dtos.auth.MessageResponse;
@@ -20,8 +22,6 @@ import software.decibel.enums.TokenType;
 import software.decibel.repositories.AuthIdentityRepository;
 import software.decibel.repositories.UserRepository;
 
-import java.util.Optional;
-
 @Service
 public class AuthService {
     /**
@@ -31,12 +31,13 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final AuthIdentityRepository authIdentityRepository;
-    private final PasswordEncoder passwordEncoder;     
-    private final TokenService tokenService;          
+    private final PasswordEncoder passwordEncoder;
+    private final TokenService tokenService;
     private final SessionService sessionService;
-    private final EmailService emailService;           
-    private final FrontendLinkService frontendLinkService; 
-    private final JwtService jwtService;               
+    private final EmailService emailService;
+    private final FrontendLinkService frontendLinkService;
+    private final JwtService jwtService;
+    private final GoogleTokenVerificationService googleTokenVerificationService;
 
     public AuthService(
             UserRepository userRepository,
@@ -46,7 +47,8 @@ public class AuthService {
             SessionService sessionService,
             EmailService emailService,
             FrontendLinkService frontendLinkService,
-            JwtService jwtService) {
+            JwtService jwtService,
+            GoogleTokenVerificationService googleTokenVerificationService) {
         this.userRepository = userRepository;
         this.authIdentityRepository = authIdentityRepository;
         this.passwordEncoder = passwordEncoder;
@@ -55,6 +57,7 @@ public class AuthService {
         this.emailService = emailService;
         this.frontendLinkService = frontendLinkService;
         this.jwtService = jwtService;
+        this.googleTokenVerificationService = googleTokenVerificationService;
     }
 
     @Transactional
@@ -86,11 +89,11 @@ public class AuthService {
                 .build();
         authIdentityRepository.save(authIdentity);
 
-        // CREATE REAL TOKEN & SEND REAL EMAIL 
+        // CREATE REAL TOKEN & SEND REAL EMAIL
         TokenService.IssuedToken verificationToken = tokenService.createEmailVerificationToken(savedUser);
         String verificationLink = frontendLinkService.buildEmailVerificationLink(verificationToken.rawToken());
         emailService.sendEmailVerificationEmail(request.email(), verificationLink);
-        
+
         return new MessageResponse("User Generated successfully");
     }
 
@@ -133,6 +136,19 @@ public class AuthService {
         return issueRefreshToken(user);
     }
 
+    @Transactional
+    public AuthLoginResult loginWithGoogle(GoogleOauthRequest request) {
+        GoogleTokenVerificationService.VerifiedGoogleToken verifiedToken = googleTokenVerificationService
+                .verifyIdToken(request.authTokenDto());
+
+        AuthIdentity identity = authIdentityRepository
+                .findByProviderUserIdAndProviderAndType(
+                        verifiedToken.subject(), AuthProvider.GOOGLE, AuthType.OAUTH)
+                .orElseGet(() -> registerGoogleIdentity(verifiedToken));
+
+        return issueLoginTokens(identity, request.deviceInfo());
+    }
+
     private AuthLoginResult issueLoginTokens(AuthIdentity identity, DeviceInfo deviceInfo) {
         User user = identity.getUser();
         // JwtService (feat) to ensure Artist/Listener roles are in the token
@@ -163,6 +179,101 @@ public class AuthService {
     private AuthRefreshTokenResult issueRefreshToken(User user) {
         TokenService.IssuedToken issuedToken = tokenService.createRefreshToken(user);
         return new AuthRefreshTokenResult(issuedToken.rawToken(), REFRESH_TOKEN_EXPIRES_IN_SECONDS);
+    }
+
+    private AuthIdentity registerGoogleIdentity(
+            GoogleTokenVerificationService.VerifiedGoogleToken verifiedToken) {
+        if (authIdentityRepository.existsByEmailIgnoreCase(verifiedToken.email())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "An account with this email already exists and is not linked to Google.");
+        }
+
+        User savedUser = userRepository.save(User.builder()
+                .username(generateUniqueUsername(verifiedToken))
+                .displayName(resolveDisplayName(verifiedToken))
+                .avatarUrl(verifiedToken.picture())
+                .build());
+
+        AuthIdentity googleIdentity = AuthIdentity.builder()
+                .user(savedUser)
+                .email(verifiedToken.email())
+                .providerUserId(verifiedToken.subject())
+                .emailVerified(verifiedToken.emailVerified())
+                .provider(AuthProvider.GOOGLE)
+                .type(AuthType.OAUTH)
+                .build();
+
+        return authIdentityRepository.save(googleIdentity);
+    }
+
+    private String generateUniqueUsername(
+            GoogleTokenVerificationService.VerifiedGoogleToken verifiedToken) {
+        String baseUsername = sanitizeUsername(resolveBaseUsername(verifiedToken));
+        if (baseUsername.isBlank()) {
+            baseUsername = "user";
+        }
+
+        String candidate = buildGoogleUsernameCandidate(baseUsername, verifiedToken.subject());
+        if (userRepository.findByUsername(candidate).isEmpty()) {
+            return candidate;
+        }
+        // TODO: could be optimized more...
+        for (int attempt = 0; attempt < 5; attempt++) {
+            String fallbackCandidate = buildGoogleUsernameCandidate(
+                    baseUsername,
+                    verifiedToken.subject() + randomUsernameSuffix());
+            if (userRepository.findByUsername(fallbackCandidate).isEmpty()) {
+                return fallbackCandidate;
+            }
+        }
+
+        throw new ResponseStatusException(
+                HttpStatus.CONFLICT,
+                "Unable to generate a unique username for the Google account.");
+    }
+
+    private String resolveBaseUsername(
+            GoogleTokenVerificationService.VerifiedGoogleToken verifiedToken) {
+        if (verifiedToken.name() != null && !verifiedToken.name().isBlank()) {
+            return verifiedToken.name();
+        }
+
+        int emailSeparatorIndex = verifiedToken.email().indexOf('@');
+        if (emailSeparatorIndex > 0) {
+            return verifiedToken.email().substring(0, emailSeparatorIndex);
+        }
+
+        return verifiedToken.subject();
+    }
+
+    private String sanitizeUsername(String rawValue) {
+        return rawValue.toLowerCase()
+                .replaceAll("[^a-z0-9._]", "")
+                .trim();
+    }
+
+    private String buildGoogleUsernameCandidate(String baseUsername, String googleSubject) {
+        String normalizedBase = baseUsername.length() > 20
+                ? baseUsername.substring(0, 20)
+                : baseUsername;
+        String subjectSuffix = googleSubject.length() > 6
+                ? googleSubject.substring(googleSubject.length() - 6)
+                : googleSubject;
+        return normalizedBase + "_" + subjectSuffix.toLowerCase();
+    }
+
+    private String randomUsernameSuffix() {
+        return UUID.randomUUID().toString().replace("-", "").substring(0, 6);
+    }
+
+    private String resolveDisplayName(
+            GoogleTokenVerificationService.VerifiedGoogleToken verifiedToken) {
+        if (verifiedToken.name() == null || verifiedToken.name().isBlank()) {
+            return null;
+        }
+
+        return verifiedToken.name().trim();
     }
 
     private String buildLocation(String city, String country) {
