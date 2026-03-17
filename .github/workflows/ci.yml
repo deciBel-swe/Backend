@@ -9,7 +9,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: deciBel-swe/backend
+  IMAGE_NAME: decibel-swe/backend
   JAVA_VERSION: '25'
 
 jobs:
