@@ -29,9 +29,7 @@ public class Track {
   @Column(nullable = false)
   private String title;
 
-  // TODO: Handle tags in future iteration
-
-  @ElementCollection private List<String> tags;
+ 
 
   @Column(nullable = false)
   private LocalDate releaseDate;
@@ -70,6 +68,14 @@ public class Track {
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "uploader_id", nullable = false)
   private User uploader;
+
+  // Many tracks can have many independent tags
+  @ManyToMany
+  @JoinTable(
+      name = "track_tags",
+      joinColumns = @JoinColumn(name = "track_id"),
+      inverseJoinColumns = @JoinColumn(name = "tag_id"))
+  private List<Tag> tags;
 
   @CreationTimestamp private LocalDateTime createdAt;
 

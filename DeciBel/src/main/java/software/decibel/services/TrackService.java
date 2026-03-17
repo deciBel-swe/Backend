@@ -24,10 +24,13 @@ public class TrackService {
 
   private final TrackRepository trackRepository;
   private final UserRepository userRepository;
+  
 
   private final FileUtilityAzure fileUtilityAzure;
   private final AudioUtility audioUtility;
   private final TrackMapper trackMapper;
+
+  private final TagService tagService;
 
   // Returns track's status
   public TrackStatusResponse getTrackStatus(Long trackId) {
