@@ -41,14 +41,14 @@ public class Track {
 
   private String description;
 
-  private int likesCount = 0;
-  private int repostsCount = 0;
-  private int playsCount = 0;
+  private int likeCount = 0;
+  private int repostCount = 0;
+  private int playCount = 0;
 
   private double playThroughRate = 0.0;
 
   @Enumerated(EnumType.STRING)
-  private TrackState trackState;
+  private TrackState state;
 
   // --- File & Storage Details ---
   private String trackUrl;

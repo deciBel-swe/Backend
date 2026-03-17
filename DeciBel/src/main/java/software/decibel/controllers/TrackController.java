@@ -4,9 +4,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
-import software.decibel.dtos.track.TrackStatusResponse;
-import software.decibel.dtos.track.TrackUploadRequest;
-import software.decibel.dtos.track.TrackUploadResponse;
+import software.decibel.dtos.track.*;
 import software.decibel.services.TrackService;
 
 @RestController
@@ -24,6 +22,15 @@ public class TrackController {
 
     TrackUploadResponse response = trackService.uploadTrack(request);
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
+  }
+
+  // For patching a track
+  // Endpoint accepts multipart form data (files)
+  @PatchMapping(value = "/{trackId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public ResponseEntity<TrackPatchResponse> updateTrack(
+      @PathVariable Long trackId, @Valid @ModelAttribute TrackPatchRequest request) {
+
+    return ResponseEntity.status((HttpStatus.OK)).body(trackService.updateTrack(trackId, request));
   }
 
   // For deleting track

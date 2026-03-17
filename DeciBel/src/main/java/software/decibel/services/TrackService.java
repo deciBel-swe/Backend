@@ -1,16 +1,18 @@
 package software.decibel.services;
 
 import jakarta.transaction.Transactional;
+import java.util.List;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import software.decibel.dtos.track.TrackStatusResponse;
-import software.decibel.dtos.track.TrackUploadRequest;
-import software.decibel.dtos.track.TrackUploadResponse;
+import software.decibel.dtos.track.*;
+import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
 import software.decibel.enums.FileType;
 import software.decibel.enums.TrackState;
+import software.decibel.enums.Visibility;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.TrackRepository;
@@ -104,7 +106,7 @@ public class TrackService {
   // Function to save track entity & set state = uploading
   @Transactional
   public Track createUploadingTrack(Track track) {
-    track.setTrackState(TrackState.UPLOADING);
+    track.setState(TrackState.UPLOADING);
     return trackRepository.save(track);
   }
 
@@ -112,7 +114,7 @@ public class TrackService {
   @Transactional
   public void updateTrackState(Track t, TrackState state) {
 
-    t.setTrackState(state);
+    t.setState(state);
     trackRepository.save(t);
   }
 
@@ -144,5 +146,36 @@ public class TrackService {
       track.setTrackUrl(null);
       trackRepository.save(track);
     }
+  }
+
+  // Adds tags to tracks (whether tags already exist or create ones) - tags will be title case
+  @Transactional
+  public Track addTrackTags(Track track, List<String> tagTitles) {
+    List<Tag> tags =
+        tagTitles.stream().map(tagService::getOrCreateTag).collect(Collectors.toList());
+
+    track.setTags(tags);
+    return trackRepository.save(track);
+  }
+
+  @Transactional
+  public TrackPatchResponse updateTrack(Long trackId, TrackPatchRequest request) {
+    Track track = getTrackById(trackId);
+
+    if (request.title() != null) track.setTitle(request.title());
+    if (request.genre() != null) track.setGenre(request.genre());
+    if (request.description() != null) track.setDescription(request.description());
+    if (request.releaseDate() != null) track.setReleaseDate(request.releaseDate());
+    if (request.isPrivate() != null)
+      track.setVisibility(request.isPrivate() ? Visibility.PRIVATE : Visibility.PUBLIC);
+
+    if (request.coverImage() != null && !request.coverImage().isEmpty()) {
+      deleteTrackCover(trackId);
+      String newCoverUrl = fileUtilityAzure.saveFile(request.coverImage(), FileType.TRACK_COVERS);
+      track.setCoverUrl(newCoverUrl);
+    }
+    if (request.tags() != null) addTrackTags(track, request.tags());
+
+    return trackMapper.toTrackPatchResponse(trackRepository.save(track));
   }
 }
