@@ -34,19 +34,6 @@ public class User {
     private Long id;
 
     @Column(nullable = false, unique = true)
-    private String email;
-
-    @Column(nullable = true) //null for Google accounts
-    private String passwordHash;
-
-    @Column(unique = true)
-    private String googleId; // For social identity login
-
-    @Column(nullable = false)
-    @Builder.Default
-    private boolean isEmailVerified = false;
-
-    @Column(nullable = false, unique = true)
     private String username;
 
     private String displayName;

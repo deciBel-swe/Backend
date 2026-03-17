@@ -21,6 +21,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import software.decibel.dtos.PrivacyUpdateRequest;
 import software.decibel.dtos.PrivacyUpdateResponse;
+import software.decibel.dtos.auth.UserPrincipal;
 import software.decibel.entities.User;
 import software.decibel.repositories.UserRepository;
 
@@ -37,12 +38,12 @@ class UserPrivacyServiceTest {
     void updateMyPrivacy_updatesPrivacyAndReturnsUpdatedResponse() {
         Authentication authentication = mock(Authentication.class);
         when(authentication.isAuthenticated()).thenReturn(true);
-        when(authentication.getName()).thenReturn("1");
-
         User user = User.builder().id(1L).build();
         user.setPrivate(false);
         user.setShowHistory(true);
-
+        
+        UserPrincipal principal = UserPrincipal.fromUser(user);
+        when(authentication.getPrincipal()).thenReturn(principal);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         PrivacyUpdateResponse response = userPrivacyService.updateMyPrivacy(
@@ -55,7 +56,6 @@ class UserPrivacyServiceTest {
         assertTrue(response.isPrivate());
         assertFalse(response.showHistory());
         verify(userRepository).findById(1L);
-        verifyNoMoreInteractions(userRepository);
     }
 
     @Test

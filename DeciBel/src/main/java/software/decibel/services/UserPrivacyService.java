@@ -8,6 +8,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import software.decibel.dtos.PrivacyUpdateRequest;
 import software.decibel.dtos.PrivacyUpdateResponse;
+import software.decibel.dtos.auth.UserPrincipal;
 import software.decibel.entities.User;
 import software.decibel.repositories.UserRepository;
 
@@ -22,6 +23,7 @@ public class UserPrivacyService {
 
     @Transactional
     public PrivacyUpdateResponse updateMyPrivacy(Authentication authentication, PrivacyUpdateRequest request) {
+        // Resolve the full User entity from the current security context
         User currentUser = resolveCurrentUser(authentication);
 
         currentUser.setPrivate(request.isPrivate());
@@ -31,15 +33,34 @@ public class UserPrivacyService {
     }
 
     private User resolveCurrentUser(Authentication authentication) {
-        // TODO: Add the authentication checks when authentication is implemented. For now, we will assume the user is authenticated and the principal is the user ID.
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
         }
 
-        String principal = authentication.getName();
+        // The JwtAuthenticationFilter now sets UserPrincipal as the principal
+        Object principal = authentication.getPrincipal();
+        final long userId;
 
-        // Assuming the principal is the user ID for simplicity, For Now...
-        return userRepository.findById(Long.parseLong(principal))
+        if (principal instanceof UserPrincipal userPrincipal) {
+            userId = userPrincipal.getId();
+        } else if (principal instanceof User user) {
+            // Support legacy behavior if filter hasn't refreshed or for internal mocks
+            userId = user.getId();
+        } else {
+            // Fallback for unexpected principal types (e.g., simple string ID or anonymous)
+            String name = authentication.getName();
+            if (name == null || name.isBlank() || "anonymousUser".equalsIgnoreCase(name)) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
+            }
+            try {
+                userId = Long.parseLong(name);
+            } catch (NumberFormatException ex) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid ID format");
+            }
+        }
+
+        // Always load from DB to ensure we are working with a managed entity for updates
+        return userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     }
 }
