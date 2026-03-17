@@ -77,6 +77,10 @@ public class Track {
       inverseJoinColumns = @JoinColumn(name = "tag_id"))
   private List<Tag> tags;
 
+  // A track has many secret tokens (deleted once track is deleted)
+  @OneToMany(mappedBy = "track", cascade = CascadeType.ALL, orphanRemoval = true)
+  private List<TrackToken> tokens;
+
   @CreationTimestamp private LocalDateTime createdAt;
 
   @UpdateTimestamp private LocalDateTime updatedAt;
