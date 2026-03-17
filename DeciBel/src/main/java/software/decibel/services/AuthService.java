@@ -10,6 +10,7 @@ import software.decibel.dtos.auth.LoginLocalRequest;
 import software.decibel.dtos.auth.LoginLocalResponse;
 import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.auth.RegisterLocalRequest;
+import software.decibel.dtos.auth.RefreshTokenResponse;
 import software.decibel.dtos.auth.VerifyEmailRequest;
 import software.decibel.entities.AuthIdentity;
 import software.decibel.entities.Token;
@@ -133,6 +134,34 @@ public class AuthService {
         return issueRefreshToken(user);
     }
 
+    @Transactional
+    public AuthTokenRotationResult refreshToken(String rawRefreshToken) {
+        Token oldToken = tokenService.findValidUnusedToken(
+                rawRefreshToken,
+                TokenType.REFRESH_TOKEN,
+                "Invalid refresh token");
+
+        User user = oldToken.getUser();
+        AuthIdentity identity = authIdentityRepository.findByUserAndProviderAndType(user, AuthProvider.LOCAL, AuthType.PASSWORD)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User identity not found"));
+
+        // 1- Mark old token as used (Rotation)
+        tokenService.markTokenUsed(oldToken);
+
+        // 2- Issue NEW Refresh Token
+        AuthRefreshTokenResult newRefreshTokenResult = issueRefreshToken(user);
+
+        // 3- Issue NEW Access Token
+        String newAccessToken = jwtService.buildAccessToken(user, identity.getEmail());
+
+        RefreshTokenResponse response = new RefreshTokenResponse(newAccessToken, JwtService.ACCESS_TOKEN_EXPIRES_IN_SECONDS);
+
+        return new AuthTokenRotationResult(
+                response,
+                newRefreshTokenResult.refreshToken(),
+                newRefreshTokenResult.refreshTokenExpiresIn());
+    }
+
     private AuthLoginResult issueLoginTokens(AuthIdentity identity, DeviceInfo deviceInfo) {
         User user = identity.getUser();
         // JwtService (feat) to ensure Artist/Listener roles are in the token
@@ -185,6 +214,12 @@ public class AuthService {
     }
 
     public record AuthRefreshTokenResult(
+            String refreshToken,
+            long refreshTokenExpiresIn) {
+    }
+
+    public record AuthTokenRotationResult(
+            RefreshTokenResponse response,
             String refreshToken,
             long refreshTokenExpiresIn) {
     }

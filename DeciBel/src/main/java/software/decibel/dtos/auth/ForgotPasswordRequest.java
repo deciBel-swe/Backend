@@ -1,8 +1,7 @@
-package software.decibel.dtos;
+package software.decibel.dtos.auth;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 
 // Data Transfer Object for forgot password requests.
 

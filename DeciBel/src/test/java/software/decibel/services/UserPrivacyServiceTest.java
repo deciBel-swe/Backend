@@ -19,8 +19,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.server.ResponseStatusException;
 
-import software.decibel.dtos.PrivacyUpdateRequest;
-import software.decibel.dtos.PrivacyUpdateResponse;
+import software.decibel.dtos.auth.PrivacyUpdateRequest;
+import software.decibel.dtos.auth.PrivacyUpdateResponse;
 import software.decibel.dtos.auth.UserPrincipal;
 import software.decibel.entities.User;
 import software.decibel.repositories.UserRepository;
