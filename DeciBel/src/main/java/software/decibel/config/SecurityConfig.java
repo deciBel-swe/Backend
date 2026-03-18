@@ -33,7 +33,10 @@ public class SecurityConfig {
         .cors(cors -> cors.configurationSource(corsConfigurationSource()))
         // Define endpoint accessibility: /auth/** is public, all others require authentication
         .authorizeHttpRequests(
-            auth -> auth.requestMatchers("/auth/**").permitAll().anyRequest().authenticated())
+            auth -> auth.requestMatchers("/auth/**").permitAll()
+                    .requestMatchers(org.springframework.http.HttpMethod.GET, "/users/*/followers").permitAll()
+                    .requestMatchers(org.springframework.http.HttpMethod.GET, "/users/*/following").permitAll()
+                    .anyRequest().authenticated())
 
         // Use stateless sessions for JWT authentication
         .sessionManagement(

@@ -29,9 +29,7 @@ public class Track {
   @Column(nullable = false)
   private String title;
 
-  // TODO: Handle tags in future iteration
-
-  @ElementCollection private List<String> tags;
+ 
 
   @Column(nullable = false)
   private LocalDate releaseDate;
@@ -43,14 +41,14 @@ public class Track {
 
   private String description;
 
-  private int likesCount = 0;
-  private int repostsCount = 0;
-  private int playsCount = 0;
+  private int likeCount = 0;
+  private int repostCount = 0;
+  private int playCount = 0;
 
   private double playThroughRate = 0.0;
 
   @Enumerated(EnumType.STRING)
-  private TrackState trackState;
+  private TrackState state;
 
   // --- File & Storage Details ---
   private String trackUrl;
@@ -70,6 +68,18 @@ public class Track {
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "uploader_id", nullable = false)
   private User uploader;
+
+  // Many tracks can have many independent tags
+  @ManyToMany
+  @JoinTable(
+      name = "track_tags",
+      joinColumns = @JoinColumn(name = "track_id"),
+      inverseJoinColumns = @JoinColumn(name = "tag_id"))
+  private List<Tag> tags;
+
+  // A track has many secret tokens (deleted once track is deleted)
+  @OneToMany(mappedBy = "track", cascade = CascadeType.ALL, orphanRemoval = true)
+  private List<TrackToken> tokens;
 
   @CreationTimestamp private LocalDateTime createdAt;
 

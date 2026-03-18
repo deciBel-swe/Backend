@@ -1,9 +1,13 @@
 package software.decibel.mappers;
 
+import java.util.List;
+import java.util.stream.Collectors;
 import org.mapstruct.*;
+import software.decibel.dtos.track.TrackPatchResponse;
 import software.decibel.dtos.track.TrackStatusResponse;
 import software.decibel.dtos.track.TrackUploadRequest;
 import software.decibel.dtos.track.TrackUploadResponse;
+import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
 
@@ -34,5 +38,21 @@ public interface TrackMapper {
 
   // Track -> TrackStatusResponse DTO
   @Mapping(source = "id", target = "trackId")
+  @Mapping(source = "state", target = "trackState")
   TrackStatusResponse toTrackStatusResponse(Track track);
+
+  // --------------- TrackPatch DTOs ---------------------
+  // None from request -> entity (to avoid overwriting)
+
+  // Track -> TrackPatchResponse DTO
+  @Mapping(
+      target = "isPrivate",
+      expression = "java(track.getVisibility() == software.decibel.enums.Visibility.PRIVATE)")
+  @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
+  TrackPatchResponse toTrackPatchResponse(Track track);
+
+  default List<String> mapTags(List<Tag> tags) {
+    if (tags == null) return List.of();
+    return tags.stream().map(Tag::getTitle).collect(Collectors.toList());
+  }
 }

@@ -6,11 +6,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import software.decibel.dtos.auth.LoginLocalRequest;
 import software.decibel.dtos.auth.LoginLocalResponse;
+import software.decibel.dtos.auth.RefreshTokenResponse;
 import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.auth.GoogleOauthRequest;
 import software.decibel.dtos.auth.RegisterLocalRequest;
@@ -25,7 +27,8 @@ public class AuthController {
 
     private final String activeProfile;
 
-    public AuthController(AuthService authService, @org.springframework.beans.factory.annotation.Value("${spring.profiles.active:default}") String activeProfile) {
+    public AuthController(AuthService authService,
+            @org.springframework.beans.factory.annotation.Value("${spring.profiles.active:default}") String activeProfile) {
         this.authService = authService;
         this.activeProfile = activeProfile;
     }
@@ -48,7 +51,9 @@ public class AuthController {
     @PostMapping("/verify-email")
     public ResponseEntity<MessageResponse> verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
         AuthService.AuthRefreshTokenResult result = authService.verifyEmail(request);
-        // TODO: Still need to discuss Token issuing strategy for email verification flow. For now, reusing refresh token mechanism to set cookie and frontend can discard it immediately after reading the verification success message.
+        // TODO: Still need to discuss Token issuing strategy for email verification
+        // flow. For now, reusing refresh token mechanism to set cookie and frontend can
+        // discard it immediately after reading the verification success message.
         ResponseCookie refreshCookie = buildRefreshCookie(result.refreshToken(), result.refreshTokenExpiresIn());
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
@@ -65,8 +70,18 @@ public class AuthController {
                 .body(result.response());
     }
 
+    @PostMapping("/refreshtoken")
+    public ResponseEntity<RefreshTokenResponse> refreshToken(@CookieValue(name = "refreshToken") String refreshToken) {
+        AuthService.AuthTokenRotationResult result = authService.refreshToken(refreshToken);
+        ResponseCookie refreshCookie = buildRefreshCookie(result.refreshToken(), result.refreshTokenExpiresIn());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
+                .body(result.response());
+    }
+
     private ResponseCookie buildRefreshCookie(String refreshToken, long maxAgeSeconds) {
-        boolean isProduction = !"default".equals(activeProfile) && !"local".equals(activeProfile) && !"dev".equals(activeProfile);
+        boolean isProduction = !"default".equals(activeProfile) && !"local".equals(activeProfile)
+                && !"dev".equals(activeProfile);
         return ResponseCookie.from("refreshToken", refreshToken)
                 .httpOnly(true) // Prevent JavaScript access to mitigate XSS
                 .secure(isProduction)
