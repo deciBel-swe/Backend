@@ -24,6 +24,7 @@ public interface TrackMapper {
   // coverUrl, durationSeconds) will be computed after mapping
   @Mapping(target = "trackUrl", ignore = true)
   @Mapping(target = "coverUrl", ignore = true)
+  @Mapping(target = "waveformUrl", ignore = true)
   @Mapping(target = "durationSeconds", ignore = true)
   @Mapping(target = "tags", ignore = true)
   @Mapping(target = "id", ignore = true)

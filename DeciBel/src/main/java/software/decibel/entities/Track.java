@@ -28,23 +28,19 @@ public class Track {
   // --- Track Metadata ---
   @Column(nullable = false)
   private String title;
-
- 
-
+  
   @Column(nullable = false)
   private LocalDate releaseDate;
-
-  private String coverUrl;
-
+  
   @Column(nullable = false)
   private String genre;
 
   private String description;
+  private int durationSeconds;
 
   private int likeCount = 0;
   private int repostCount = 0;
   private int playCount = 0;
-
   private double playThroughRate = 0.0;
 
   @Enumerated(EnumType.STRING)
@@ -52,11 +48,8 @@ public class Track {
 
   // --- File & Storage Details ---
   private String trackUrl;
-
-  private int durationSeconds;
-
-  // Change this part as you see fit
-  private List<Float> waveformData;
+  private String coverUrl;
+  private String waveformUrl;
 
   // ---Visibility ---
   @Enumerated(EnumType.STRING)
