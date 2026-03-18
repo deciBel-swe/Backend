@@ -15,6 +15,7 @@ import software.decibel.dtos.auth.DeviceInfo;
 import software.decibel.dtos.auth.GoogleOauthRequest;
 import software.decibel.dtos.auth.LoginLocalRequest;
 import software.decibel.dtos.auth.LoginLocalResponse;
+import software.decibel.dtos.auth.LogoutSessionRequest;
 import software.decibel.dtos.auth.RefreshTokenResponse;
 import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.auth.RegisterLocalRequest;
@@ -26,6 +27,7 @@ import software.decibel.services.AuthService;
 import java.time.LocalDate;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -40,15 +42,20 @@ class AuthControllerTest {
         private AuthService authService;
 
         private MockMvc mockMvc;
+        private MockMvc productionMockMvc;
         private ObjectMapper objectMapper;
 
         @BeforeEach
         void setUp() {
                 AuthController controller = new AuthController(authService, "local");
+                AuthController productionController = new AuthController(authService, "prod");
                 LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
                 validator.afterPropertiesSet();
 
                 mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                                .setValidator(validator)
+                                .build();
+                productionMockMvc = MockMvcBuilders.standaloneSetup(productionController)
                                 .setValidator(validator)
                                 .build();
 
@@ -102,6 +109,23 @@ class AuthControllerTest {
         }
 
         @Test
+        void loginLocal_whenRunningInProduction_setsSecureRefreshCookie() throws Exception {
+                LoginLocalResponse response = new LoginLocalResponse(
+                                "access-token",
+                                1800L,
+                                new LoginLocalResponse.UserInfo(2L, "artist-user", AccountTier.ARTIST, null,
+                                                "avatar.png"));
+                when(authService.loginLocal(any(LoginLocalRequest.class)))
+                                .thenReturn(new AuthService.AuthLoginResult(response, "refresh-token", 2592000L));
+
+                productionMockMvc.perform(post("/auth/login/local")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(loginRequest())))
+                                .andExpect(status().isOk())
+                                .andExpect(cookie().secure("refreshToken", true));
+        }
+
+        @Test
         void verifyEmail_whenRequestIsValid_returnsMessageAndRefreshCookie() throws Exception {
                 when(authService.verifyEmail(any(VerifyEmailRequest.class)))
                                 .thenReturn(new AuthService.AuthRefreshTokenResult("refresh-token", 2592000L));
@@ -113,6 +137,78 @@ class AuthControllerTest {
                                 .andExpect(cookie().value("refreshToken", "refresh-token"))
                                 .andExpect(cookie().httpOnly("refreshToken", true))
                                 .andExpect(jsonPath("$.message").value("Email verified"));
+        }
+
+        @Test
+        void logout_whenRequestIsValid_clearsRefreshCookieAndReturnsMessage() throws Exception {
+                when(authService.logout(any(LogoutSessionRequest.class)))
+                                .thenReturn(new MessageResponse("Logged out successfully"));
+
+                mockMvc.perform(post("/auth/logout")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(logoutRequest())))
+                                .andExpect(status().isOk())
+                                .andExpect(cookie().value("refreshToken", ""))
+                                .andExpect(cookie().maxAge("refreshToken", 0))
+                                .andExpect(cookie().httpOnly("refreshToken", true))
+                                .andExpect(jsonPath("$.message").value("Logged out successfully"));
+
+                verify(authService).logout(any(LogoutSessionRequest.class));
+        }
+
+        @Test
+        void logout_whenBodyIsInvalid_returnsBadRequest() throws Exception {
+                mockMvc.perform(post("/auth/logout")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"refreshToken\":\"\"}"))
+                                .andExpect(status().isBadRequest());
+
+                verifyNoInteractions(authService);
+        }
+
+        @Test
+        void logout_whenBodyIsMissing_returnsBadRequest() throws Exception {
+                mockMvc.perform(post("/auth/logout")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isBadRequest());
+
+                verifyNoInteractions(authService);
+        }
+
+        @Test
+        void logoutAll_whenRequestIsValid_clearsRefreshCookieAndReturnsMessage() throws Exception {
+                when(authService.logoutAll(any(LogoutSessionRequest.class)))
+                                .thenReturn(new MessageResponse("Logged out of all sessions"));
+
+                mockMvc.perform(post("/auth/logout-all")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(logoutRequest())))
+                                .andExpect(status().isOk())
+                                .andExpect(cookie().value("refreshToken", ""))
+                                .andExpect(cookie().maxAge("refreshToken", 0))
+                                .andExpect(cookie().httpOnly("refreshToken", true))
+                                .andExpect(jsonPath("$.message").value("Logged out of all sessions"));
+
+                verify(authService).logoutAll(any(LogoutSessionRequest.class));
+        }
+
+        @Test
+        void logoutAll_whenBodyIsInvalid_returnsBadRequest() throws Exception {
+                mockMvc.perform(post("/auth/logout-all")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"refreshToken\":\"\"}"))
+                                .andExpect(status().isBadRequest());
+
+                verifyNoInteractions(authService);
+        }
+
+        @Test
+        void logoutAll_whenBodyIsMissing_returnsBadRequest() throws Exception {
+                mockMvc.perform(post("/auth/logout-all")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isBadRequest());
+
+                verifyNoInteractions(authService);
         }
 
         @Test
@@ -203,5 +299,9 @@ class AuthControllerTest {
                 return new GoogleOauthRequest(
                                 "google-id-token",
                                 new DeviceInfo(DeviceType.DESKTOP, "fingerprint-3", "Chrome on Windows"));
+        }
+
+        private LogoutSessionRequest logoutRequest() {
+                return new LogoutSessionRequest("refresh-token");
         }
 }
