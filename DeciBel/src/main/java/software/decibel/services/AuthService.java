@@ -14,6 +14,7 @@ import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.auth.RegisterLocalRequest;
 import software.decibel.dtos.auth.RefreshTokenResponse;
 import software.decibel.dtos.auth.VerifyEmailRequest;
+import software.decibel.dtos.auth.google.VerifiedGoogleToken;
 import software.decibel.entities.AuthIdentity;
 import software.decibel.entities.Token;
 import software.decibel.entities.User;
@@ -139,7 +140,7 @@ public class AuthService {
 
     @Transactional
     public AuthLoginResult loginWithGoogle(GoogleOauthRequest request) {
-        GoogleTokenVerificationService.VerifiedGoogleToken verifiedToken = googleTokenVerificationService
+        VerifiedGoogleToken verifiedToken = googleTokenVerificationService
                 .verifyIdToken(request.authTokenDto());
 
         AuthIdentity identity = authIdentityRepository
@@ -212,8 +213,7 @@ public class AuthService {
         return new AuthRefreshTokenResult(issuedToken.rawToken(), REFRESH_TOKEN_EXPIRES_IN_SECONDS);
     }
 
-    private AuthIdentity registerGoogleIdentity(
-            GoogleTokenVerificationService.VerifiedGoogleToken verifiedToken) {
+    private AuthIdentity registerGoogleIdentity(VerifiedGoogleToken verifiedToken) {
         if (authIdentityRepository.existsByEmailIgnoreCase(verifiedToken.email())) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
@@ -223,7 +223,7 @@ public class AuthService {
         User savedUser = userRepository.save(User.builder()
                 .username(generateUniqueUsername(verifiedToken))
                 .displayName(resolveDisplayName(verifiedToken))
-                .avatarUrl(verifiedToken.picture())
+                .avatarUrl(verifiedToken.pictureUrl())
                 .build());
 
         AuthIdentity googleIdentity = AuthIdentity.builder()
@@ -238,8 +238,7 @@ public class AuthService {
         return authIdentityRepository.save(googleIdentity);
     }
 
-    private String generateUniqueUsername(
-            GoogleTokenVerificationService.VerifiedGoogleToken verifiedToken) {
+    private String generateUniqueUsername(VerifiedGoogleToken verifiedToken) {
         String baseUsername = sanitizeUsername(resolveBaseUsername(verifiedToken));
         if (baseUsername.isBlank()) {
             baseUsername = "user";
@@ -264,10 +263,9 @@ public class AuthService {
                 "Unable to generate a unique username for the Google account.");
     }
 
-    private String resolveBaseUsername(
-            GoogleTokenVerificationService.VerifiedGoogleToken verifiedToken) {
-        if (verifiedToken.name() != null && !verifiedToken.name().isBlank()) {
-            return verifiedToken.name();
+    private String resolveBaseUsername(VerifiedGoogleToken verifiedToken) {
+        if (verifiedToken.displayName() != null && !verifiedToken.displayName().isBlank()) {
+            return verifiedToken.displayName();
         }
 
         int emailSeparatorIndex = verifiedToken.email().indexOf('@');
@@ -298,13 +296,12 @@ public class AuthService {
         return UUID.randomUUID().toString().replace("-", "").substring(0, 6);
     }
 
-    private String resolveDisplayName(
-            GoogleTokenVerificationService.VerifiedGoogleToken verifiedToken) {
-        if (verifiedToken.name() == null || verifiedToken.name().isBlank()) {
+    private String resolveDisplayName(VerifiedGoogleToken verifiedToken) {
+        if (verifiedToken.displayName() == null || verifiedToken.displayName().isBlank()) {
             return null;
         }
 
-        return verifiedToken.name().trim();
+        return verifiedToken.displayName().trim();
     }
 
     private String buildLocation(String city, String country) {

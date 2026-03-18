@@ -4,6 +4,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import software.decibel.dtos.auth.google.GoogleTokenInfoResponse;
+import software.decibel.dtos.auth.google.VerifiedGoogleToken;
 import software.decibel.exceptions.custom.ExternalAuthConfigurationException;
 import software.decibel.exceptions.custom.InvalidGoogleTokenException;
 
@@ -37,7 +39,7 @@ public class GoogleTokenVerificationService {
         validateTokenInfo(tokenInfo);
 
         return new VerifiedGoogleToken(
-                tokenInfo.sub(),
+                tokenInfo.subject(),
                 tokenInfo.email(),
                 "true".equalsIgnoreCase(tokenInfo.emailVerified()),
                 tokenInfo.name(),
@@ -63,7 +65,7 @@ public class GoogleTokenVerificationService {
     }
 
     private void validateTokenInfo(GoogleTokenInfoResponse tokenInfo) {
-        if (tokenInfo.sub() == null || tokenInfo.sub().isBlank()) {
+        if (tokenInfo.subject() == null || tokenInfo.subject().isBlank()) {
             throw new InvalidGoogleTokenException("Google token subject is missing.");
         }
 
@@ -71,15 +73,15 @@ public class GoogleTokenVerificationService {
             throw new InvalidGoogleTokenException("Google token email is missing.");
         }
 
-        if (!googleClientId.equals(tokenInfo.aud())) {
+        if (!googleClientId.equals(tokenInfo.audience())) {
             throw new InvalidGoogleTokenException("Google token audience is invalid.");
         }
 
-        if (!GOOGLE_ISSUER.equals(tokenInfo.iss()) && !GOOGLE_ISSUER_HTTPS.equals(tokenInfo.iss())) {
+        if (!GOOGLE_ISSUER.equals(tokenInfo.issuer()) && !GOOGLE_ISSUER_HTTPS.equals(tokenInfo.issuer())) {
             throw new InvalidGoogleTokenException("Google token issuer is invalid.");
         }
 
-        if (isExpired(tokenInfo.exp())) {
+        if (isExpired(tokenInfo.expiresAtEpochSeconds())) {
             throw new InvalidGoogleTokenException("Google token is expired.");
         }
     }
@@ -93,29 +95,6 @@ public class GoogleTokenVerificationService {
         }
     }
 
-    public record VerifiedGoogleToken(
-            String subject,
-            String email,
-            boolean emailVerified,
-            String name,
-            String picture
-    ) {
-    }
-
-    private record GoogleTokenInfoResponse(
-            String sub,
-            String email,
-            String email_verified,
-            String name,
-            String picture,
-            String aud,
-            String iss,
-            String exp
-    ) {
-        String emailVerified() {
-            return email_verified;
-        }
-    }
 }
 
 
