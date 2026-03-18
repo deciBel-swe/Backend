@@ -5,6 +5,7 @@ import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.blob.models.BlobStorageException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -40,9 +41,13 @@ public class FileUtilityAzure {
     try {
       // Generate unique filename to avoid collisions
       // ex:
-      // "https://decibelblob.blob.core.windows.net/uploads/audio/fae40b70-2913-470c-9307-47656c8e81cc_wind.mp3",
+      // "audio/fae40b70-2913-470c-9307-47656c8e81cc_wind.mp3",
       String fileName =
-          fileType.getPath() + "/" + UUID.randomUUID() + "_" + file.getOriginalFilename();
+          fileType.getPath()
+              + "/"
+              + UUID.randomUUID()
+              + "_"
+              + cleanFileName(file.getOriginalFilename());
 
       // Get a connection for this file inside container (doesnt exist yet)
       BlobClient blobClient = blobContainerClient.getBlobClient(fileName);
@@ -59,6 +64,23 @@ public class FileUtilityAzure {
     }
   }
 
+  // Saves a file into azure storage from a stream of bytes
+  public String saveFileFromStream(
+      InputStream inputStream, long size, FileType fileType, String fileTitle) {
+    // Generate unique filename to avoid collisions
+    // ex:
+    // "waveform-data/fae40b70-2913-470c-9307-47656c8e81cc_wind.json",
+    String fileName =
+        fileType.getPath() + "/" + UUID.randomUUID() + "_" + cleanFileName(fileTitle) + ".json";
+    try {
+      BlobClient blobClient = blobContainerClient.getBlobClient(fileName);
+      blobClient.upload(inputStream, size, true);
+      return blobContainerClient.getBlobContainerUrl() + "/" + fileName;
+    } catch (Exception e) {
+      throw new AzureFileStorageException("Could not save file '" + fileName + "' to Azure", e);
+    }
+  }
+
   // Deletes file @ azure using url
   public void deleteFileByUrl(String url) {
     String fileName = url.replace(blobContainerClient.getBlobContainerUrl() + "/", "");
@@ -70,5 +92,11 @@ public class FileUtilityAzure {
       throw new AzureFileStorageException(
           "Could not delete '" + fileName + "' from Microsoft Azure", ex);
     }
+  }
+
+  // Function to make filename usable in url
+  // file title -> file_title
+  private String cleanFileName(String fileName) {
+    return fileName.trim().replaceAll("\\s+", "_");
   }
 }

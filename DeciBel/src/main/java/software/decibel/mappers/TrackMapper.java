@@ -3,10 +3,7 @@ package software.decibel.mappers;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.mapstruct.*;
-import software.decibel.dtos.track.TrackPatchResponse;
-import software.decibel.dtos.track.TrackStatusResponse;
-import software.decibel.dtos.track.TrackUploadRequest;
-import software.decibel.dtos.track.TrackUploadResponse;
+import software.decibel.dtos.track.*;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
@@ -24,6 +21,7 @@ public interface TrackMapper {
   // coverUrl, durationSeconds) will be computed after mapping
   @Mapping(target = "trackUrl", ignore = true)
   @Mapping(target = "coverUrl", ignore = true)
+  @Mapping(target = "waveformUrl", ignore = true)
   @Mapping(target = "durationSeconds", ignore = true)
   @Mapping(target = "tags", ignore = true)
   @Mapping(target = "id", ignore = true)
@@ -41,6 +39,8 @@ public interface TrackMapper {
   @Mapping(source = "state", target = "trackState")
   TrackStatusResponse toTrackStatusResponse(Track track);
 
+  
+
   // --------------- TrackPatch DTOs ---------------------
   // None from request -> entity (to avoid overwriting)
 
@@ -54,5 +54,13 @@ public interface TrackMapper {
   default List<String> mapTags(List<Tag> tags) {
     if (tags == null) return List.of();
     return tags.stream().map(Tag::getTitle).collect(Collectors.toList());
+
+
   }
+
+  // --------------- TrackWaveFormUrl DTOs ---------------------
+  // Request -> track
+  @Mapping(target = "trackId", source = "id")
+  @Mapping(target = "duration", source = "durationSeconds")
+  TrackWaveFormUrlResponse toTrackWaveFormUrlResponse(Track track);
 }

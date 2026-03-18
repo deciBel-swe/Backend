@@ -52,4 +52,9 @@ public class TrackController {
   public ResponseEntity<TrackStatusResponse> getTrackStatus(@PathVariable Long trackId) {
     return ResponseEntity.status(HttpStatus.CREATED).body(trackService.getTrackStatus(trackId));
   }
+
+  @GetMapping("/{trackId}/waveform-url")
+  public ResponseEntity<TrackWaveFormUrlResponse> getTrackWaveformUrl(@PathVariable Long trackId) {
+    return ResponseEntity.status(HttpStatus.OK).body((trackService.getTrackWaveformUrl(trackId)));
+  }
 }

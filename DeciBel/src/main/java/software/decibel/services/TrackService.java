@@ -19,6 +19,9 @@ import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.utils.AudioUtility;
 import software.decibel.utils.FileUtilityAzure;
+import software.decibel.utils.WaveFormUtility;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 @Service
 @RequiredArgsConstructor
@@ -29,8 +32,11 @@ public class TrackService {
   
 
   private final FileUtilityAzure fileUtilityAzure;
+  private final WaveFormUtility waveFormUtility;
   private final AudioUtility audioUtility;
   private final TrackMapper trackMapper;
+
+  private final ObjectMapper objectMapper;
 
   private final TagService tagService;
 
@@ -40,12 +46,13 @@ public class TrackService {
     return trackMapper.toTrackStatusResponse(getTrackById(trackId));
   }
 
+  @Transactional
   public void deleteTrack(Long trackId) {
     Track track = getTrackById(trackId);
 
     deleteTrackCover(trackId);
     deleteTrackAudio(trackId);
-    // TODO: DELETE WAVEFORM FILE IN AZURE AFTER IMPLEMENTING WAVEFORM_URL
+    deleteTrackWaveformData(trackId);
 
     trackRepository.delete(track);
   }
@@ -80,9 +87,15 @@ public class TrackService {
         coverUrl = fileUtilityAzure.saveFile(coverImage, FileType.TRACK_COVERS);
       }
 
+      // Convert waveform data from json string to list of floats
+      List<Float> waveformData =
+          objectMapper.readValue(request.waveformData(), new TypeReference<List<Float>>() {});
+      String waveformUrl = waveFormUtility.saveWaveformToAzure(waveformData, request.title());
+
       // Set urls manually
       createdTrack.setTrackUrl(trackUrl);
       createdTrack.setCoverUrl(coverUrl);
+      createdTrack.setWaveformUrl(waveformUrl);
 
       // save track as PROCESSING
       updateTrackState(createdTrack, TrackState.PROCESSING);
@@ -127,6 +140,7 @@ public class TrackService {
   }
 
   // Deletes track cover from azure & sets coverUrl = null
+  @Transactional
   public void deleteTrackCover(Long trackId) {
     Track track = getTrackById(trackId);
 
@@ -139,11 +153,22 @@ public class TrackService {
 
   // Deletes track audio from azure & sets trackUrl = null
 
+  @Transactional
   public void deleteTrackAudio(Long trackId) {
     Track track = getTrackById(trackId);
     if (track.getTrackUrl() != null) {
       fileUtilityAzure.deleteFileByUrl(track.getTrackUrl());
       track.setTrackUrl(null);
+      trackRepository.save(track);
+    }
+  }
+
+  @Transactional
+  public void deleteTrackWaveformData(Long trackId) {
+    Track track = getTrackById(trackId);
+    if (track.getWaveformUrl() != null) {
+      fileUtilityAzure.deleteFileByUrl(track.getWaveformUrl());
+      track.setWaveformUrl(null);
       trackRepository.save(track);
     }
   }
@@ -177,5 +202,10 @@ public class TrackService {
     if (request.tags() != null) addTrackTags(track, request.tags());
 
     return trackMapper.toTrackPatchResponse(trackRepository.save(track));
+  }
+
+  public TrackWaveFormUrlResponse getTrackWaveformUrl(Long trackId) {
+    Track track = getTrackById(trackId);
+    return trackMapper.toTrackWaveFormUrlResponse(track);
   }
 }

@@ -6,7 +6,8 @@ public enum FileType {
   AUDIO("audio"),
   TRACK_COVERS("track-covers"),
   AVATARS("avatars"),
-  PROFILE_COVERS("profile-covers");
+  PROFILE_COVERS("profile-covers"),
+  WAVEFORM_DATA("waveform-data");
 
   private final String path;
 
