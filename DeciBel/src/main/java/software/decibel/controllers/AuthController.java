@@ -15,6 +15,7 @@ import software.decibel.dtos.auth.LoginLocalResponse;
 import software.decibel.dtos.auth.RefreshTokenResponse;
 import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.auth.GoogleOauthRequest;
+import software.decibel.dtos.auth.LogoutSessionRequest;
 import software.decibel.dtos.auth.RegisterLocalRequest;
 import software.decibel.dtos.auth.VerifyEmailRequest;
 import software.decibel.services.AuthService;
@@ -46,6 +47,24 @@ public class AuthController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                 .body(result.response());
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<MessageResponse> logout(@Valid @RequestBody LogoutSessionRequest request) {
+        MessageResponse response = authService.logout(request);
+        ResponseCookie refreshCookie = buildRefreshCookie("", 0);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
+                .body(response);
+    }
+
+    @PostMapping("/logout-all")
+    public ResponseEntity<MessageResponse> logoutAll(@Valid @RequestBody LogoutSessionRequest request) {
+        MessageResponse response = authService.logoutAll(request);
+        ResponseCookie refreshCookie = buildRefreshCookie("", 0);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
+                .body(response);
     }
 
     @PostMapping("/verify-email")

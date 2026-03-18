@@ -10,6 +10,7 @@ import software.decibel.dtos.auth.DeviceInfo;
 import software.decibel.dtos.auth.GoogleOauthRequest;
 import software.decibel.dtos.auth.LoginLocalRequest;
 import software.decibel.dtos.auth.LoginLocalResponse;
+import software.decibel.dtos.auth.LogoutSessionRequest;
 import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.auth.RegisterLocalRequest;
 import software.decibel.dtos.auth.RefreshTokenResponse;
@@ -179,6 +180,33 @@ public class AuthService {
                 response,
                 newRefreshTokenResult.refreshToken(),
                 newRefreshTokenResult.refreshTokenExpiresIn());
+    }
+
+    @Transactional
+    public MessageResponse logout(LogoutSessionRequest request) {
+        Token refreshToken = tokenService.findValidUnusedToken(
+                request.refreshToken(),
+                TokenType.REFRESH_TOKEN,
+                "Invalid refresh token");
+
+        sessionService.deleteSessionByRefreshToken(refreshToken);
+        tokenService.deleteToken(refreshToken);
+
+        return new MessageResponse("Logged out successfully");
+    }
+
+    @Transactional
+    public MessageResponse logoutAll(LogoutSessionRequest request) {
+        Token refreshToken = tokenService.findValidUnusedToken(
+                request.refreshToken(),
+                TokenType.REFRESH_TOKEN,
+                "Invalid refresh token");
+
+        User user = refreshToken.getUser();
+        sessionService.deleteAllSessionsForUser(user);
+        tokenService.deleteTokensForUserAndType(user, TokenType.REFRESH_TOKEN);
+
+        return new MessageResponse("Logged out of all sessions");
     }
 
     private AuthLoginResult issueLoginTokens(AuthIdentity identity, DeviceInfo deviceInfo) {

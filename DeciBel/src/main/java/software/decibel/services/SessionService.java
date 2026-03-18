@@ -1,6 +1,7 @@
 package software.decibel.services;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,5 +32,20 @@ public class SessionService {
                 .lastUsedAt(LocalDateTime.now())
                 .build();
         return sessionRepository.save(session);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<Session> findByRefreshToken(Token refreshToken) {
+        return sessionRepository.findByRefreshToken(refreshToken);
+    }
+
+    @Transactional
+    public void deleteSessionByRefreshToken(Token refreshToken) {
+        sessionRepository.deleteByRefreshToken(refreshToken);
+    }
+
+    @Transactional
+    public void deleteAllSessionsForUser(User user) {
+        sessionRepository.deleteByUser(user);
     }
 }
