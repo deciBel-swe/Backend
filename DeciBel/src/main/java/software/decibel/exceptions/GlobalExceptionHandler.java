@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.*;
 import software.decibel.exceptions.custom.AudioDurationReadingException;
 import software.decibel.exceptions.custom.AzureFileStorageException;
 import software.decibel.exceptions.custom.DuplicateResourceException;
+import software.decibel.exceptions.custom.ExternalAuthConfigurationException;
+import software.decibel.exceptions.custom.InvalidGoogleTokenException;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.exceptions.response.ApiErrorResponse;
 
@@ -26,18 +28,17 @@ public class GlobalExceptionHandler {
       MethodArgumentNotValidException ex, HttpServletRequest request) {
 
     // Collect all field-level error messages from the DTO
-    List<String> validationErrors =
-        ex.getBindingResult().getFieldErrors().stream().map(FieldError::getDefaultMessage).toList();
+    List<String> validationErrors = ex.getBindingResult().getFieldErrors().stream().map(FieldError::getDefaultMessage)
+        .toList();
 
-    ApiErrorResponse error =
-        ApiErrorResponse.builder()
-            .timestamp(LocalDateTime.now())
-            .status(HttpStatus.BAD_REQUEST.value())
-            .error("Validation Failed")
-            .message("One or more fields are invalid.")
-            .path(request.getRequestURI())
-            .errors(validationErrors) // the list of messages
-            .build();
+    ApiErrorResponse error = ApiErrorResponse.builder()
+        .timestamp(LocalDateTime.now())
+        .status(HttpStatus.BAD_REQUEST.value())
+        .error("Validation Failed")
+        .message("One or more fields are invalid.")
+        .path(request.getRequestURI())
+        .errors(validationErrors) // the list of messages
+        .build();
 
     return ResponseEntity.badRequest().body(error);
   }
@@ -49,15 +50,14 @@ public class GlobalExceptionHandler {
 
     log.error("Database constraint violation at {}: {}", request.getRequestURI(), ex.getMessage());
 
-    ApiErrorResponse error =
-        ApiErrorResponse.builder()
-            .timestamp(LocalDateTime.now())
-            .status(HttpStatus.BAD_REQUEST.value())
-            .error("Database Error")
-            .message(
-                "A database constraint was violated. Check for duplicate values or missing required fields.")
-            .path(request.getRequestURI())
-            .build();
+    ApiErrorResponse error = ApiErrorResponse.builder()
+        .timestamp(LocalDateTime.now())
+        .status(HttpStatus.BAD_REQUEST.value())
+        .error("Database Error")
+        .message(
+            "A database constraint was violated. Check for duplicate values or missing required fields.")
+        .path(request.getRequestURI())
+        .build();
 
     return ResponseEntity.badRequest().body(error);
   }
@@ -68,14 +68,13 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ApiErrorResponse> handleNotFoundException(
       ResourceNotFoundException ex, HttpServletRequest request) {
 
-    ApiErrorResponse error =
-        ApiErrorResponse.builder()
-            .timestamp(LocalDateTime.now())
-            .status(HttpStatus.NOT_FOUND.value())
-            .error("Not Found")
-            .message(ex.getMessage())
-            .path(request.getRequestURI())
-            .build();
+    ApiErrorResponse error = ApiErrorResponse.builder()
+        .timestamp(LocalDateTime.now())
+        .status(HttpStatus.NOT_FOUND.value())
+        .error("Not Found")
+        .message(ex.getMessage())
+        .path(request.getRequestURI())
+        .build();
 
     return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
   }
@@ -85,14 +84,13 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ApiErrorResponse> handleDuplicateException(
       DuplicateResourceException ex, HttpServletRequest request) {
 
-    ApiErrorResponse error =
-        ApiErrorResponse.builder()
-            .timestamp(LocalDateTime.now())
-            .status(HttpStatus.CONFLICT.value())
-            .error("Conflict")
-            .message(ex.getMessage())
-            .path(request.getRequestURI())
-            .build();
+    ApiErrorResponse error = ApiErrorResponse.builder()
+        .timestamp(LocalDateTime.now())
+        .status(HttpStatus.CONFLICT.value())
+        .error("Conflict")
+        .message(ex.getMessage())
+        .path(request.getRequestURI())
+        .build();
 
     return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
   }
@@ -105,14 +103,13 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ApiErrorResponse> handleAudioDurationReadingException(
       AudioDurationReadingException ex, HttpServletRequest request) {
 
-    ApiErrorResponse error =
-        ApiErrorResponse.builder()
-            .timestamp(LocalDateTime.now())
-            .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
-            .error("File Reading Error")
-            .message(ex.getMessage())
-            .path(request.getRequestURI())
-            .build();
+    ApiErrorResponse error = ApiErrorResponse.builder()
+        .timestamp(LocalDateTime.now())
+        .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+        .error("File Reading Error")
+        .message(ex.getMessage())
+        .path(request.getRequestURI())
+        .build();
 
     return ResponseEntity.internalServerError().body(error);
   }
@@ -125,18 +122,48 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ApiErrorResponse> handleAzureFileStorageException(
       AzureFileStorageException ex, HttpServletRequest request) {
 
-    ApiErrorResponse error =
-        ApiErrorResponse.builder()
-            .timestamp(LocalDateTime.now())
-            .status(HttpStatus.SERVICE_UNAVAILABLE.value())
-            .error("File Storage Error")
-            .message(ex.getMessage())
-            .path(request.getRequestURI())
-            .build();
+    ApiErrorResponse error = ApiErrorResponse.builder()
+        .timestamp(LocalDateTime.now())
+        .status(HttpStatus.SERVICE_UNAVAILABLE.value())
+        .error("File Storage Error")
+        .message(ex.getMessage())
+        .path(request.getRequestURI())
+        .build();
 
     return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(error);
   } // ── 500 — Catch All Safety Net
 
+  @ExceptionHandler(ExternalAuthConfigurationException.class)
+  public ResponseEntity<ApiErrorResponse> handleExternalAuthConfigurationException(
+      ExternalAuthConfigurationException ex, HttpServletRequest request) {
+
+    ApiErrorResponse error = ApiErrorResponse.builder()
+        .timestamp(LocalDateTime.now())
+        .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+        .error("External Authentication Configuration Error")
+        .message(ex.getMessage())
+        .path(request.getRequestURI())
+        .build();
+
+    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+  }
+
+  @ExceptionHandler(InvalidGoogleTokenException.class)
+  public ResponseEntity<ApiErrorResponse> handleInvalidGoogleTokenException(
+      InvalidGoogleTokenException ex, HttpServletRequest request) {
+
+    ApiErrorResponse error = ApiErrorResponse.builder()
+        .timestamp(LocalDateTime.now())
+        .status(HttpStatus.UNAUTHORIZED.value())
+        .error("Unauthorized")
+        .message(ex.getMessage())
+        .path(request.getRequestURI())
+        .build();
+
+    return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+  }
+
+  // ── 500 — Catch All Safety Net
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ApiErrorResponse> handleGenericException(
       Exception ex, HttpServletRequest request) {
@@ -144,14 +171,13 @@ public class GlobalExceptionHandler {
     // Always log unexpected exceptions with full stack trace
     log.error("Unexpected error at {}", request.getRequestURI(), ex);
 
-    ApiErrorResponse error =
-        ApiErrorResponse.builder()
-            .timestamp(LocalDateTime.now())
-            .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
-            .error("Internal Server Error")
-            .message("An unexpected error occurred. Please try again later.")
-            .path(request.getRequestURI())
-            .build();
+    ApiErrorResponse error = ApiErrorResponse.builder()
+        .timestamp(LocalDateTime.now())
+        .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+        .error("Internal Server Error")
+        .message("An unexpected error occurred. Please try again later.")
+        .path(request.getRequestURI())
+        .build();
 
     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
   }

@@ -14,6 +14,7 @@ import software.decibel.dtos.auth.LoginLocalRequest;
 import software.decibel.dtos.auth.LoginLocalResponse;
 import software.decibel.dtos.auth.RefreshTokenResponse;
 import software.decibel.dtos.auth.MessageResponse;
+import software.decibel.dtos.auth.GoogleOauthRequest;
 import software.decibel.dtos.auth.RegisterLocalRequest;
 import software.decibel.dtos.auth.VerifyEmailRequest;
 import software.decibel.services.AuthService;
@@ -26,7 +27,8 @@ public class AuthController {
 
     private final String activeProfile;
 
-    public AuthController(AuthService authService, @org.springframework.beans.factory.annotation.Value("${spring.profiles.active:default}") String activeProfile) {
+    public AuthController(AuthService authService,
+            @org.springframework.beans.factory.annotation.Value("${spring.profiles.active:default}") String activeProfile) {
         this.authService = authService;
         this.activeProfile = activeProfile;
     }
@@ -49,11 +51,23 @@ public class AuthController {
     @PostMapping("/verify-email")
     public ResponseEntity<MessageResponse> verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
         AuthService.AuthRefreshTokenResult result = authService.verifyEmail(request);
-        // TODO: Still need to discuss Token issuing strategy for email verification flow. For now, reusing refresh token mechanism to set cookie and frontend can discard it immediately after reading the verification success message.
+        // TODO: Still need to discuss Token issuing strategy for email verification
+        // flow. For now, reusing refresh token mechanism to set cookie and frontend can
+        // discard it immediately after reading the verification success message.
         ResponseCookie refreshCookie = buildRefreshCookie(result.refreshToken(), result.refreshTokenExpiresIn());
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                 .body(new MessageResponse("Email verified"));
+    }
+
+    @PostMapping("/oauth/google")
+    public ResponseEntity<LoginLocalResponse> exchangeGoogleOauthToken(
+            @Valid @RequestBody GoogleOauthRequest request) {
+        AuthService.AuthLoginResult result = authService.loginWithGoogle(request);
+        ResponseCookie refreshCookie = buildRefreshCookie(result.refreshToken(), result.refreshTokenExpiresIn());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
+                .body(result.response());
     }
 
     @PostMapping("/refreshtoken")
@@ -66,7 +80,8 @@ public class AuthController {
     }
 
     private ResponseCookie buildRefreshCookie(String refreshToken, long maxAgeSeconds) {
-        boolean isProduction = !"default".equals(activeProfile) && !"local".equals(activeProfile) && !"dev".equals(activeProfile);
+        boolean isProduction = !"default".equals(activeProfile) && !"local".equals(activeProfile)
+                && !"dev".equals(activeProfile);
         return ResponseCookie.from("refreshToken", refreshToken)
                 .httpOnly(true) // Prevent JavaScript access to mitigate XSS
                 .secure(isProduction)
