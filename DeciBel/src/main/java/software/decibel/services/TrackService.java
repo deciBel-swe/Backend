@@ -203,4 +203,9 @@ public class TrackService {
 
     return trackMapper.toTrackPatchResponse(trackRepository.save(track));
   }
+
+  public TrackWaveFormUrlResponse getTrackWaveformUrl(Long trackId) {
+    Track track = getTrackById(trackId);
+    return trackMapper.toTrackWaveFormUrlResponse(track);
+  }
 }

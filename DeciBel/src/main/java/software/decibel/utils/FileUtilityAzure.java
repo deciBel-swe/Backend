@@ -43,7 +43,11 @@ public class FileUtilityAzure {
       // ex:
       // "audio/fae40b70-2913-470c-9307-47656c8e81cc_wind.mp3",
       String fileName =
-          fileType.getPath() + "/" + UUID.randomUUID() + "_" + file.getOriginalFilename();
+          fileType.getPath()
+              + "/"
+              + UUID.randomUUID()
+              + "_"
+              + cleanFileName(file.getOriginalFilename());
 
       // Get a connection for this file inside container (doesnt exist yet)
       BlobClient blobClient = blobContainerClient.getBlobClient(fileName);
@@ -66,7 +70,8 @@ public class FileUtilityAzure {
     // Generate unique filename to avoid collisions
     // ex:
     // "waveform-data/fae40b70-2913-470c-9307-47656c8e81cc_wind.json",
-    String fileName = fileType.getPath() + "/" + UUID.randomUUID() + "_" + fileTitle + ".json";
+    String fileName =
+        fileType.getPath() + "/" + UUID.randomUUID() + "_" + cleanFileName(fileTitle) + ".json";
     try {
       BlobClient blobClient = blobContainerClient.getBlobClient(fileName);
       blobClient.upload(inputStream, size, true);
@@ -89,4 +94,9 @@ public class FileUtilityAzure {
     }
   }
 
+  // Function to make filename usable in url
+  // file title -> file_title
+  private String cleanFileName(String fileName) {
+    return fileName.trim().replaceAll("\\s+", "_");
+  }
 }
