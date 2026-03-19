@@ -2,6 +2,7 @@ package software.decibel.entities;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -44,7 +45,7 @@ public class Track {
   @Enumerated(EnumType.STRING)
   private TrackState state;
 
-  @CreationTimestamp private LocalDate uploadDate;
+  @CreationTimestamp private LocalDateTime uploadDate;
 
   // ---Visibility ---
   @Enumerated(EnumType.STRING)
