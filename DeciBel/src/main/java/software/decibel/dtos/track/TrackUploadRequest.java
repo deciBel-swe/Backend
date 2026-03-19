@@ -6,12 +6,19 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.multipart.MultipartFile;
 import software.decibel.customValidation.ValidAudioFile;
 import software.decibel.customValidation.ValidImageFile;
+import software.decibel.customValidation.ValidTagList;
 import software.decibel.customValidation.ValidWaveFormData;
 
 public record TrackUploadRequest(
     @ValidAudioFile MultipartFile audioFile,
     @ValidImageFile MultipartFile coverImage,
     @ValidWaveFormData String waveformData,
+
+    // Tags are sent as a JSON string (e.g. '["rock","pop"]') rather than a repeated
+    // multipart field because multipart/form-data has no  array type. Each repeated
+    // field counts as a separate part, which exceeds Tomcat's part limit quickly. Parsing
+    // the JSON string on the backend keeps the part count low.
+    @ValidTagList String tags,
     @NotBlank(message = "Title is required")
         @Size(max = 200, message = "Title must be less than 200 characters")
         String title,
