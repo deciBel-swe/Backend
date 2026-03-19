@@ -16,7 +16,7 @@ services:
     restart: unless-stopped
   backend:
       build:
-        context: .
+        context: ./DeciBel
       container_name: DeciBel-backend
       image: decibel-backend:local
       ports:
