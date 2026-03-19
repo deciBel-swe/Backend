@@ -20,7 +20,7 @@ services:
       container_name: DeciBel-backend
       image: decibel-backend:local
       ports:
-        - "8080:8080"
+        - "8081:8081"
       networks:
         - backend
       depends_on:
