@@ -11,6 +11,17 @@ import software.decibel.entities.User;
 @Mapper(componentModel = "spring") // Spring injects it as a @Component
 public interface TrackMapper {
 
+  // ----------------- TrackResponse DTOs ---------------------
+
+  @Mapping(target = "artist", expression = "java(mapArtist(track.getUploader()))")
+  @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
+  TrackResponse toTrackResponse(Track track);
+
+  default TrackArtist mapArtist(User user) {
+    if (user == null) return null;
+    return new TrackArtist(user.getId(), user.getUsername(), user.getAvatarUrl());
+  }
+
   // ----------------- TrackUpload DTOs ---------------------
 
   // Track -> TrackUploadResponse DTO

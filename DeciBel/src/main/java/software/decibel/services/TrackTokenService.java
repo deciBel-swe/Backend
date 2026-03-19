@@ -22,7 +22,7 @@ public class TrackTokenService {
   public TrackTokenResponse getActiveToken(Long trackId) {
 
     // To check / throw error if track doesn't exist
-    trackService.getTrackById(trackId);
+    trackService.getTrackIfExistsById(trackId);
 
     TrackToken token =
         trackTokenRepository
@@ -34,7 +34,7 @@ public class TrackTokenService {
 
   @Transactional
   public TrackTokenResponse regenerateToken(Long trackId) {
-    Track track = trackService.getTrackById(trackId);
+    Track track = trackService.getTrackIfExistsById(trackId);
 
     // soft delete all other tokens
     trackTokenRepository

@@ -4,6 +4,9 @@ import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.decibel.dtos.track.*;
@@ -44,12 +47,12 @@ public class TrackService {
   // Returns track's status
   public TrackStatusResponse getTrackStatus(Long trackId) {
 
-    return trackMapper.toTrackStatusResponse(getTrackById(trackId));
+    return trackMapper.toTrackStatusResponse(getTrackIfExistsById(trackId));
   }
 
   @Transactional
   public void deleteTrack(Long trackId) {
-    Track track = getTrackById(trackId);
+    Track track = getTrackIfExistsById(trackId);
 
     deleteTrackCover(trackId);
     deleteTrackAudio(trackId);
@@ -64,11 +67,7 @@ public class TrackService {
 
     // get userid and user from jwt
     Long userId = JwtService.getCurrentUserId();
-    User uploader =
-        userRepository
-            .findById(userId)
-            .orElseThrow(
-                () -> new ResourceNotFoundException("User with id " + userId + " not found"));
+    User uploader = getUserIfExistsById(userId);
 
     // convert track to entity and save as UPLOADING
     Track track = trackMapper.toEntity(request, uploader);
@@ -141,7 +140,7 @@ public class TrackService {
   }
 
   // Returns track entity by id and throws exception if not found
-  public Track getTrackById(Long trackId) {
+  public Track getTrackIfExistsById(Long trackId) {
     return trackRepository
         .findById(trackId)
         .orElseThrow(
@@ -151,7 +150,7 @@ public class TrackService {
   // Deletes track cover from azure & sets coverUrl = null
   @Transactional
   public void deleteTrackCover(Long trackId) {
-    Track track = getTrackById(trackId);
+    Track track = getTrackIfExistsById(trackId);
 
     if (track.getCoverUrl() != null) {
       fileUtilityAzure.deleteFileByUrl(track.getCoverUrl());
@@ -164,7 +163,7 @@ public class TrackService {
 
   @Transactional
   public void deleteTrackAudio(Long trackId) {
-    Track track = getTrackById(trackId);
+    Track track = getTrackIfExistsById(trackId);
     if (track.getTrackUrl() != null) {
       fileUtilityAzure.deleteFileByUrl(track.getTrackUrl());
       track.setTrackUrl(null);
@@ -174,7 +173,7 @@ public class TrackService {
 
   @Transactional
   public void deleteTrackWaveformData(Long trackId) {
-    Track track = getTrackById(trackId);
+    Track track = getTrackIfExistsById(trackId);
     if (track.getWaveformUrl() != null) {
       fileUtilityAzure.deleteFileByUrl(track.getWaveformUrl());
       track.setWaveformUrl(null);
@@ -194,7 +193,7 @@ public class TrackService {
 
   @Transactional
   public TrackPatchResponse updateTrack(Long trackId, TrackPatchRequest request) {
-    Track track = getTrackById(trackId);
+    Track track = getTrackIfExistsById(trackId);
 
     if (request.title() != null) track.setTitle(request.title());
     if (request.genre() != null) track.setGenre(request.genre());
@@ -217,7 +216,41 @@ public class TrackService {
   }
 
   public TrackWaveFormUrlResponse getTrackWaveformUrl(Long trackId) {
-    Track track = getTrackById(trackId);
+    Track track = getTrackIfExistsById(trackId);
     return trackMapper.toTrackWaveFormUrlResponse(track);
+  }
+
+  public TrackPageResponse getCurrentUserTracks(int page, int size) {
+    Long userId = JwtService.getCurrentUserId();
+    return getTracksByUserId(userId, page, size);
+  }
+
+  public TrackPageResponse getUserTracks(Long userId, int page, int size) {
+    // make sure user exists
+    getUserIfExistsById(userId);
+    return getTracksByUserId(userId, page, size);
+  }
+
+  // Gets tracks by user id (and is pageable)
+  private TrackPageResponse getTracksByUserId(Long userId, int page, int size) {
+    Pageable pageable = PageRequest.of(page, size);
+    Page<Track> tracks = trackRepository.findByUploaderId(userId, pageable);
+
+    List<TrackResponse> content =
+        tracks.getContent().stream().map(trackMapper::toTrackResponse).toList();
+
+    return new TrackPageResponse(
+        content,
+        tracks.getNumber(),
+        tracks.getSize(),
+        tracks.getTotalElements(),
+        tracks.getTotalPages(),
+        tracks.isLast());
+  }
+
+  private User getUserIfExistsById(Long userId) {
+    return userRepository
+        .findById(userId)
+        .orElseThrow(() -> new ResourceNotFoundException("User with id " + userId + " not found"));
   }
 }
