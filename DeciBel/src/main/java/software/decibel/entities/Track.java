@@ -2,14 +2,12 @@ package software.decibel.entities;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
 import software.decibel.enums.TrackState;
 import software.decibel.enums.Visibility;
 
@@ -46,10 +44,7 @@ public class Track {
   @Enumerated(EnumType.STRING)
   private TrackState state;
 
-  // --- File & Storage Details ---
-  private String trackUrl;
-  private String coverUrl;
-  private String waveformUrl;
+  @CreationTimestamp private LocalDate uploadDate;
 
   // ---Visibility ---
   @Enumerated(EnumType.STRING)
@@ -57,6 +52,11 @@ public class Track {
   @Builder.Default
   private Visibility visibility = Visibility.PUBLIC;
 
+  // --- File & Storage Details ---
+  private String trackUrl;
+  private String coverUrl;
+  private String waveformUrl;
+  
   // --- Relationships ---
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "uploader_id", nullable = false)
@@ -74,7 +74,5 @@ public class Track {
   @OneToMany(mappedBy = "track", cascade = CascadeType.ALL, orphanRemoval = true)
   private List<TrackToken> tokens;
 
-  @CreationTimestamp private LocalDateTime createdAt;
 
-  @UpdateTimestamp private LocalDateTime updatedAt;
 }

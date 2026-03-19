@@ -19,6 +19,7 @@ import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.utils.AudioUtility;
 import software.decibel.utils.FileUtilityAzure;
+import software.decibel.utils.TagUtility;
 import software.decibel.utils.WaveFormUtility;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
@@ -71,7 +72,14 @@ public class TrackService {
 
     // convert track to entity and save as UPLOADING
     Track track = trackMapper.toEntity(request, uploader);
+
+    // Parse json tag string to a list of tag strings
+    List<String> tags = TagUtility.parseTags(request.tags());
+    if (request.tags() != null) addTrackTags(track, tags);
+
     Track createdTrack = createUploadingTrack(track);
+
+    
 
     // Uploading audio/image files & Processing the audio file for duration may cause exceptions to
     // be handled
@@ -105,6 +113,7 @@ public class TrackService {
 
       // after processing (getting duration is done) save track as FINISHED
       updateTrackState(createdTrack, TrackState.FINISHED);
+      
       Track saved = trackRepository.save(createdTrack);
 
       return trackMapper.toTrackUploadResponse(saved);
@@ -199,7 +208,10 @@ public class TrackService {
       String newCoverUrl = fileUtilityAzure.saveFile(request.coverImage(), FileType.TRACK_COVERS);
       track.setCoverUrl(newCoverUrl);
     }
-    if (request.tags() != null) addTrackTags(track, request.tags());
+
+    // Parse json tag string to a list of tag strings
+    List<String> tags = TagUtility.parseTags(request.tags());
+    if (request.tags() != null) addTrackTags(track, tags);
 
     return trackMapper.toTrackPatchResponse(trackRepository.save(track));
   }
