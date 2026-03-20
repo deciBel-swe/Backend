@@ -29,6 +29,8 @@ services:
         - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/DeciBel
         - SPRING_DATASOURCE_USERNAME=DeciBel
         - SPRING_DATASOURCE_PASSWORD=DeciBel1234
+        #added for testing purposes, should be changed to 'update'
+        - SPRING_JPA_HIBERNATE_DDL_AUTO=create-drop
 
 
 networks:

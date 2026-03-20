@@ -36,6 +36,7 @@ public class SecurityConfig {
             auth -> auth.requestMatchers("/auth/**").permitAll()
                     .requestMatchers(org.springframework.http.HttpMethod.GET, "/users/*/followers").permitAll()
                     .requestMatchers(org.springframework.http.HttpMethod.GET, "/users/*/following").permitAll()
+                    .requestMatchers(org.springframework.http.HttpMethod.GET, "/users/{userId}").permitAll()
                     .anyRequest().authenticated())
 
         // Use stateless sessions for JWT authentication

@@ -67,6 +67,8 @@ public class User {
     private int followerCount = 0;
     @Builder.Default
     private int followingCount = 0;
+    @Builder.Default
+    private int trackCount = 0;
 
     @CreationTimestamp
     private LocalDateTime createdAt;
