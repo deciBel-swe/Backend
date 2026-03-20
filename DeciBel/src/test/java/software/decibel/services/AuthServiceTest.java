@@ -1,13 +1,28 @@
 package software.decibel.services;
 
+import java.time.LocalDate;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
+
 import software.decibel.dtos.auth.DeviceInfo;
 import software.decibel.dtos.auth.GoogleOauthRequest;
 import software.decibel.dtos.auth.LoginLocalRequest;
@@ -27,12 +42,6 @@ import software.decibel.enums.TokenType;
 import software.decibel.exceptions.custom.InvalidGoogleTokenException;
 import software.decibel.repositories.AuthIdentityRepository;
 import software.decibel.repositories.UserRepository;
-import java.time.LocalDate;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
@@ -137,7 +146,7 @@ class AuthServiceTest {
 
                 assertEquals("access-token", result.response().accessToken());
                 assertEquals("refresh-token", result.refreshToken());
-                assertEquals(AccountTier.ARTIST, result.response().user().tier()); // Role verified!
+                assertEquals(AccountTier.PRO, result.response().user().tier()); // Role verified!
                 verify(tokenService).createRefreshToken(user);
                 verify(sessionService).createSession(user, mockToken, request.deviceInfo());
         }
@@ -358,7 +367,7 @@ class AuthServiceTest {
                 GoogleOauthRequest request = new GoogleOauthRequest(
                                 "google-token",
                                 new DeviceInfo(DeviceType.DESKTOP, "fp-google", "Chrome"));
-                User user = User.builder().id(11L).username("google-user").tier(AccountTier.LISTENER).build();
+                User user = User.builder().id(11L).username("google-user").tier(AccountTier.FREE).build();
                 AuthIdentity identity = AuthIdentity.builder()
                                 .user(user)
                                 .email("google@example.com")
@@ -394,7 +403,7 @@ class AuthServiceTest {
                                 "google-token",
                                 new DeviceInfo(DeviceType.MOBILE, "fp-google-new", "Pixel"));
                 Token refreshToken = Token.builder().hash("hash").build();
-                User savedUser = User.builder().id(15L).username("googleuser_345678").tier(AccountTier.LISTENER)
+                User savedUser = User.builder().id(15L).username("googleuser_345678").tier(AccountTier.FREE)
                                 .build();
 
                 when(googleTokenVerificationService.verifyIdToken("google-token"))
@@ -474,7 +483,7 @@ class AuthServiceTest {
         }
 
         private User verifiedUser() {
-                return User.builder().username("user").tier(AccountTier.ARTIST).build();
+                return User.builder().username("user").tier(AccountTier.PRO).build();
         }
 
         private AuthIdentity verifiedIdentity(User user) {
