@@ -91,7 +91,7 @@ class AuthControllerTest {
                 LoginLocalResponse response = new LoginLocalResponse(
                                 "access-token",
                                 1800L,
-                                new LoginLocalResponse.UserInfo(2L, "artist-user", AccountTier.PRO, null,
+                                new LoginLocalResponse.UserInfo(2L, "pro-user", AccountTier.PRO, null,
                                                 "avatar.png"));
                 when(authService.loginLocal(any(LoginLocalRequest.class)))
                                 .thenReturn(new AuthService.AuthLoginResult(response, "refresh-token", 2592000L));
@@ -105,8 +105,8 @@ class AuthControllerTest {
                                 .andExpect(jsonPath("$.accessToken").value("access-token"))
                                 .andExpect(jsonPath("$.expiresIn").value(1800))
                                 .andExpect(jsonPath("$.user.id").value(2))
-                                .andExpect(jsonPath("$.user.username").value("artist-user"))
-                                .andExpect(jsonPath("$.user.tier").value("ARTIST"));
+                                .andExpect(jsonPath("$.user.username").value("pro-user"))
+                                .andExpect(jsonPath("$.user.tier").value("PRO"));
         }
 
         @Test
@@ -114,7 +114,7 @@ class AuthControllerTest {
                 LoginLocalResponse response = new LoginLocalResponse(
                                 "access-token",
                                 1800L,
-                                new LoginLocalResponse.UserInfo(2L, "artist-user", AccountTier.PRO, null,
+                                new LoginLocalResponse.UserInfo(2L, "pro-user", AccountTier.PRO, null,
                                                 "avatar.png"));
                 when(authService.loginLocal(any(LoginLocalRequest.class)))
                                 .thenReturn(new AuthService.AuthLoginResult(response, "refresh-token", 2592000L));
