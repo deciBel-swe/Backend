@@ -1,6 +1,7 @@
 package software.decibel.enums;
 
 public enum AccountTier {
-    FREE,
-    PRO
+    LISTENER,
+    ARTIST,
+    ARTIST_PRO
 }
