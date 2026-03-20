@@ -1,40 +1,39 @@
 package software.decibel.controllers;
 
-import java.time.LocalDate;
-
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import static org.mockito.ArgumentMatchers.any;
 import org.mockito.Mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-
 import software.decibel.dtos.auth.DeviceInfo;
 import software.decibel.dtos.auth.GoogleOauthRequest;
 import software.decibel.dtos.auth.LoginLocalRequest;
 import software.decibel.dtos.auth.LoginLocalResponse;
 import software.decibel.dtos.auth.LogoutSessionRequest;
-import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.auth.RefreshTokenResponse;
+import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.auth.RegisterLocalRequest;
 import software.decibel.dtos.auth.VerifyEmailRequest;
 import software.decibel.enums.AccountTier;
 import software.decibel.enums.DeviceType;
 import software.decibel.services.AuthService;
+
+import java.time.LocalDate;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ExtendWith(MockitoExtension.class)
 class AuthControllerTest {
@@ -91,7 +90,7 @@ class AuthControllerTest {
                 LoginLocalResponse response = new LoginLocalResponse(
                                 "access-token",
                                 1800L,
-                                new LoginLocalResponse.UserInfo(2L, "pro-user", AccountTier.PRO, null,
+                                new LoginLocalResponse.UserInfo(2L, "artist-user", AccountTier.ARTIST, null,
                                                 "avatar.png"));
                 when(authService.loginLocal(any(LoginLocalRequest.class)))
                                 .thenReturn(new AuthService.AuthLoginResult(response, "refresh-token", 2592000L));
@@ -105,8 +104,8 @@ class AuthControllerTest {
                                 .andExpect(jsonPath("$.accessToken").value("access-token"))
                                 .andExpect(jsonPath("$.expiresIn").value(1800))
                                 .andExpect(jsonPath("$.user.id").value(2))
-                                .andExpect(jsonPath("$.user.username").value("pro-user"))
-                                .andExpect(jsonPath("$.user.tier").value("PRO"));
+                                .andExpect(jsonPath("$.user.username").value("artist-user"))
+                                .andExpect(jsonPath("$.user.tier").value("ARTIST"));
         }
 
         @Test
@@ -114,7 +113,7 @@ class AuthControllerTest {
                 LoginLocalResponse response = new LoginLocalResponse(
                                 "access-token",
                                 1800L,
-                                new LoginLocalResponse.UserInfo(2L, "pro-user", AccountTier.PRO, null,
+                                new LoginLocalResponse.UserInfo(2L, "artist-user", AccountTier.ARTIST, null,
                                                 "avatar.png"));
                 when(authService.loginLocal(any(LoginLocalRequest.class)))
                                 .thenReturn(new AuthService.AuthLoginResult(response, "refresh-token", 2592000L));
@@ -249,7 +248,7 @@ class AuthControllerTest {
                 LoginLocalResponse response = new LoginLocalResponse(
                                 "google-access-token",
                                 1800L,
-                                new LoginLocalResponse.UserInfo(3L, "google-user", AccountTier.FREE,
+                                new LoginLocalResponse.UserInfo(3L, "google-user", AccountTier.LISTENER,
                                                 "/users/google-user", "avatar.png"));
                 when(authService.loginWithGoogle(any(GoogleOauthRequest.class)))
                                 .thenReturn(new AuthService.AuthLoginResult(response, "google-refresh-token",

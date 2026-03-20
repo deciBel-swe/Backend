@@ -52,7 +52,7 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
-    private AccountTier tier = AccountTier.FREE;
+    private AccountTier tier = AccountTier.LISTENER;
 
     // Privacy Toggles 
     @Column(nullable = false)
