@@ -13,7 +13,7 @@ env:
   REPO: ghcr.io/decibel-swe/backend
 
 jobs:
-  docker:
+  version-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -34,6 +34,9 @@ jobs:
         id: versioning
         uses: PaulHatch/semantic-version@v5.4.0
         with:
+          bump_each_commit: true
+          major_pattern: "/BREAKING CHANGE:/"
+          minor_pattern: "/feat(\\(.*\\))?:/"
           version_format: "${major}.${minor}.${patch}-prerelease${increment}"
 
       - name: Set up Docker Buildx
