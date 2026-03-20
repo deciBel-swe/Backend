@@ -1,7 +1,7 @@
 name: Versioning and Deploying
 on:
   push:
-    branches: [ "main", "Dev" ]
+    branches: [ "main", "Dev", "chore/versioning-ci" ]
   workflow_dispatch:
 
 permissions:
