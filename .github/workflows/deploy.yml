@@ -1,7 +1,7 @@
 name: Versioning and Deploying
 on:
   push:
-    branches: [ "main", "Dev", "chore/versioning-ci" ]
+    branches: [ "main", "Dev" ]
   workflow_dispatch:
 
 permissions:
@@ -35,7 +35,7 @@ jobs:
         uses: PaulHatch/semantic-version@v5.4.0
         with:
           bump_each_commit: true
-          major_pattern: "/BREAKING CHANGE:/"
+          major_pattern: "/BREAKING CHANGE:|!:/"
           minor_pattern: "/feat(\\(.*\\))?:/"
           version_format: "${major}.${minor}.${patch}-prerelease${increment}"
 
