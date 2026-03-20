@@ -2,6 +2,7 @@ package software.decibel.enums;
 
 public enum SocialPlatform {
     INSTAGRAM,
-    TWITTER
-
+    TWITTER,
+    WEBSITE,
+    SUPPORT_LINK
 }

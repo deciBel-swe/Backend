@@ -1,9 +1,9 @@
 package software.decibel.dtos.user;
 
-import software.decibel.enums.SocialPlatform;
-
-public record SocialLinksDto(SocialPlatform platform,
-        String url) {
-
+public record SocialLinksDto(
+        String instagram,
+        String twitter,
+        String website,
+        String supportLink) {
 
 }
