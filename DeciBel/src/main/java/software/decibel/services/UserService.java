@@ -1,16 +1,22 @@
 package software.decibel.services;
 
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import software.decibel.dtos.user.SocialLinksDto;
 import software.decibel.dtos.user.UserPublicProfileDto;
 import software.decibel.entities.User;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.repositories.SocialLinksRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.dtos.user.UserPrivateProfileDto;
 
 import java.util.List;
+
+import software.decibel.entities.AuthIdentity;
+import software.decibel.repositories.AuthIdentityRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -18,7 +24,9 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final SocialLinksRepository socialLinksRepository;
+    private final AuthIdentityRepository authIdentityRepository;
 
+    //public profile service method, does not include private info
     @Transactional(readOnly = true)
     public UserPublicProfileDto getUserPublicProfile(Long userId) {
         User user = userRepository.findById(userId)
@@ -54,4 +62,24 @@ public class UserService {
                 user.getTrackCount()
         );
     }
+
+    //private profile service method, includes private info
+    @Transactional(readOnly = true)
+    public UserPrivateProfileDto getUserPrivateProfile(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User with id " + userId + " not found"));
+        UserPublicProfileDto publicProfile = getUserPublicProfile(userId);
+
+        Boolean emailVerified = authIdentityRepository.findAllByUser(user)
+                .stream()
+                .anyMatch(AuthIdentity::isEmailVerified);
+
+        return new UserPrivateProfileDto(
+                publicProfile,
+                user.isPrivate(),
+                user.isShowHistory(),
+                emailVerified
+        );
+    }
+
 }
