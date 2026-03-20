@@ -1,5 +1,7 @@
 package software.decibel.dtos.user;
 
+import java.util.List;
+
 import software.decibel.enums.AccountTier;
 
 public record UpdateProfileResponse(
@@ -12,7 +14,7 @@ public record UpdateProfileResponse(
         int followingCount,
         int trackCount,
         UserProfile profile,
-        SocialLinksDto socialLinksDto,
+        List<SocialLinksDto> socialLinksDto,
         PrivacySettings privacySettings) {
 
 }

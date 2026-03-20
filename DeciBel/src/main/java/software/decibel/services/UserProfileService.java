@@ -1,25 +1,23 @@
 package software.decibel.services;
 
-import java.util.Map;
-import java.util.stream.Collectors;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import lombok.RequiredArgsConstructor;
-import software.decibel.dtos.user.PrivacySettings;
-import software.decibel.dtos.user.SocialLinksDto;
 import software.decibel.dtos.user.UpdateProfileRequest;
 import software.decibel.dtos.user.UpdateProfileResponse;
-import software.decibel.dtos.user.UserProfile;
-import software.decibel.entities.AuthIdentity;
+import software.decibel.dtos.user.UpdateUserImagesResponse;
 import software.decibel.entities.SocialLinks;
 import software.decibel.entities.User;
+import software.decibel.enums.FileType;
 import software.decibel.enums.SocialPlatform;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
-import software.decibel.repositories.AuthIdentityRepository;
 import software.decibel.repositories.SocialLinksRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.utils.FileUtilityAzure;
+import software.decibel.utils.LocationUtility;
+import software.decibel.utils.UserMappingUtility;
 
 @Service
 @RequiredArgsConstructor
@@ -27,41 +25,40 @@ public class UserProfileService {
 
     private final UserRepository userRepository;
     private final SocialLinksRepository socialLinksRepository;
-    private final AuthIdentityRepository authIdentityRepository;
+    private final FileUtilityAzure fileUtilityAzure;
+    private final LocationUtility locationUtility;
+    private final UserMappingUtility userMappingUtility;
 
     // Public profile — no auth required
     @Transactional(readOnly = true)
     public UpdateProfileResponse getUserPublicProfile(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User with id " + userId + " not found"));
-
-        return buildUpdateProfileResponse(user, false, false);
+        User user = findUserById(userId);
+        return userMappingUtility.toUpdateProfileResponse(user, false, false);
     }
 
     // Private profile — authenticated, includes privacy settings and email verified
     @Transactional(readOnly = true)
     public UpdateProfileResponse getMyProfile(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User with id " + userId + " not found"));
-
-        return buildUpdateProfileResponse(user, true, isEmailVerified(user));
+        User user = findUserById(userId);
+        return userMappingUtility.toUpdateProfileResponse(user, true, userMappingUtility.isEmailVerified(user));
     }
 
     // Update profile — authenticated, partial update
     @Transactional
     public UpdateProfileResponse updateMyProfile(Long userId, UpdateProfileRequest request) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User with id " + userId + " not found"));
+        User user = findUserById(userId);
 
+        //checks Bio 
         if (request.bio() != null) {
             user.setBio(request.bio());
         }
-
+        //checks City and Country, if either is provided, we need to update the location string
         if (request.city() != null || request.country() != null) {
-            String city = request.city() != null ? request.city() : parseCity(user.getLocation());
-            String country = request.country() != null ? request.country() : parseCountry(user.getLocation());
-            user.setLocation(buildLocation(city, country));
+            String city = request.city() != null ? request.city() : locationUtility.parseCity(user.getLocation());
+            String country = request.country() != null ? request.country() : locationUtility.parseCountry(user.getLocation());
+            user.setLocation(locationUtility.buildLocation(city, country));
         }
+        //checks Favorite Genres
 
         if (request.favoriteGenres() != null) {
             user.setFavoriteGenres(request.favoriteGenres());
@@ -69,113 +66,61 @@ public class UserProfileService {
 
         userRepository.save(user);
 
-        if (request.socialLinks() != null) {
-            SocialPlatform platform = request.socialLinks().getPlatform();
-            String url = request.socialLinks().getUrl();
+        if (request.socialLinksDto() != null) {
+            SocialPlatform platform = request.socialLinksDto().platform();
+            String url = request.socialLinksDto().url();
             SocialLinks socialLink = socialLinksRepository
                     .findByUserAndPlatform(user, platform)
                     .orElse(SocialLinks.builder().user(user).platform(platform).build());
             socialLink.setUrl(url);
             socialLinksRepository.save(socialLink);
         }
-
-        UpdateProfileResponse updated = getMyProfile(userId);
-        return new UpdateProfileResponse(
-                updated.id(),
-                updated.email(),
-                updated.username(),
-                updated.emailVerified(),
-                updated.tier(),
-                updated.followerCount(),
-                updated.followingCount(),
-                updated.trackCount(),
-                updated.profile(),
-                updated.socialLinksDto(),
-                updated.privacySettings()
-        );
+        //load updated user
+        User updatedUser = findUserById(userId);
+        return userMappingUtility.toUpdateProfileResponse(updatedUser, true, userMappingUtility.isEmailVerified(updatedUser));
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
-    private UpdateProfileResponse buildUpdateProfileResponse(User user, boolean includePrivacy, boolean emailVerified) {
-        // Map social links list into a flat object
-        Map<SocialPlatform, String> linksMap = socialLinksRepository.findAllByUser(user)
-                .stream()
-                .collect(Collectors.toMap(SocialLinks::getPlatform, SocialLinks::getUrl));
+    // Update profile/cover images — authenticated
+    @Transactional
+    public UpdateUserImagesResponse updateMyImages(Long userId, MultipartFile profilePic, MultipartFile coverPic) {
+        User user = findUserById(userId);
 
-        SocialLinksDto socialLinksDto = new SocialLinksDto(
-                linksMap.get(SocialPlatform.INSTAGRAM),
-                linksMap.get(SocialPlatform.TWITTER),
-                linksMap.get(SocialPlatform.WEBSITE),
-                linksMap.get(SocialPlatform.SUPPORT_LINK)
-        );
+        if (profilePic != null && !profilePic.isEmpty()) {
+            user.setAvatarUrl(fileUtilityAzure.saveFile(profilePic, FileType.AVATARS));
+        }
 
-        UserProfile profileDto = new UserProfile(
-                user.getBio(),
-                parseCity(user.getLocation()),
-                parseCountry(user.getLocation()),
-                user.getAvatarUrl(),
-                user.getCoverPhotoUrl(),
-                user.getFavoriteGenres()
-        );
+        if (coverPic != null && !coverPic.isEmpty()) {
+            user.setCoverPhotoUrl(fileUtilityAzure.saveFile(coverPic, FileType.PROFILE_COVERS));
+        }
 
-        PrivacySettings privacySettingsDto = includePrivacy
-                ? new PrivacySettings(user.isPrivate(), user.isShowHistory())
-                : null;
-
-        // Resolve email from any identity
-        String email = authIdentityRepository.findAllByUser(user)
-                .stream()
-                .findFirst()
-                .map(AuthIdentity::getEmail)
-                .orElse(null);
-
-        return new UpdateProfileResponse(
-                user.getId(),
-                email,
-                user.getUsername(),
-                emailVerified,
-                user.getTier(),
-                user.getFollowerCount(),
-                user.getFollowingCount(),
-                user.getTrackCount(),
-                profileDto,
-                socialLinksDto,
-                privacySettingsDto
-        );
+        userRepository.save(user);
+        return new UpdateUserImagesResponse(user.getAvatarUrl(), user.getCoverPhotoUrl());
     }
 
-    private boolean isEmailVerified(User user) {
-        return authIdentityRepository.findAllByUser(user)
-                .stream()
-                .anyMatch(AuthIdentity::isEmailVerified);
+    // Delete profile picture
+    @Transactional
+    public void deleteMyAvatar(Long userId) {
+        User user = findUserById(userId);
+        if (user.getAvatarUrl() != null) {
+            fileUtilityAzure.deleteFileByUrl(user.getAvatarUrl());
+            user.setAvatarUrl(null);
+            userRepository.save(user);
+        }
     }
 
-    private String parseCity(String location) {
-        if (location == null) {
-            return null;
+    // Delete cover photo
+    @Transactional
+    public void deleteMyCoverPhoto(Long userId) {
+        User user = findUserById(userId);
+        if (user.getCoverPhotoUrl() != null) {
+            fileUtilityAzure.deleteFileByUrl(user.getCoverPhotoUrl());
+            user.setCoverPhotoUrl(null);
+            userRepository.save(user);
         }
-        String[] parts = location.split(",", 2);
-        return parts[0].trim();
     }
 
-    private String parseCountry(String location) {
-        if (location == null) {
-            return null;
-        }
-        String[] parts = location.split(",", 2);
-        return parts.length > 1 ? parts[1].trim() : null;
-    }
-
-    private String buildLocation(String city, String country) {
-        if (city == null && country == null) {
-            return null;
-        }
-        if (city == null) {
-            return country;
-        }
-        if (country == null) {
-            return city;
-        }
-        return city + ", " + country;
+    private User findUserById(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User with id " + userId + " not found"));
     }
 }
