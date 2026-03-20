@@ -15,23 +15,20 @@ services:
       - backend
     restart: unless-stopped
   backend:
-      build:
-        context: ./DeciBel
-      container_name: DeciBel-backend
-      image: decibel-backend:local
-      ports:
-        - "8081:8081"
-      networks:
-        - backend
-      depends_on:
-        - postgres
-      environment:
-        - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/DeciBel
-        - SPRING_DATASOURCE_USERNAME=DeciBel
-        - SPRING_DATASOURCE_PASSWORD=DeciBel1234
-        #added for testing purposes, should be changed to 'update'
-        - SPRING_JPA_HIBERNATE_DDL_AUTO=create-drop
-
+    build:
+      context: ./DeciBel
+    container_name: DeciBel-backend
+    image: decibel-backend:local
+    ports:
+      - "8081:8081"
+    networks:
+      - backend
+    depends_on:
+      - postgres
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/DeciBel
+      - SPRING_DATASOURCE_USERNAME=DeciBel
+      - SPRING_DATASOURCE_PASSWORD=DeciBel1234
 
 networks:
   backend:
