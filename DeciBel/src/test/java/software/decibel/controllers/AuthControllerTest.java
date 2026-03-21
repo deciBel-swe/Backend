@@ -265,7 +265,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.accessToken").value("google-access-token"))
                 .andExpect(jsonPath("$.user.id").value(3))
                 .andExpect(jsonPath("$.user.username").value("google-user"))
-                .andExpect(jsonPath("$.user.emailVerified").value(true));
+                .andExpect(jsonPath("$.user.isNewUser").value(true));
     }
 
     @Test
