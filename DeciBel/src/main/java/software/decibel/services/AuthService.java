@@ -17,6 +17,7 @@ import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.auth.RefreshTokenResponse;
 import software.decibel.dtos.auth.RegisterLocalRequest;
 import software.decibel.dtos.auth.VerifyEmailRequest;
+import software.decibel.dtos.auth.google.ResendVerificationEmailRequest;
 import software.decibel.dtos.auth.google.VerifiedGoogleToken;
 import software.decibel.entities.AuthIdentity;
 import software.decibel.entities.Token;
@@ -214,6 +215,36 @@ public class AuthService {
         tokenService.deleteTokensForUserAndType(user, TokenType.REFRESH_TOKEN);
 
         return new MessageResponse("Logged out of all sessions");
+    }
+
+    @Transactional
+    public MessageResponse resendVerificationEmail(ResendVerificationEmailRequest request) {
+        AuthIdentity identity = authIdentityRepository
+                .findByEmailIgnoreCaseAndProviderAndType(
+                        request.email(), AuthProvider.LOCAL, AuthType.PASSWORD)
+                .orElse(null);
+
+        // Return silently if email not found — prevent email enumeration
+        if (identity == null) {
+            return new MessageResponse("If an unverified account exists with that email, a verification link has been sent.");
+        }
+
+        // Only resend if not yet verified
+        if (identity.isEmailVerified()) {
+            return new MessageResponse("If an unverified account exists with that email, a verification link has been sent.");
+        }
+
+        User user = identity.getUser();
+
+        // Delete any existing unused verification tokens before issuing a new one
+        tokenService.deleteTokensForUserAndType(user, TokenType.EMAIL_VERIFICATION);
+        tokenService.deleteExpiredTokens();
+
+        TokenService.IssuedToken issuedToken = tokenService.createEmailVerificationToken(user);
+        String verificationLink = frontendLinkService.buildEmailVerificationLink(issuedToken.rawToken());
+        emailService.sendEmailVerificationEmail(identity.getEmail(), verificationLink);
+
+        return new MessageResponse("If an unverified account exists with that email, a verification link has been sent.");
     }
 
     private AuthLoginResult issueLoginTokens(AuthIdentity identity, DeviceInfo deviceInfo, boolean isNewUser) {

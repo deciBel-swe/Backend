@@ -19,6 +19,7 @@ import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.auth.RefreshTokenResponse;
 import software.decibel.dtos.auth.RegisterLocalRequest;
 import software.decibel.dtos.auth.VerifyEmailRequest;
+import software.decibel.dtos.auth.google.ResendVerificationEmailRequest;
 import software.decibel.services.AuthService;
 
 @RestController
@@ -97,6 +98,12 @@ public class AuthController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                 .body(result.response());
+    }
+
+    @PostMapping("/resend-verification")
+    public ResponseEntity<MessageResponse> resendVerificationEmail(
+            @Valid @RequestBody ResendVerificationEmailRequest request) {
+        return ResponseEntity.ok(authService.resendVerificationEmail(request));
     }
 
     private ResponseCookie buildRefreshCookie(String refreshToken, long maxAgeSeconds) {
