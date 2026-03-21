@@ -1,21 +1,22 @@
 package software.decibel.controllers;
 
-import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import jakarta.validation.Valid;
+import software.decibel.dtos.auth.GoogleOauthRequest;
 import software.decibel.dtos.auth.LoginLocalRequest;
 import software.decibel.dtos.auth.LoginLocalResponse;
-import software.decibel.dtos.auth.RefreshTokenResponse;
-import software.decibel.dtos.auth.MessageResponse;
-import software.decibel.dtos.auth.GoogleOauthRequest;
 import software.decibel.dtos.auth.LogoutSessionRequest;
+import software.decibel.dtos.auth.MessageResponse;
+import software.decibel.dtos.auth.RefreshTokenResponse;
 import software.decibel.dtos.auth.RegisterLocalRequest;
 import software.decibel.dtos.auth.VerifyEmailRequest;
 import software.decibel.services.AuthService;

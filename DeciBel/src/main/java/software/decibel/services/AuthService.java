@@ -1,19 +1,21 @@
 package software.decibel.services;
 
 import java.util.UUID;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
 import software.decibel.dtos.auth.DeviceInfo;
 import software.decibel.dtos.auth.GoogleOauthRequest;
 import software.decibel.dtos.auth.LoginLocalRequest;
 import software.decibel.dtos.auth.LoginLocalResponse;
 import software.decibel.dtos.auth.LogoutSessionRequest;
 import software.decibel.dtos.auth.MessageResponse;
-import software.decibel.dtos.auth.RegisterLocalRequest;
 import software.decibel.dtos.auth.RefreshTokenResponse;
+import software.decibel.dtos.auth.RegisterLocalRequest;
 import software.decibel.dtos.auth.VerifyEmailRequest;
 import software.decibel.dtos.auth.google.VerifiedGoogleToken;
 import software.decibel.entities.AuthIdentity;
@@ -27,6 +29,7 @@ import software.decibel.repositories.UserRepository;
 
 @Service
 public class AuthService {
+
     /**
      * Refresh token lifetime in seconds (30 days).
      */
@@ -114,7 +117,7 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Email is not verified");
         }
 
-        return issueLoginTokens(identity, request.deviceInfo());
+        return issueLoginTokens(identity, request.deviceInfo(), false);
     }
 
     @Transactional
@@ -142,14 +145,18 @@ public class AuthService {
     @Transactional
     public AuthLoginResult loginWithGoogle(GoogleOauthRequest request) {
         VerifiedGoogleToken verifiedToken = googleTokenVerificationService
-                .verifyIdToken(request.authTokenDto());
+                .verifyAuthCode(request.authTokenDto());
 
+        boolean[] isNew = {false};
         AuthIdentity identity = authIdentityRepository
                 .findByProviderUserIdAndProviderAndType(
                         verifiedToken.subject(), AuthProvider.GOOGLE, AuthType.OAUTH)
-                .orElseGet(() -> registerGoogleIdentity(verifiedToken));
+                .orElseGet(() -> {
+                    isNew[0] = true;
+                    return registerGoogleIdentity(verifiedToken);
+                });
 
-        return issueLoginTokens(identity, request.deviceInfo());
+        return issueLoginTokens(identity, request.deviceInfo(), isNew[0]);
     }
 
     @Transactional
@@ -209,7 +216,7 @@ public class AuthService {
         return new MessageResponse("Logged out of all sessions");
     }
 
-    private AuthLoginResult issueLoginTokens(AuthIdentity identity, DeviceInfo deviceInfo) {
+    private AuthLoginResult issueLoginTokens(AuthIdentity identity, DeviceInfo deviceInfo, boolean isNewUser) {
         User user = identity.getUser();
         // JwtService (feat) to ensure Artist/Listener roles are in the token
         String accessToken = jwtService.buildAccessToken(user, identity.getEmail());
@@ -223,7 +230,8 @@ public class AuthService {
                         user.getUsername(),
                         user.getTier(), // Role differentiation
                         "/users/" + user.getUsername(), // TODO: Correct URL structure if needed
-                        user.getAvatarUrl()));
+                        user.getAvatarUrl(),
+                        isNewUser));
 
         return new AuthLoginResult(response, refreshTokenResult.refreshToken(),
                 refreshTokenResult.refreshTokenExpiresIn());
@@ -349,16 +357,19 @@ public class AuthService {
             LoginLocalResponse response,
             String refreshToken,
             long refreshTokenExpiresIn) {
+
     }
 
     public record AuthRefreshTokenResult(
             String refreshToken,
             long refreshTokenExpiresIn) {
+
     }
 
     public record AuthTokenRotationResult(
             RefreshTokenResponse response,
             String refreshToken,
             long refreshTokenExpiresIn) {
+
     }
 }

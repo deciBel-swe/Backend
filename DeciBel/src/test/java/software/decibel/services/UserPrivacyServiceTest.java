@@ -41,7 +41,7 @@ class UserPrivacyServiceTest {
         User user = User.builder().id(1L).build();
         user.setPrivate(false);
         user.setShowHistory(true);
-        
+
         UserPrincipal principal = UserPrincipal.fromUser(user);
         when(authentication.getPrincipal()).thenReturn(principal);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
