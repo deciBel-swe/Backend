@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.view.RedirectView;
 
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.auth.GoogleOauthRequest;
 import software.decibel.dtos.auth.LoginLocalRequest;
 import software.decibel.dtos.auth.LoginLocalResponse;
@@ -28,16 +27,21 @@ import software.decibel.services.AuthService;
 
 @RestController
 @RequestMapping("/auth")
-@RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
-    @Value("${spring.profiles.active:default}")
+
     private String activeProfile;
     @Value("${app.google.redirect-uri}")
     private String googleRedirectUri;
     @Value("${spring.security.oauth2.client.registration.google.client-id}")
     private String googleClientId;
+
+    public AuthController(AuthService authService,
+            @Value("${spring.profiles.active:default}") String activeProfile) {
+        this.authService = authService;
+        this.activeProfile = activeProfile;
+    }
 
     @PostMapping("/register/local")
     public ResponseEntity<MessageResponse> registerLocal(@Valid @RequestBody RegisterLocalRequest request) {
