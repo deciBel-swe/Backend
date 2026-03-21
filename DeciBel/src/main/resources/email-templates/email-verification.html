@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="supported-color-schemes" content="dark" />
+    <title>Verify your Decibel account</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@400;500&display=swap");
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        background: #080808;
+        font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+        height: 100%;
+      }
+
+      .email-wrapper {
+        background: #080808;
+        padding: 32px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+      }
+
+      /* ── Card ── */
+      .card {
+        position: relative;
+        z-index: 2;
+        width: 100%;
+        max-width: 520px;
+        background: linear-gradient(
+          160deg,
+          #141414 0%,
+          #0c0c0c 60%,
+          #111111 100%
+        );
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        box-shadow:
+          0 0 0 1px rgba(255, 80, 0, 0.08),
+          0 24px 64px rgba(0, 0, 0, 0.8),
+          inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        overflow: hidden;
+      }
+
+      /* ── Header band ── */
+      .card-header {
+        position: relative;
+        padding: 32px 40px 28px;
+        background: linear-gradient(
+          135deg,
+          #180e00 0%,
+          #100800 50%,
+          #0c0c0c 100%
+        );
+        border-bottom: 1px solid rgba(255, 80, 0, 0.12);
+        text-align: center;
+        overflow: hidden;
+      }
+      .card-header::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          ellipse at 50% 0%,
+          rgba(255, 90, 0, 0.2) 0%,
+          transparent 65%
+        );
+      }
+
+      .hcloud {
+        position: absolute;
+        pointer-events: none;
+        filter: blur(2px);
+      }
+      .hcloud-tl {
+        top: -30px;
+        left: -40px;
+        width: 220px;
+        opacity: 0.6;
+      }
+      .hcloud-tr {
+        top: -30px;
+        right: -40px;
+        width: 200px;
+        opacity: 0.55;
+        transform: scaleX(-1);
+      }
+      .hcloud-bl {
+        bottom: -20px;
+        left: -20px;
+        width: 180px;
+        opacity: 0.4;
+        transform: scaleY(-1);
+      }
+      .hcloud-br {
+        bottom: -20px;
+        right: -20px;
+        width: 170px;
+        opacity: 0.38;
+        transform: scale(-1, -1);
+      }
+      .hcloud-tc {
+        top: -40px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 200px;
+        opacity: 0.3;
+      }
+
+      .logo-ring {
+        position: relative;
+        width: 76px;
+        height: 76px;
+        border-radius: 50%;
+        background: radial-gradient(circle, #1e1000 40%, #120900 100%);
+        border: 1.5px solid rgba(255, 100, 0, 0.3);
+        box-shadow:
+          0 0 24px rgba(255, 80, 0, 0.22),
+          inset 0 1px 0 rgba(255, 150, 50, 0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+      }
+      .logo-ring img {
+        width: 48px;
+        height: 48px;
+        display: block;
+      }
+
+      /* ── Body ── */
+      .card-body {
+        position: relative;
+        padding: 32px 40px 36px;
+        overflow: hidden;
+      }
+
+      .bcloud {
+        position: absolute;
+        pointer-events: none;
+        filter: blur(5px);
+      }
+      .bcloud-tl {
+        top: -10px;
+        left: -10px;
+        width: 150px;
+        opacity: 0.12;
+      }
+      .bcloud-tr {
+        top: -10px;
+        right: -10px;
+        width: 140px;
+        opacity: 0.1;
+        transform: scaleX(-1);
+      }
+      .bcloud-bl {
+        bottom: 0;
+        left: -10px;
+        width: 140px;
+        opacity: 0.1;
+        transform: scaleY(-1);
+      }
+      .bcloud-br {
+        bottom: 0;
+        right: -10px;
+        width: 130px;
+        opacity: 0.09;
+        transform: scale(-1, -1);
+      }
+
+      .headline {
+        font-family: "Syne", "Arial Black", sans-serif;
+        font-size: 24px;
+        font-weight: 700;
+        color: #f0f0f0;
+        margin: 0 0 10px 0;
+        letter-spacing: -0.01em;
+        line-height: 1.25;
+        position: relative;
+      }
+      .headline span {
+        color: #ff6a00;
+      }
+
+      .body-text {
+        font-size: 14px;
+        line-height: 1.7;
+        color: #9a9a9a;
+        margin: 0 0 24px 0;
+        position: relative;
+      }
+
+      .divider {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 0 0 24px 0;
+      }
+      .divider-line {
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(
+          to right,
+          transparent,
+          rgba(255, 80, 0, 0.2),
+          transparent
+        );
+      }
+      .divider-dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: rgba(255, 80, 0, 0.4);
+      }
+
+      .btn-wrap {
+        text-align: center;
+        margin: 0 0 28px 0;
+        position: relative;
+      }
+      .btn {
+        display: inline-block;
+        padding: 14px 40px;
+        background: linear-gradient(135deg, #ff6000 0%, #ff3d00 100%);
+        color: #ffffff !important;
+        text-decoration: none;
+        border-radius: 10px;
+        font-family: "Syne", "Arial Black", sans-serif;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        box-shadow:
+          0 8px 28px rgba(255, 60, 0, 0.38),
+          0 1px 0 rgba(255, 150, 80, 0.3) inset;
+      }
+
+      .link-box {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 8px;
+        padding: 12px 14px;
+        margin: 0 0 24px 0;
+        position: relative;
+      }
+      .link-box-label {
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: #555;
+        margin: 0 0 5px 0;
+      }
+      .link-box-url {
+        font-size: 12px;
+        color: #ff7733;
+        word-break: break-all;
+        text-decoration: none;
+        line-height: 1.5;
+      }
+
+      .expiry {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        background: rgba(255, 80, 0, 0.05);
+        border: 1px solid rgba(255, 80, 0, 0.12);
+        border-radius: 8px;
+        padding: 11px 13px;
+        position: relative;
+      }
+      .expiry-icon {
+        flex-shrink: 0;
+        width: 15px;
+        height: 15px;
+        margin-top: 1px;
+        opacity: 0.7;
+      }
+      .expiry-text {
+        font-size: 12px;
+        color: #777;
+        line-height: 1.55;
+        margin: 0;
+      }
+      .expiry-text strong {
+        color: #aaa;
+        font-weight: 500;
+      }
+
+      /* ── Footer ── */
+      .card-footer {
+        position: relative;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        padding: 18px 40px 22px;
+        text-align: center;
+        overflow: hidden;
+      }
+
+      .fcloud {
+        position: absolute;
+        pointer-events: none;
+        filter: blur(3px);
+      }
+      .fcloud-tl {
+        top: -10px;
+        left: -10px;
+        width: 130px;
+        opacity: 0.2;
+      }
+      .fcloud-tr {
+        top: -10px;
+        right: -10px;
+        width: 130px;
+        opacity: 0.18;
+        transform: scaleX(-1);
+      }
+      .fcloud-l {
+        bottom: -15px;
+        left: -20px;
+        width: 170px;
+        opacity: 0.4;
+      }
+      .fcloud-r {
+        bottom: -15px;
+        right: -20px;
+        width: 160px;
+        opacity: 0.38;
+        transform: scaleX(-1);
+      }
+
+      .footer-text {
+        font-size: 11.5px;
+        color: #444;
+        line-height: 1.6;
+        margin: 0;
+        position: relative;
+      }
+      .footer-text a {
+        color: #666;
+        text-decoration: underline;
+      }
+
+      .preheader {
+        display: none !important;
+        visibility: hidden;
+        mso-hide: all;
+        font-size: 1px;
+        color: #080808;
+        line-height: 1px;
+        max-height: 0;
+        max-width: 0;
+        opacity: 0;
+        overflow: hidden;
+      }
+
+      @media (max-width: 600px) {
+        .card-header,
+        .card-body,
+        .card-footer {
+          padding-left: 22px;
+          padding-right: 22px;
+        }
+        .headline {
+          font-size: 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <span class="preheader"
+      >Verify your email to start using Decibel — one tap is all it
+      takes.&nbsp;&#847;&zwnj;&nbsp;&#847;</span
+    >
+
+    <div class="email-wrapper">
+      <div class="card">
+        <!-- ░░ HEADER ░░ -->
+        <div class="card-header">
+          <svg
+            class="hcloud hcloud-tl"
+            viewBox="0 0 220 180"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <defs>
+              <radialGradient id="h1" cx="25%" cy="75%" r="70%">
+                <stop offset="0%" stop-color="#ff6a00" stop-opacity="1" />
+                <stop offset="100%" stop-color="#ff2200" stop-opacity="0" />
+              </radialGradient>
+            </defs>
+            <ellipse cx="55" cy="140" rx="80" ry="55" fill="url(#h1)" />
+            <ellipse cx="100" cy="112" rx="60" ry="48" fill="url(#h1)" />
+            <ellipse cx="35" cy="112" rx="48" ry="40" fill="url(#h1)" />
+            <ellipse cx="130" cy="130" rx="46" ry="36" fill="url(#h1)" />
+            <ellipse cx="75" cy="90" rx="36" ry="28" fill="url(#h1)" />
+          </svg>
+
+          <svg
+            class="hcloud hcloud-tr"
+            viewBox="0 0 220 180"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <defs>
+              <radialGradient id="h2" cx="25%" cy="75%" r="70%">
+                <stop offset="0%" stop-color="#ff6a00" stop-opacity="1" />
+                <stop offset="100%" stop-color="#ff2200" stop-opacity="0" />
+              </radialGradient>
+            </defs>
+            <ellipse cx="55" cy="140" rx="80" ry="55" fill="url(#h2)" />
+            <ellipse cx="100" cy="112" rx="60" ry="48" fill="url(#h2)" />
+            <ellipse cx="35" cy="112" rx="48" ry="40" fill="url(#h2)" />
+            <ellipse cx="130" cy="130" rx="46" ry="36" fill="url(#h2)" />
+            <ellipse cx="75" cy="90" rx="36" ry="28" fill="url(#h2)" />
+          </svg>
+
+          <svg
+            class="hcloud hcloud-bl"
+            viewBox="0 0 190 160"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <defs>
+              <radialGradient id="h3" cx="25%" cy="75%" r="70%">
+                <stop offset="0%" stop-color="#ff5500" stop-opacity="1" />
+                <stop offset="100%" stop-color="#ff2200" stop-opacity="0" />
+              </radialGradient>
+            </defs>
+            <ellipse cx="50" cy="130" rx="70" ry="48" fill="url(#h3)" />
+            <ellipse cx="88" cy="105" rx="52" ry="42" fill="url(#h3)" />
+            <ellipse cx="30" cy="105" rx="42" ry="34" fill="url(#h3)" />
+          </svg>
+
+          <svg
+            class="hcloud hcloud-br"
+            viewBox="0 0 190 160"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <defs>
+              <radialGradient id="h4" cx="25%" cy="75%" r="70%">
+                <stop offset="0%" stop-color="#ff5500" stop-opacity="1" />
+                <stop offset="100%" stop-color="#ff2200" stop-opacity="0" />
+              </radialGradient>
+            </defs>
+            <ellipse cx="50" cy="130" rx="70" ry="48" fill="url(#h4)" />
+            <ellipse cx="88" cy="105" rx="52" ry="42" fill="url(#h4)" />
+            <ellipse cx="30" cy="105" rx="42" ry="34" fill="url(#h4)" />
+          </svg>
+
+          <svg
+            class="hcloud hcloud-tc"
+            viewBox="0 0 200 120"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <defs>
+              <radialGradient id="h5" cx="50%" cy="85%" r="65%">
+                <stop offset="0%" stop-color="#ff5000" stop-opacity="1" />
+                <stop offset="100%" stop-color="#ff2200" stop-opacity="0" />
+              </radialGradient>
+            </defs>
+            <ellipse cx="100" cy="105" rx="85" ry="45" fill="url(#h5)" />
+            <ellipse cx="65" cy="82" rx="55" ry="40" fill="url(#h5)" />
+            <ellipse cx="135" cy="82" rx="55" ry="40" fill="url(#h5)" />
+            <ellipse cx="100" cy="62" rx="38" ry="30" fill="url(#h5)" />
+          </svg>
+
+          <div class="logo-ring">
+            <img
+              src="white_app_icon_trans.png"
+              alt="Decibel"
+              width="48"
+              height="48"
+            />
+          </div>
+        </div>
+
+        <!-- ░░ BODY ░░ -->
+        <div class="card-body">
+          <svg
+            class="bcloud bcloud-tl"
+            viewBox="0 0 200 200"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <defs>
+              <radialGradient id="b1" cx="25%" cy="75%" r="70%">
+                <stop offset="0%" stop-color="#ff6000" stop-opacity="1" />
+                <stop offset="100%" stop-color="#ff2200" stop-opacity="0" />
+              </radialGradient>
+            </defs>
+            <ellipse cx="55" cy="145" rx="75" ry="58" fill="url(#b1)" />
+            <ellipse cx="95" cy="115" rx="55" ry="46" fill="url(#b1)" />
+            <ellipse cx="35" cy="115" rx="44" ry="38" fill="url(#b1)" />
+          </svg>
+          <svg
+            class="bcloud bcloud-tr"
+            viewBox="0 0 200 200"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <defs>
+              <radialGradient id="b2" cx="25%" cy="75%" r="70%">
+                <stop offset="0%" stop-color="#ff6000" stop-opacity="1" />
+                <stop offset="100%" stop-color="#ff2200" stop-opacity="0" />
+              </radialGradient>
+            </defs>
+            <ellipse cx="55" cy="145" rx="75" ry="58" fill="url(#b2)" />
+            <ellipse cx="95" cy="115" rx="55" ry="46" fill="url(#b2)" />
+            <ellipse cx="35" cy="115" rx="44" ry="38" fill="url(#b2)" />
+          </svg>
+          <svg
+            class="bcloud bcloud-bl"
+            viewBox="0 0 200 200"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <defs>
+              <radialGradient id="b3" cx="25%" cy="75%" r="70%">
+                <stop offset="0%" stop-color="#ff6000" stop-opacity="1" />
+                <stop offset="100%" stop-color="#ff2200" stop-opacity="0" />
+              </radialGradient>
+            </defs>
+            <ellipse cx="55" cy="145" rx="75" ry="58" fill="url(#b3)" />
+            <ellipse cx="95" cy="115" rx="55" ry="46" fill="url(#b3)" />
+            <ellipse cx="35" cy="115" rx="44" ry="38" fill="url(#b3)" />
+          </svg>
+          <svg
+            class="bcloud bcloud-br"
+            viewBox="0 0 200 200"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <defs>
+              <radialGradient id="b4" cx="25%" cy="75%" r="70%">
+                <stop offset="0%" stop-color="#ff6000" stop-opacity="1" />
+                <stop offset="100%" stop-color="#ff2200" stop-opacity="0" />
+              </radialGradient>
+            </defs>
+            <ellipse cx="55" cy="145" rx="75" ry="58" fill="url(#b4)" />
+            <ellipse cx="95" cy="115" rx="55" ry="46" fill="url(#b4)" />
+            <ellipse cx="35" cy="115" rx="44" ry="38" fill="url(#b4)" />
+          </svg>
+
+          <h1 class="headline">Verify your<br /><span>email address</span></h1>
+
+          <p class="body-text">
+            Thanks for signing up. Tap the button below to confirm your email
+            address and activate your Decibel account. Your music is waiting.
+          </p>
+
+          <div class="divider">
+            <div class="divider-line"></div>
+            <div class="divider-dot"></div>
+            <div class="divider-line"></div>
+          </div>
+
+          <div class="btn-wrap">
+            <a href="{{VERIFY_URL}}" class="btn">Verify my account</a>
+          </div>
+
+          <div class="expiry">
+            <svg
+              class="expiry-icon"
+              viewBox="0 0 16 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <circle
+                cx="8"
+                cy="8"
+                r="6.5"
+                stroke="#ff6a00"
+                stroke-width="1.2"
+              />
+              <path
+                d="M8 5v3.5l2 1.5"
+                stroke="#ff6a00"
+                stroke-width="1.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <p class="expiry-text">
+              This link expires in <strong>30 minuits</strong>. If you didn't
+              create a Decibel account you can safely ignore this email.
+            </p>
+          </div>
+        </div>
+
+        <!-- ░░ FOOTER ░░ -->
+        <div class="card-footer">
+          <svg
+            class="fcloud fcloud-tl"
+            viewBox="0 0 160 130"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <defs>
+              <radialGradient id="f1" cx="25%" cy="75%" r="70%">
+                <stop offset="0%" stop-color="#ff5500" stop-opacity="1" />
+                <stop offset="100%" stop-color="#ff2000" stop-opacity="0" />
+              </radialGradient>
+            </defs>
+            <ellipse cx="45" cy="105" rx="58" ry="42" fill="url(#f1)" />
+            <ellipse cx="80" cy="82" rx="44" ry="36" fill="url(#f1)" />
+            <ellipse cx="28" cy="82" rx="36" ry="30" fill="url(#f1)" />
+          </svg>
+          <svg
+            class="fcloud fcloud-tr"
+            viewBox="0 0 160 130"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <defs>
+              <radialGradient id="f2" cx="25%" cy="75%" r="70%">
+                <stop offset="0%" stop-color="#ff5500" stop-opacity="1" />
+                <stop offset="100%" stop-color="#ff2000" stop-opacity="0" />
+              </radialGradient>
+            </defs>
+            <ellipse cx="45" cy="105" rx="58" ry="42" fill="url(#f2)" />
+            <ellipse cx="80" cy="82" rx="44" ry="36" fill="url(#f2)" />
+            <ellipse cx="28" cy="82" rx="36" ry="30" fill="url(#f2)" />
+          </svg>
+          <svg
+            class="fcloud fcloud-l"
+            viewBox="0 0 180 150"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <defs>
+              <radialGradient id="f3" cx="25%" cy="75%" r="70%">
+                <stop offset="0%" stop-color="#ff6000" stop-opacity="1" />
+                <stop offset="100%" stop-color="#ff2200" stop-opacity="0" />
+              </radialGradient>
+            </defs>
+            <ellipse cx="50" cy="118" rx="66" ry="46" fill="url(#f3)" />
+            <ellipse cx="90" cy="94" rx="50" ry="40" fill="url(#f3)" />
+            <ellipse cx="30" cy="94" rx="40" ry="34" fill="url(#f3)" />
+            <ellipse cx="118" cy="110" rx="40" ry="30" fill="url(#f3)" />
+          </svg>
+          <svg
+            class="fcloud fcloud-r"
+            viewBox="0 0 180 150"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <defs>
+              <radialGradient id="f4" cx="25%" cy="75%" r="70%">
+                <stop offset="0%" stop-color="#ff6000" stop-opacity="1" />
+                <stop offset="100%" stop-color="#ff2200" stop-opacity="0" />
+              </radialGradient>
+            </defs>
+            <ellipse cx="50" cy="118" rx="66" ry="46" fill="url(#f4)" />
+            <ellipse cx="90" cy="94" rx="50" ry="40" fill="url(#f4)" />
+            <ellipse cx="30" cy="94" rx="40" ry="34" fill="url(#f4)" />
+            <ellipse cx="118" cy="110" rx="40" ry="30" fill="url(#f4)" />
+          </svg>
+
+          <p class="footer-text">
+            You're receiving this because an account was created with this
+            address.<br />
+            <a href="{{UNSUBSCRIBE_URL}}">Unsubscribe</a> &nbsp;·&nbsp;
+            <a href="{{PRIVACY_URL}}">Privacy policy</a>
+          </p>
+          <p class="footer-text" style="margin-top: 6px; color: #333">
+            © 2025 deciBel · All rights reserved
+          </p>
+        </div>
+      </div>
+      <!-- /card -->
+    </div>
+    <!-- /wrapper -->
+  </body>
+</html>
