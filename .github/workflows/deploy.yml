@@ -10,7 +10,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  REPO: ghcr.io/decibel-swe/backend
+  REPO: ghcr.io/${{ github.repository }}
 
 jobs:
   version-and-deploy:
@@ -37,7 +37,7 @@ jobs:
           bump_each_commit: true
           major_pattern: "/BREAKING CHANGE:|!:/"
           minor_pattern: "/feat(\\(.*\\))?:/"
-          version_format: ${{ github.ref == 'refs/heads/main' && '${major}.${minor}.${patch}' || '${major}.${minor}.${patch}-prerelease${increment}' }} 
+          version_format: ${{ github.ref == 'refs/heads/main' && 'v${major}.${minor}.${patch}' || 'v${major}.${minor}.${patch}-prerelease${increment}' }} 
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
