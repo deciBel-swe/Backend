@@ -1,16 +1,20 @@
 package software.decibel.controllers;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.view.RedirectView;
 
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.auth.GoogleOauthRequest;
 import software.decibel.dtos.auth.LoginLocalRequest;
 import software.decibel.dtos.auth.LoginLocalResponse;
@@ -24,17 +28,16 @@ import software.decibel.services.AuthService;
 
 @RestController
 @RequestMapping("/auth")
+@RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
-
-    private final String activeProfile;
-
-    public AuthController(AuthService authService,
-            @org.springframework.beans.factory.annotation.Value("${spring.profiles.active:default}") String activeProfile) {
-        this.authService = authService;
-        this.activeProfile = activeProfile;
-    }
+    @Value("${spring.profiles.active:default}")
+    private String activeProfile;
+    @Value("${app.google.redirect-uri}")
+    private String googleRedirectUri;
+    @Value("${spring.security.oauth2.client.registration.google.client-id}")
+    private String googleClientId;
 
     @PostMapping("/register/local")
     public ResponseEntity<MessageResponse> registerLocal(@Valid @RequestBody RegisterLocalRequest request) {
@@ -104,6 +107,18 @@ public class AuthController {
     public ResponseEntity<MessageResponse> resendVerificationEmail(
             @Valid @RequestBody ResendVerificationEmailRequest request) {
         return ResponseEntity.ok(authService.resendVerificationEmail(request));
+    }
+
+    @GetMapping("/login/oauth2/code/google")
+    public RedirectView redirectToGoogle() {
+        String googleAuthUrl = "https://accounts.google.com/o/oauth2/v2/auth"
+                + "?client_id=" + googleClientId
+                + "&redirect_uri=" + googleRedirectUri
+                + "&response_type=code"
+                + "&scope=openid%20email%20profile"
+                + "&access_type=offline";
+
+        return new RedirectView(googleAuthUrl);
     }
 
     private ResponseCookie buildRefreshCookie(String refreshToken, long maxAgeSeconds) {
