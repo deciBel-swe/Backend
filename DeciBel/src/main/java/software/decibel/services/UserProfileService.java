@@ -80,6 +80,13 @@ public class UserProfileService {
         return userMappingUtility.toUpdateProfileResponse(updatedUser, true, userMappingUtility.isEmailVerified(updatedUser));
     }
 
+    @Transactional(readOnly = true)
+    public UpdateProfileResponse getUserPublicProfileByUsername(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User with username " + username + " not found"));
+        return userMappingUtility.toUpdateProfileResponse(user, false, false);
+    }
+
     // Update profile/cover images — authenticated
     @Transactional
     public UpdateUserImagesResponse updateMyImages(Long userId, MultipartFile profilePic, MultipartFile coverPic) {
