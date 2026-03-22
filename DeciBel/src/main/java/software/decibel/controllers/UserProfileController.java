@@ -74,4 +74,10 @@ public class UserProfileController {
         return ResponseEntity.ok(userService.updateMyImages(currentUserId, request.profilePic(), request.coverPic()));
     }
 
+    // GET /users/username/{username} — public, no auth required
+    @GetMapping("/username/{username}")
+    public ResponseEntity<UpdateProfileResponse> getUserProfileByUsername(@PathVariable String username) {
+        return ResponseEntity.ok(userService.getUserPublicProfileByUsername(username));
+    }
+
 }
