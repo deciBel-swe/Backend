@@ -13,7 +13,7 @@ import jakarta.validation.Valid;
 import software.decibel.dtos.user.TierUpgradeRequest;
 import software.decibel.dtos.user.TierUpgradeResponse;
 import software.decibel.services.JwtService;
-import software.decibel.services.UserTierService;
+import software.decibel.services.user.UserTierService;
 
 @RestController
 @RequestMapping("/users/me")

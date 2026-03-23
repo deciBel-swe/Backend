@@ -1,4 +1,4 @@
-package software.decibel.services;
+package software.decibel.services.user;
 
 import java.util.List;
 
@@ -23,6 +23,9 @@ import software.decibel.enums.TokenType;
 import software.decibel.repositories.AuthIdentityRepository;
 import software.decibel.repositories.PendingEmailChangeRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.EmailService;
+import software.decibel.services.FrontendLinkService;
+import software.decibel.services.TokenService;
 
 @Service
 @RequiredArgsConstructor

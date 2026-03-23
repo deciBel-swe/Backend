@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 import jakarta.validation.Valid;
 import software.decibel.dtos.auth.PrivacyUpdateRequest;
 import software.decibel.dtos.auth.PrivacyUpdateResponse;
-import software.decibel.services.UserPrivacyService;
+import software.decibel.services.user.UserPrivacyService;
 
 @RestController
 @RequestMapping("/users/me")

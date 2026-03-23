@@ -1,4 +1,4 @@
-package software.decibel.services;
+package software.decibel.services.user;
 
 import java.util.List;
 
@@ -18,6 +18,9 @@ import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.exceptions.custom.TierException;
 import software.decibel.repositories.AuthIdentityRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.JwtService;
+import software.decibel.services.SessionService;
+import software.decibel.services.TokenService;
 
 @Service
 @RequiredArgsConstructor

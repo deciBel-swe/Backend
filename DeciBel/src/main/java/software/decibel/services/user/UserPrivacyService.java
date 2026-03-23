@@ -1,4 +1,4 @@
-package software.decibel.services;
+package software.decibel.services.user;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;

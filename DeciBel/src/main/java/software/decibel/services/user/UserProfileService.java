@@ -1,4 +1,4 @@
-package software.decibel.services;
+package software.decibel.services.user;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,6 +10,7 @@ import software.decibel.dtos.user.UpdateProfileResponse;
 import software.decibel.dtos.user.UpdateUserImagesResponse;
 import software.decibel.entities.SocialLinks;
 import software.decibel.entities.User;
+import software.decibel.entities.UserProfileToken;
 import software.decibel.enums.FileType;
 import software.decibel.enums.SocialPlatform;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
@@ -18,6 +19,7 @@ import software.decibel.repositories.UserRepository;
 import software.decibel.utils.FileUtilityAzure;
 import software.decibel.utils.LocationUtility;
 import software.decibel.utils.UserMappingUtility;
+import software.decibel.repositories.UserProfileTokenRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +30,7 @@ public class UserProfileService {
     private final FileUtilityAzure fileUtilityAzure;
     private final LocationUtility locationUtility;
     private final UserMappingUtility userMappingUtility;
+    private final UserProfileTokenRepository userProfileTokenRepository;
 
     // Public profile — no auth required
     @Transactional(readOnly = true)
@@ -124,6 +127,16 @@ public class UserProfileService {
             user.setCoverPhotoUrl(null);
             userRepository.save(user);
         }
+    }
+
+    //used for getting the userProfile by token
+    @Transactional(readOnly = true)
+    public UpdateProfileResponse getUserPublicProfileByToken(String token) {
+        UserProfileToken profileToken = userProfileTokenRepository
+                .findByTokenAndIsDeletedFalse(token)
+                .orElseThrow(() -> new ResourceNotFoundException("Invalid or expired profile token"));
+
+        return userMappingUtility.toUpdateProfileResponse(profileToken.getUser(), false, false);
     }
 
     private User findUserById(Long userId) {
