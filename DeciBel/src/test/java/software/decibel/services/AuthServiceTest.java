@@ -23,8 +23,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
 
+import software.decibel.dtos.auth.AuthLoginResult;
+import software.decibel.dtos.auth.AuthRefreshTokenResult;
+import software.decibel.dtos.auth.AuthTokenRotationResult;
 import software.decibel.dtos.auth.DeviceInfo;
 import software.decibel.dtos.auth.GoogleOauthRequest;
+import software.decibel.dtos.auth.IssuedToken;
 import software.decibel.dtos.auth.LoginLocalRequest;
 import software.decibel.dtos.auth.LogoutSessionRequest;
 import software.decibel.dtos.auth.MessageResponse;
@@ -82,7 +86,7 @@ class AuthServiceTest {
 
         Token verificationToken = Token.builder().hash("hash").build();
         when(tokenService.createEmailVerificationToken(any(User.class)))
-                .thenReturn(new TokenService.IssuedToken("raw-token", verificationToken));
+                .thenReturn(new IssuedToken("raw-token", verificationToken));
         when(frontendLinkService.buildEmailVerificationLink("raw-token"))
                 .thenReturn("https://link.com/verify?token=raw-token");
 
@@ -137,12 +141,12 @@ class AuthServiceTest {
         // Mock TokenService
         Token mockToken = Token.builder().hash("hash").build();
         when(tokenService.createRefreshToken(user))
-                .thenReturn(new TokenService.IssuedToken("refresh-token", mockToken));
+                .thenReturn(new IssuedToken("refresh-token", mockToken));
 
         // Mock JwtService - Ensures Role (ARTIST) is mapped!
         when(jwtService.buildAccessToken(user, identity.getEmail())).thenReturn("access-token");
 
-        AuthService.AuthLoginResult result = authService.loginLocal(request);
+        AuthLoginResult result = authService.loginLocal(request);
 
         assertEquals("access-token", result.response().accessToken());
         assertEquals("refresh-token", result.refreshToken());
@@ -211,7 +215,7 @@ class AuthServiceTest {
 
         Token mockToken = Token.builder().hash("hash").build();
         when(tokenService.createRefreshToken(user))
-                .thenReturn(new TokenService.IssuedToken("refresh-token", mockToken));
+                .thenReturn(new IssuedToken("refresh-token", mockToken));
 
         authService.verifyEmail(request);
 
@@ -234,9 +238,9 @@ class AuthServiceTest {
                 user, AuthProvider.LOCAL, AuthType.PASSWORD))
                 .thenReturn(Optional.empty());
         when(tokenService.createRefreshToken(user))
-                .thenReturn(new TokenService.IssuedToken("refresh-token", refreshToken));
+                .thenReturn(new IssuedToken("refresh-token", refreshToken));
 
-        AuthService.AuthRefreshTokenResult result = authService.verifyEmail(request);
+        AuthRefreshTokenResult result = authService.verifyEmail(request);
 
         assertEquals("refresh-token", result.refreshToken());
         verify(authIdentityRepository, never()).save(any(AuthIdentity.class));
@@ -333,10 +337,10 @@ class AuthServiceTest {
         when(authIdentityRepository.findByUserAndProviderAndType(user, AuthProvider.LOCAL, AuthType.PASSWORD))
                 .thenReturn(Optional.of(identity));
         when(tokenService.createRefreshToken(user))
-                .thenReturn(new TokenService.IssuedToken("new-refresh-token", newToken));
+                .thenReturn(new IssuedToken("new-refresh-token", newToken));
         when(jwtService.buildAccessToken(user, identity.getEmail())).thenReturn("new-access-token");
 
-        AuthService.AuthTokenRotationResult result = authService.refreshToken("old-refresh-token");
+        AuthTokenRotationResult result = authService.refreshToken("old-refresh-token");
 
         assertEquals("new-access-token", result.response().accessToken());
         assertEquals("new-refresh-token", result.refreshToken());
@@ -387,9 +391,9 @@ class AuthServiceTest {
                 .thenReturn(Optional.of(identity));
         when(jwtService.buildAccessToken(user, identity.getEmail())).thenReturn("google-access-token");
         when(tokenService.createRefreshToken(user))
-                .thenReturn(new TokenService.IssuedToken("google-refresh-token", refreshToken));
+                .thenReturn(new IssuedToken("google-refresh-token", refreshToken));
 
-        AuthService.AuthLoginResult result = authService.loginWithGoogle(request);
+        AuthLoginResult result = authService.loginWithGoogle(request);
 
         assertEquals("google-access-token", result.response().accessToken());
         assertEquals("google-refresh-token", result.refreshToken());
@@ -421,9 +425,9 @@ class AuthServiceTest {
         when(jwtService.buildAccessToken(savedUser, "new-google@example.com"))
                 .thenReturn("google-access-token");
         when(tokenService.createRefreshToken(savedUser))
-                .thenReturn(new TokenService.IssuedToken("google-refresh-token", refreshToken));
+                .thenReturn(new IssuedToken("google-refresh-token", refreshToken));
 
-        AuthService.AuthLoginResult result = authService.loginWithGoogle(request);
+        AuthLoginResult result = authService.loginWithGoogle(request);
 
         assertEquals("google-access-token", result.response().accessToken());
         assertEquals("/users/" + savedUser.getUsername(), result.response().user().profileUrl());

@@ -1,29 +1,30 @@
 package software.decibel.services;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
-import software.decibel.entities.Token;
-import software.decibel.entities.User;
-import software.decibel.enums.TokenType;
-import software.decibel.repositories.TokenRepository;
-import software.decibel.utils.TokenUtility;
-
 import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+
+import software.decibel.dtos.auth.IssuedToken;
+import software.decibel.entities.Token;
+import software.decibel.entities.User;
+import software.decibel.enums.TokenType;
+import software.decibel.repositories.TokenRepository;
+import software.decibel.utils.TokenUtility;
 
 @ExtendWith(MockitoExtension.class)
 class TokenServiceTest {
@@ -44,7 +45,7 @@ class TokenServiceTest {
         when(tokenUtility.hashToken("raw-token")).thenReturn("hashed-token");
         when(tokenUtility.expiresInMinutes(30L)).thenReturn(LocalDateTime.of(2026, 3, 13, 13, 0));
 
-        TokenService.IssuedToken issuedToken = tokenService.createEmailVerificationToken(user);
+        IssuedToken issuedToken = tokenService.createEmailVerificationToken(user);
 
         assertEquals("raw-token", issuedToken.rawToken());
         assertNotNull(issuedToken.token());

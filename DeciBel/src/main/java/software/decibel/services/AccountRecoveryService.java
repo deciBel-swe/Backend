@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import lombok.RequiredArgsConstructor;
+import software.decibel.dtos.auth.IssuedToken;
 import software.decibel.entities.AuthIdentity;
 import software.decibel.entities.Token;
 import software.decibel.entities.User;
@@ -52,7 +53,7 @@ public class AccountRecoveryService {
         User user = identity.getUser();
         tokenService.deleteTokensForUserAndType(user, TokenType.PASSWORD_RESET);
         tokenService.deleteExpiredTokens();
-        TokenService.IssuedToken issuedToken = tokenService.createPasswordResetToken(user);
+        IssuedToken issuedToken = tokenService.createPasswordResetToken(user);
 
         String resetLink = frontendLinkService.buildPasswordResetLink(issuedToken.rawToken());
         emailService.sendPasswordResetEmail(identity.getEmail(), resetLink);

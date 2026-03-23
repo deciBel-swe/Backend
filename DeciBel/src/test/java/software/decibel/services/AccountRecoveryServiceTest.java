@@ -20,6 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
 
+import software.decibel.dtos.auth.IssuedToken;
 import software.decibel.entities.AuthIdentity;
 import software.decibel.entities.Token;
 import software.decibel.entities.User;
@@ -87,7 +88,7 @@ class AccountRecoveryServiceTest {
         token.setHash("hashed-token");
         token.setExpiresAt(LocalDateTime.now().plusMinutes(30));
         when(tokenService.createPasswordResetToken(user))
-                .thenReturn(new TokenService.IssuedToken("raw-reset-token", token));
+                .thenReturn(new IssuedToken("raw-reset-token", token));
         when(frontendLinkService.buildPasswordResetLink("raw-reset-token"))
                 .thenReturn("https://decibel.foo/reset-password?token=raw-reset-token");
 

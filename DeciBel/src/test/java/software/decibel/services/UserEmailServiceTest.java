@@ -1,13 +1,26 @@
 package software.decibel.services;
 
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.any;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.server.ResponseStatusException;
+
+import software.decibel.dtos.auth.IssuedToken;
 import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.user.ChangeEmailRequest;
 import software.decibel.dtos.user.VerifyEmailChangeRequest;
@@ -21,18 +34,6 @@ import software.decibel.enums.TokenType;
 import software.decibel.repositories.AuthIdentityRepository;
 import software.decibel.repositories.PendingEmailChangeRepository;
 import software.decibel.repositories.UserRepository;
-
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class UserEmailServiceTest {
@@ -82,7 +83,7 @@ class UserEmailServiceTest {
         when(pendingEmailChangeRepository.existsByNewEmailIgnoreCase("new@example.com")).thenReturn(false);
         when(pendingEmailChangeRepository.findByUser(user)).thenReturn(Optional.empty());
         when(tokenService.createEmailChangeToken(user))
-                .thenReturn(new TokenService.IssuedToken("raw-token", token));
+                .thenReturn(new IssuedToken("raw-token", token));
         when(frontendLinkService.buildEmailChangeVerificationLink("raw-token"))
                 .thenReturn("https://decibel.foo/verify-email-change?token=raw-token");
 

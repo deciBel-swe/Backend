@@ -23,6 +23,9 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
+import software.decibel.dtos.auth.AuthLoginResult;
+import software.decibel.dtos.auth.AuthRefreshTokenResult;
+import software.decibel.dtos.auth.AuthTokenRotationResult;
 import software.decibel.dtos.auth.DeviceInfo;
 import software.decibel.dtos.auth.GoogleOauthRequest;
 import software.decibel.dtos.auth.LoginLocalRequest;
@@ -94,7 +97,7 @@ class AuthControllerTest {
                 new LoginLocalResponse.UserInfo(2L, "pro-user", AccountTier.PRO, null,
                         "avatar.png", false));
         when(authService.loginLocal(any(LoginLocalRequest.class)))
-                .thenReturn(new AuthService.AuthLoginResult(response, "refresh-token", 2592000L));
+                .thenReturn(new AuthLoginResult(response, "refresh-token", 2592000L));
 
         mockMvc.perform(post("/auth/login/local")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -118,7 +121,7 @@ class AuthControllerTest {
                 new LoginLocalResponse.UserInfo(2L, "pro-user", AccountTier.PRO, null,
                         "avatar.png", false));
         when(authService.loginLocal(any(LoginLocalRequest.class)))
-                .thenReturn(new AuthService.AuthLoginResult(response, "refresh-token", 2592000L));
+                .thenReturn(new AuthLoginResult(response, "refresh-token", 2592000L));
 
         productionMockMvc.perform(post("/auth/login/local")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -130,7 +133,7 @@ class AuthControllerTest {
     @Test
     void verifyEmail_whenRequestIsValid_returnsMessageAndRefreshCookie() throws Exception {
         when(authService.verifyEmail(any(VerifyEmailRequest.class)))
-                .thenReturn(new AuthService.AuthRefreshTokenResult("refresh-token", 2592000L));
+                .thenReturn(new AuthRefreshTokenResult("refresh-token", 2592000L));
 
         mockMvc.perform(post("/auth/verify-email")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -226,7 +229,7 @@ class AuthControllerTest {
     @Test
     void refreshToken_whenCookieIsPresent_returnsNewAccessTokenAndNewCookie() throws Exception {
         RefreshTokenResponse body = new RefreshTokenResponse("new-access-token", 1800L);
-        AuthService.AuthTokenRotationResult result = new AuthService.AuthTokenRotationResult(body,
+        AuthTokenRotationResult result = new AuthTokenRotationResult(body,
                 "new-refresh-token", 2592000L);
         when(authService.refreshToken("valid-refresh-token")).thenReturn(result);
 
@@ -253,7 +256,7 @@ class AuthControllerTest {
                 new LoginLocalResponse.UserInfo(3L, "google-user", AccountTier.FREE,
                         "/users/google-user", "avatar.png", true));
         when(authService.loginWithGoogle(any(GoogleOauthRequest.class)))
-                .thenReturn(new AuthService.AuthLoginResult(response, "google-refresh-token",
+                .thenReturn(new AuthLoginResult(response, "google-refresh-token",
                         2592000L));
 
         mockMvc.perform(post("/auth/oauth/google")

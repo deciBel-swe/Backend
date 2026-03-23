@@ -1,15 +1,18 @@
 package software.decibel.services;
 
-import java.util.UUID;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import lombok.RequiredArgsConstructor;
+import software.decibel.dtos.auth.AuthLoginResult;
+import software.decibel.dtos.auth.AuthRefreshTokenResult;
+import software.decibel.dtos.auth.AuthTokenRotationResult;
 import software.decibel.dtos.auth.DeviceInfo;
 import software.decibel.dtos.auth.GoogleOauthRequest;
+import software.decibel.dtos.auth.IssuedToken;
 import software.decibel.dtos.auth.LoginLocalRequest;
 import software.decibel.dtos.auth.LoginLocalResponse;
 import software.decibel.dtos.auth.LogoutSessionRequest;
@@ -27,8 +30,10 @@ import software.decibel.enums.AuthType;
 import software.decibel.enums.TokenType;
 import software.decibel.repositories.AuthIdentityRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.utils.UserProfileUtility;
 
 @Service
+@RequiredArgsConstructor
 public class AuthService {
 
     /**
@@ -45,28 +50,28 @@ public class AuthService {
     private final FrontendLinkService frontendLinkService;
     private final JwtService jwtService;
     private final GoogleTokenVerificationService googleTokenVerificationService;
+    private final UserProfileUtility userProfileUtility;
 
-    public AuthService(
-            UserRepository userRepository,
-            AuthIdentityRepository authIdentityRepository,
-            PasswordEncoder passwordEncoder,
-            TokenService tokenService,
-            SessionService sessionService,
-            EmailService emailService,
-            FrontendLinkService frontendLinkService,
-            JwtService jwtService,
-            GoogleTokenVerificationService googleTokenVerificationService) {
-        this.userRepository = userRepository;
-        this.authIdentityRepository = authIdentityRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.tokenService = tokenService;
-        this.sessionService = sessionService;
-        this.emailService = emailService;
-        this.frontendLinkService = frontendLinkService;
-        this.jwtService = jwtService;
-        this.googleTokenVerificationService = googleTokenVerificationService;
-    }
-
+    // public AuthService(
+    //         UserRepository userRepository,
+    //         AuthIdentityRepository authIdentityRepository,
+    //         PasswordEncoder passwordEncoder,
+    //         TokenService tokenService,
+    //         SessionService sessionService,
+    //         EmailService emailService,
+    //         FrontendLinkService frontendLinkService,
+    //         JwtService jwtService,
+    //         GoogleTokenVerificationService googleTokenVerificationService) {
+    //     this.userRepository = userRepository;
+    //     this.authIdentityRepository = authIdentityRepository;
+    //     this.passwordEncoder = passwordEncoder;
+    //     this.tokenService = tokenService;
+    //     this.sessionService = sessionService;
+    //     this.emailService = emailService;
+    //     this.frontendLinkService = frontendLinkService;
+    //     this.jwtService = jwtService;
+    //     this.googleTokenVerificationService = googleTokenVerificationService;
+    // }
     @Transactional
     public MessageResponse registerLocal(RegisterLocalRequest request) {
         if (authIdentityRepository.existsByEmailIgnoreCase(request.email())
@@ -82,7 +87,7 @@ public class AuthService {
         String hashedPassword = passwordEncoder.encode(request.password());
         User user = User.builder()
                 .username(request.username())
-                .location(buildLocation(request.city(), request.country()))
+                .location(userProfileUtility.buildLocation(request.city(), request.country()))
                 .build();
         User savedUser = userRepository.save(user);
 
@@ -97,7 +102,7 @@ public class AuthService {
         authIdentityRepository.save(authIdentity);
 
         // CREATE REAL TOKEN & SEND REAL EMAIL
-        TokenService.IssuedToken verificationToken = tokenService.createEmailVerificationToken(savedUser);
+        IssuedToken verificationToken = tokenService.createEmailVerificationToken(savedUser);
         String verificationLink = frontendLinkService.buildEmailVerificationLink(verificationToken.rawToken());
         emailService.sendEmailVerificationEmail(request.email(), verificationLink);
 
@@ -240,7 +245,7 @@ public class AuthService {
         tokenService.deleteTokensForUserAndType(user, TokenType.EMAIL_VERIFICATION);
         tokenService.deleteExpiredTokens();
 
-        TokenService.IssuedToken issuedToken = tokenService.createEmailVerificationToken(user);
+        IssuedToken issuedToken = tokenService.createEmailVerificationToken(user);
         String verificationLink = frontendLinkService.buildEmailVerificationLink(issuedToken.rawToken());
         emailService.sendEmailVerificationEmail(identity.getEmail(), verificationLink);
 
@@ -270,13 +275,13 @@ public class AuthService {
 
     private AuthRefreshTokenResult issueRefreshToken(User user, DeviceInfo deviceInfo) {
         // Use TokenService for token persistence
-        TokenService.IssuedToken issuedToken = tokenService.createRefreshToken(user);
+        IssuedToken issuedToken = tokenService.createRefreshToken(user);
         sessionService.createSession(user, issuedToken.token(), deviceInfo);
         return new AuthRefreshTokenResult(issuedToken.rawToken(), REFRESH_TOKEN_EXPIRES_IN_SECONDS);
     }
 
     private AuthRefreshTokenResult issueRefreshToken(User user) {
-        TokenService.IssuedToken issuedToken = tokenService.createRefreshToken(user);
+        IssuedToken issuedToken = tokenService.createRefreshToken(user);
         return new AuthRefreshTokenResult(issuedToken.rawToken(), REFRESH_TOKEN_EXPIRES_IN_SECONDS);
     }
 
@@ -288,8 +293,8 @@ public class AuthService {
         }
 
         User savedUser = userRepository.save(User.builder()
-                .username(generateUniqueUsername(verifiedToken))
-                .displayName(resolveDisplayName(verifiedToken))
+                .username(userProfileUtility.generateUniqueUsername(verifiedToken))
+                .displayName(userProfileUtility.resolveDisplayName(verifiedToken))
                 .avatarUrl(verifiedToken.pictureUrl())
                 .build());
 
@@ -303,104 +308,5 @@ public class AuthService {
                 .build();
 
         return authIdentityRepository.save(googleIdentity);
-    }
-
-    private String generateUniqueUsername(VerifiedGoogleToken verifiedToken) {
-        String baseUsername = sanitizeUsername(resolveBaseUsername(verifiedToken));
-        if (baseUsername.isBlank()) {
-            baseUsername = "user";
-        }
-
-        String candidate = buildGoogleUsernameCandidate(baseUsername, verifiedToken.subject());
-        if (userRepository.findByUsername(candidate).isEmpty()) {
-            return candidate;
-        }
-        // TODO: could be optimized more...
-        for (int attempt = 0; attempt < 5; attempt++) {
-            String fallbackCandidate = buildGoogleUsernameCandidate(
-                    baseUsername,
-                    verifiedToken.subject() + randomUsernameSuffix());
-            if (userRepository.findByUsername(fallbackCandidate).isEmpty()) {
-                return fallbackCandidate;
-            }
-        }
-
-        throw new ResponseStatusException(
-                HttpStatus.CONFLICT,
-                "Unable to generate a unique username for the Google account.");
-    }
-
-    private String resolveBaseUsername(VerifiedGoogleToken verifiedToken) {
-        if (verifiedToken.displayName() != null && !verifiedToken.displayName().isBlank()) {
-            return verifiedToken.displayName();
-        }
-
-        int emailSeparatorIndex = verifiedToken.email().indexOf('@');
-        if (emailSeparatorIndex > 0) {
-            return verifiedToken.email().substring(0, emailSeparatorIndex);
-        }
-
-        return verifiedToken.subject();
-    }
-
-    private String sanitizeUsername(String rawValue) {
-        return rawValue.toLowerCase()
-                .replaceAll("[^a-z0-9._]", "")
-                .trim();
-    }
-
-    private String buildGoogleUsernameCandidate(String baseUsername, String googleSubject) {
-        String normalizedBase = baseUsername.length() > 20
-                ? baseUsername.substring(0, 20)
-                : baseUsername;
-        String subjectSuffix = googleSubject.length() > 6
-                ? googleSubject.substring(googleSubject.length() - 6)
-                : googleSubject;
-        return normalizedBase + "_" + subjectSuffix.toLowerCase();
-    }
-
-    private String randomUsernameSuffix() {
-        return UUID.randomUUID().toString().replace("-", "").substring(0, 6);
-    }
-
-    private String resolveDisplayName(VerifiedGoogleToken verifiedToken) {
-        if (verifiedToken.displayName() == null || verifiedToken.displayName().isBlank()) {
-            return null;
-        }
-
-        return verifiedToken.displayName().trim();
-    }
-
-    private String buildLocation(String city, String country) {
-        if ((city == null || city.isBlank()) && (country == null || country.isBlank())) {
-            return null;
-        }
-        if (city == null || city.isBlank()) {
-            return country.trim();
-        }
-        if (country == null || country.isBlank()) {
-            return city.trim();
-        }
-        return city.trim() + ", " + country.trim();
-    }
-
-    public record AuthLoginResult(
-            LoginLocalResponse response,
-            String refreshToken,
-            long refreshTokenExpiresIn) {
-
-    }
-
-    public record AuthRefreshTokenResult(
-            String refreshToken,
-            long refreshTokenExpiresIn) {
-
-    }
-
-    public record AuthTokenRotationResult(
-            RefreshTokenResponse response,
-            String refreshToken,
-            long refreshTokenExpiresIn) {
-
     }
 }

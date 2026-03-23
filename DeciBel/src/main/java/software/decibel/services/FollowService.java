@@ -1,10 +1,13 @@
 package software.decibel.services;
 
-import lombok.RequiredArgsConstructor;
+import java.util.Optional;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.user.UserFollowDto;
 import software.decibel.entities.Follow;
 import software.decibel.entities.User;
@@ -12,8 +15,6 @@ import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.UserMapper;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.UserRepository;
-
-import java.util.Optional;
 
 // Service handling follow and unfollow business logic
 @Service
@@ -77,7 +78,7 @@ public class FollowService {
     public Page<UserFollowDto> getFollowers(Long userId, Long currentUserId, Pageable pageable) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        
+
         User currentUser = currentUserId != null ? userRepository.findById(currentUserId).orElse(null) : null;
 
         return followRepository.findByFollowing(user, pageable)
