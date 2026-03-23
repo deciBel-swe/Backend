@@ -34,6 +34,7 @@ import software.decibel.enums.TokenType;
 import software.decibel.repositories.AuthIdentityRepository;
 import software.decibel.repositories.PendingEmailChangeRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.user.UserEmailService;
 
 @ExtendWith(MockitoExtension.class)
 class UserEmailServiceTest {

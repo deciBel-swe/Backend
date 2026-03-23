@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,8 +18,10 @@ import software.decibel.dtos.user.UpdateProfileRequest;
 import software.decibel.dtos.user.UpdateProfileResponse;
 import software.decibel.dtos.user.UpdateUserImagesRequest;
 import software.decibel.dtos.user.UpdateUserImagesResponse;
+import software.decibel.dtos.user.UserProfileTokenResponse;
 import software.decibel.services.JwtService;
-import software.decibel.services.UserProfileService;
+import software.decibel.services.user.UserProfileService;
+import software.decibel.services.user.UserProfileTokenService;
 
 @RestController
 @RequestMapping("/users")
@@ -26,6 +29,7 @@ import software.decibel.services.UserProfileService;
 public class UserProfileController {
 
     private final UserProfileService userService;
+    private final UserProfileTokenService userProfileTokenService;
 
     //public, no auth required
     @GetMapping("/{userId}")
@@ -78,6 +82,26 @@ public class UserProfileController {
     @GetMapping("/username/{username}")
     public ResponseEntity<UpdateProfileResponse> getUserProfileByUsername(@PathVariable String username) {
         return ResponseEntity.ok(userService.getUserPublicProfileByUsername(username));
+    }
+
+    //GET /users/me/secret-link — get active profile token
+    @GetMapping("/me/secret-link")
+    public ResponseEntity<UserProfileTokenResponse> getSecretLink() {
+        Long currentUserId = JwtService.getCurrentUserId();
+        return ResponseEntity.ok(userProfileTokenService.getActiveToken(currentUserId));
+    }
+
+    // POST /users/me/secret-link/regenerate — regenerate profile token
+    @PostMapping("/me/secret-link/regenerate")
+    public ResponseEntity<UserProfileTokenResponse> regenerateSecretLink() {
+        Long currentUserId = JwtService.getCurrentUserId();
+        return ResponseEntity.ok(userProfileTokenService.regenerateToken(currentUserId));
+    }
+
+    // GET /users/profile/token/{token} — public, get profile by secret token
+    @GetMapping("/profile/token/{token}")
+    public ResponseEntity<UpdateProfileResponse> getUserProfileByToken(@PathVariable String token) {
+        return ResponseEntity.ok(userService.getUserPublicProfileByToken(token));
     }
 
 }

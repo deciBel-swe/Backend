@@ -4,10 +4,13 @@ import jakarta.transaction.Transactional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import software.decibel.dtos.track.TrackResponse;
 import software.decibel.dtos.track.TrackTokenResponse;
 import software.decibel.entities.Track;
 import software.decibel.entities.TrackToken;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
+import software.decibel.mappers.TrackMapper;
 import software.decibel.mappers.TrackTokenMapper;
 import software.decibel.repositories.TrackTokenRepository;
 
@@ -15,40 +18,50 @@ import software.decibel.repositories.TrackTokenRepository;
 @RequiredArgsConstructor
 public class TrackTokenService {
 
-  private final TrackTokenRepository trackTokenRepository;
-  private final TrackService trackService;
-  private final TrackTokenMapper trackTokenMapper;
+    private final TrackTokenRepository trackTokenRepository;
+    private final TrackService trackService;
+    private final TrackTokenMapper trackTokenMapper;
+    private final TrackMapper trackMapper;
 
-  public TrackTokenResponse getActiveToken(Long trackId) {
+    public TrackTokenResponse getActiveToken(Long trackId) {
 
-    // To check / throw error if track doesn't exist
-    trackService.getTrackIfExistsById(trackId);
+        // To check / throw error if track doesn't exist
+        trackService.getTrackIfExistsById(trackId);
 
-    TrackToken token =
+        TrackToken token
+                = trackTokenRepository
+                        .findByTrackIdAndIsDeletedFalse(trackId)
+                        .orElseThrow(
+                                () -> new ResourceNotFoundException("No active token for track " + trackId));
+        return trackTokenMapper.toTrackTokenResponse(token);
+    }
+
+    @Transactional
+    public TrackTokenResponse regenerateToken(Long trackId) {
+        Track track = trackService.getTrackIfExistsById(trackId);
+
+        // soft delete all other tokens
         trackTokenRepository
-            .findByTrackIdAndIsDeletedFalse(trackId)
-            .orElseThrow(
-                () -> new ResourceNotFoundException("No active token for track " + trackId));
-    return trackTokenMapper.toTrackTokenResponse(token);
-  }
+                .findByTrackIdAndIsDeletedFalse(trackId)
+                .ifPresent(
+                        t -> {
+                            t.setDeleted(true);
+                            trackTokenRepository.save(t);
+                        });
 
-  @Transactional
-  public TrackTokenResponse regenerateToken(Long trackId) {
-    Track track = trackService.getTrackIfExistsById(trackId);
+        // create new token
+        String tokenString = UUID.randomUUID().toString();
+        TrackToken newToken = TrackToken.builder().track(track).token(tokenString).build();
 
-    // soft delete all other tokens
-    trackTokenRepository
-        .findByTrackIdAndIsDeletedFalse(trackId)
-        .ifPresent(
-            t -> {
-              t.setDeleted(true);
-              trackTokenRepository.save(t);
-            });
+        return trackTokenMapper.toTrackTokenResponse(trackTokenRepository.save(newToken));
+    }
 
-    // create new token
-    String tokenString = UUID.randomUUID().toString();
-    TrackToken newToken = TrackToken.builder().track(track).token(tokenString).build();
+    @Transactional
+    public TrackResponse getTrackBySecretToken(String token) {
+        TrackToken trackToken = trackTokenRepository
+                .findByTokenAndIsDeletedFalse(token)
+                .orElseThrow(() -> new ResourceNotFoundException("Invalid or expired track token"));
 
-    return trackTokenMapper.toTrackTokenResponse(trackTokenRepository.save(newToken));
-  }
+        return trackMapper.toTrackResponse(trackToken.getTrack());
+    }
 }

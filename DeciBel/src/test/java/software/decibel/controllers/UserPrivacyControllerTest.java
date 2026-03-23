@@ -27,7 +27,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import software.decibel.dtos.auth.PrivacyUpdateRequest;
 import software.decibel.dtos.auth.PrivacyUpdateResponse;
-import software.decibel.services.UserPrivacyService;
+import software.decibel.services.user.UserPrivacyService;
 
 @ExtendWith(MockitoExtension.class)
 class UserPrivacyControllerTest {

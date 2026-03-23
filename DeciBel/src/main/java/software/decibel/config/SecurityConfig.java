@@ -39,6 +39,7 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/users/*/following").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{userId}").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/username/**").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/users/profile/token/**").permitAll()
                                 .anyRequest().authenticated())
                 // Use stateless sessions for JWT authentication
                 .sessionManagement(

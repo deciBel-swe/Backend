@@ -30,7 +30,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.user.ChangeEmailRequest;
 import software.decibel.dtos.user.VerifyEmailChangeRequest;
-import software.decibel.services.UserEmailService;
+import software.decibel.services.user.UserEmailService;
 
 @ExtendWith(MockitoExtension.class)
 class UserEmailControllerTest {

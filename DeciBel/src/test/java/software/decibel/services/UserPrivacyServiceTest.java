@@ -24,6 +24,7 @@ import software.decibel.dtos.auth.PrivacyUpdateResponse;
 import software.decibel.dtos.auth.UserPrincipal;
 import software.decibel.entities.User;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.user.UserPrivacyService;
 
 @ExtendWith(MockitoExtension.class)
 class UserPrivacyServiceTest {
