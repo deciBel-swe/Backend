@@ -52,26 +52,6 @@ public class AuthService {
     private final GoogleTokenVerificationService googleTokenVerificationService;
     private final UserProfileUtility userProfileUtility;
 
-    // public AuthService(
-    //         UserRepository userRepository,
-    //         AuthIdentityRepository authIdentityRepository,
-    //         PasswordEncoder passwordEncoder,
-    //         TokenService tokenService,
-    //         SessionService sessionService,
-    //         EmailService emailService,
-    //         FrontendLinkService frontendLinkService,
-    //         JwtService jwtService,
-    //         GoogleTokenVerificationService googleTokenVerificationService) {
-    //     this.userRepository = userRepository;
-    //     this.authIdentityRepository = authIdentityRepository;
-    //     this.passwordEncoder = passwordEncoder;
-    //     this.tokenService = tokenService;
-    //     this.sessionService = sessionService;
-    //     this.emailService = emailService;
-    //     this.frontendLinkService = frontendLinkService;
-    //     this.jwtService = jwtService;
-    //     this.googleTokenVerificationService = googleTokenVerificationService;
-    // }
     @Transactional
     public MessageResponse registerLocal(RegisterLocalRequest request) {
         if (authIdentityRepository.existsByEmailIgnoreCase(request.email())

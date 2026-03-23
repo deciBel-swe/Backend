@@ -46,6 +46,7 @@ import software.decibel.enums.TokenType;
 import software.decibel.exceptions.custom.InvalidGoogleTokenException;
 import software.decibel.repositories.AuthIdentityRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.utils.UserProfileUtility;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
@@ -69,6 +70,9 @@ class AuthServiceTest {
     @Mock
     private GoogleTokenVerificationService googleTokenVerificationService;
 
+    @Mock
+    private UserProfileUtility userProfileUtility;
+
     @InjectMocks
     private AuthService authService;
 
@@ -80,6 +84,8 @@ class AuthServiceTest {
                 .thenReturn(false);
         when(userRepository.findByUsername(request.username())).thenReturn(Optional.empty());
         when(passwordEncoder.encode(request.password())).thenReturn("hashed-password");
+        when(userProfileUtility.buildLocation(request.city(), request.country()))
+                .thenReturn("Cairo, Egypt");
 
         User savedUser = User.builder().id(7L).username(request.username()).build();
         when(userRepository.save(any(User.class))).thenReturn(savedUser);
@@ -418,7 +424,10 @@ class AuthServiceTest {
                 "123456789012345678", AuthProvider.GOOGLE, AuthType.OAUTH))
                 .thenReturn(Optional.empty());
         when(authIdentityRepository.existsByEmailIgnoreCase("new-google@example.com")).thenReturn(false);
-        when(userRepository.findByUsername("googleuser_345678")).thenReturn(Optional.empty());
+        when(userProfileUtility.generateUniqueUsername(any(VerifiedGoogleToken.class)))
+                .thenReturn("googleuser_345678");
+        when(userProfileUtility.resolveDisplayName(any(VerifiedGoogleToken.class)))
+                .thenReturn("Google User");
         when(userRepository.save(any(User.class))).thenReturn(savedUser);
         when(authIdentityRepository.save(any(AuthIdentity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
