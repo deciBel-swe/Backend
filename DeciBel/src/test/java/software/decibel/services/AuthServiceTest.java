@@ -184,8 +184,6 @@ class AuthServiceTest {
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> authService.loginLocal(request));
-        when(userProfileUtility.generateUniqueUsername(any(VerifiedGoogleToken.class)))
-                .thenReturn("googleuser_345678");
 
         assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatusCode());
         verify(passwordEncoder, never()).matches(anyString(), anyString());
@@ -425,6 +423,8 @@ class AuthServiceTest {
         when(authIdentityRepository.findByProviderUserIdAndProviderAndType(
                 "123456789012345678", AuthProvider.GOOGLE, AuthType.OAUTH))
                 .thenReturn(Optional.empty());
+        when(userProfileUtility.generateUniqueUsername(any(VerifiedGoogleToken.class)))
+                .thenReturn("googleuser_345678");
         when(authIdentityRepository.existsByEmailIgnoreCase("new-google@example.com")).thenReturn(false);
         when(userRepository.findByUsername("googleuser_345678")).thenReturn(Optional.empty());
         when(userRepository.save(any(User.class))).thenReturn(savedUser);
