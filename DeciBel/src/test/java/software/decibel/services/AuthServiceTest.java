@@ -423,10 +423,11 @@ class AuthServiceTest {
         when(authIdentityRepository.findByProviderUserIdAndProviderAndType(
                 "123456789012345678", AuthProvider.GOOGLE, AuthType.OAUTH))
                 .thenReturn(Optional.empty());
+        when(authIdentityRepository.existsByEmailIgnoreCase("new-google@example.com")).thenReturn(false);
         when(userProfileUtility.generateUniqueUsername(any(VerifiedGoogleToken.class)))
                 .thenReturn("googleuser_345678");
-        when(authIdentityRepository.existsByEmailIgnoreCase("new-google@example.com")).thenReturn(false);
-        when(userRepository.findByUsername("googleuser_345678")).thenReturn(Optional.empty());
+        when(userProfileUtility.resolveDisplayName(any(VerifiedGoogleToken.class)))
+                .thenReturn("Google User");
         when(userRepository.save(any(User.class))).thenReturn(savedUser);
         when(authIdentityRepository.save(any(AuthIdentity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
