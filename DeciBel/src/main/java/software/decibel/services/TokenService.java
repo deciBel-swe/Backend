@@ -1,18 +1,22 @@
 package software.decibel.services;
 
+import java.time.LocalDateTime;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
+import lombok.RequiredArgsConstructor;
+import software.decibel.dtos.auth.IssuedToken;
 import software.decibel.entities.Token;
 import software.decibel.entities.User;
 import software.decibel.enums.TokenType;
 import software.decibel.repositories.TokenRepository;
 import software.decibel.utils.TokenUtility;
 
-import java.time.LocalDateTime;
-
 @Service
+@RequiredArgsConstructor
 public class TokenService {
 
     private static final int DEFAULT_TOKEN_BYTES = 32;
@@ -25,11 +29,10 @@ public class TokenService {
     private final TokenRepository tokenRepository;
     private final TokenUtility tokenUtility;
 
-    public TokenService(TokenRepository tokenRepository, TokenUtility tokenUtility) {
-        this.tokenRepository = tokenRepository;
-        this.tokenUtility = tokenUtility;
-    }
-
+    // public TokenService(TokenRepository tokenRepository, TokenUtility tokenUtility) {
+    //     this.tokenRepository = tokenRepository;
+    //     this.tokenUtility = tokenUtility;
+    // }
     @Transactional
     public IssuedToken createEmailVerificationToken(User user) {
         return issueToken(user, TokenType.EMAIL_VERIFICATION, DEFAULT_TOKEN_BYTES, EMAIL_VERIFICATION_EXPIRATION_MINUTES);
@@ -96,6 +99,4 @@ public class TokenService {
         return new IssuedToken(rawToken, token);
     }
 
-    public record IssuedToken(String rawToken, Token token) {
-    }
 }

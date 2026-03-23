@@ -1,8 +1,13 @@
 package software.decibel.services;
 
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.auth.DeviceInfo;
+import software.decibel.dtos.auth.IssuedToken;
 import software.decibel.dtos.user.TierUpgradeRequest;
 import software.decibel.dtos.user.TierUpgradeResponse;
 import software.decibel.entities.AuthIdentity;
@@ -14,9 +19,8 @@ import software.decibel.exceptions.custom.TierException;
 import software.decibel.repositories.AuthIdentityRepository;
 import software.decibel.repositories.UserRepository;
 
-import java.util.List;
-
 @Service
+@RequiredArgsConstructor
 public class UserTierService {
 
     private final UserRepository userRepository;
@@ -24,19 +28,6 @@ public class UserTierService {
     private final JwtService jwtService;
     private final TokenService tokenService;
     private final SessionService sessionService;
-
-    public UserTierService(
-            UserRepository userRepository,
-            AuthIdentityRepository authIdentityRepository,
-            JwtService jwtService,
-            TokenService tokenService,
-            SessionService sessionService) {
-        this.userRepository = userRepository;
-        this.authIdentityRepository = authIdentityRepository;
-        this.jwtService = jwtService;
-        this.tokenService = tokenService;
-        this.sessionService = sessionService;
-    }
 
     @Transactional
     public TierUpgradeResponse upgradeTier(Long userId, TierUpgradeRequest request, DeviceInfo deviceInfo) {
@@ -68,7 +59,7 @@ public class UserTierService {
         sessionService.deleteAllSessionsForUser(user);
         tokenService.deleteTokensForUserAndType(user, TokenType.REFRESH_TOKEN);
 
-        TokenService.IssuedToken issuedRefreshToken = tokenService.createRefreshToken(user);
+        IssuedToken issuedRefreshToken = tokenService.createRefreshToken(user);
         sessionService.createSession(user, issuedRefreshToken.token(), deviceInfo);
 
         // Issue new access token carrying updated tier claim

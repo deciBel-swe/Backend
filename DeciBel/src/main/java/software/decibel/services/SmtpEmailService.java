@@ -23,36 +23,30 @@ public class SmtpEmailService implements EmailService {
 
     @Override
     public void sendPasswordResetEmail(String toEmail, String resetLink) {
-        // TODO: replace stub logging with real SMTP delivery once credentials are
-        // configured.
         String html = loadTemplate("email-password-reset.html")
                 .replace("{{VERIFY_URL}}", resetLink);
         sendEmail(toEmail, "Reset your DeciBel password", html);
-        log.info("Stub password reset email to={} subject='Reset your DeciBel password' link={}", toEmail, resetLink);
+        log.info("password reset email to={} subject='Reset your DeciBel password' link={}", toEmail, resetLink);
     }
 
     @Override
     public void sendEmailVerificationEmail(String toEmail, String verificationLink) {
-        // TODO: replace stub logging with real SMTP delivery once credentials are
-        // configured.
         String html = loadTemplate("email-verification.html")
                 .replace("{{VERIFY_URL}}", verificationLink);
         sendEmail(toEmail, "Verify your DeciBel email", html);
         log.info(
-                "Stub email verification email to={} subject='Verify your DeciBel email' link={}",
+                "email verification email to={} subject='Verify your DeciBel email' link={}",
                 toEmail,
                 verificationLink);
     }
 
     @Override
     public void sendEmailChangeVerificationEmail(String toEmail, String verificationLink) {
-        // TODO: replace stub logging with real SMTP delivery once credentials are
-        // configured.
         String html = loadTemplate("email-change.html")
                 .replace("{{VERIFY_URL}}", verificationLink);
         sendEmail(toEmail, "Confirm your new DeciBel email", html);
         log.info(
-                "Stub email change verification email to={} subject='Confirm your new DeciBel email' link={}",
+                "email change verification email to={} subject='Confirm your new DeciBel email' link={}",
                 toEmail,
                 verificationLink);
     }
@@ -74,10 +68,10 @@ public class SmtpEmailService implements EmailService {
 
     private String loadTemplate(String templateName) {
         try {
-            ClassPathResource resource = new ClassPathResource("email-templates/" + templateName);
+            ClassPathResource resource = new ClassPathResource("templates/" + templateName);
             return resource.getContentAsString(StandardCharsets.UTF_8);
         } catch (IOException e) {
-            throw new RuntimeException("Failed to load email template: " + templateName, e);
+            throw new RuntimeException("Failed to load template: " + templateName, e);
         }
     }
 }

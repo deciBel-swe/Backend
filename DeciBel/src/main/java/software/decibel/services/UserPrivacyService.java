@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.auth.PrivacyUpdateRequest;
 import software.decibel.dtos.auth.PrivacyUpdateResponse;
 import software.decibel.dtos.auth.UserPrincipal;
@@ -13,13 +14,10 @@ import software.decibel.entities.User;
 import software.decibel.repositories.UserRepository;
 
 @Service
+@RequiredArgsConstructor
 public class UserPrivacyService {
 
     private final UserRepository userRepository;
-
-    public UserPrivacyService(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
 
     @Transactional
     public PrivacyUpdateResponse updateMyPrivacy(Authentication authentication, PrivacyUpdateRequest request) {

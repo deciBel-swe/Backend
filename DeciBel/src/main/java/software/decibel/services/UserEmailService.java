@@ -1,10 +1,15 @@
 package software.decibel.services;
 
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
+import lombok.RequiredArgsConstructor;
+import software.decibel.dtos.auth.IssuedToken;
 import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.user.ChangeEmailRequest;
 import software.decibel.dtos.user.VerifyEmailChangeRequest;
@@ -19,9 +24,8 @@ import software.decibel.repositories.AuthIdentityRepository;
 import software.decibel.repositories.PendingEmailChangeRepository;
 import software.decibel.repositories.UserRepository;
 
-import java.util.List;
-
 @Service
+@RequiredArgsConstructor
 public class UserEmailService {
 
     private static final String INVALID_EMAIL_CHANGE_TOKEN_MESSAGE = "Invalid or expired token";
@@ -32,21 +36,6 @@ public class UserEmailService {
     private final TokenService tokenService;
     private final EmailService emailService;
     private final FrontendLinkService frontendLinkService;
-
-    public UserEmailService(
-            UserRepository userRepository,
-            AuthIdentityRepository authIdentityRepository,
-            PendingEmailChangeRepository pendingEmailChangeRepository,
-            TokenService tokenService,
-            EmailService emailService,
-            FrontendLinkService frontendLinkService) {
-        this.userRepository = userRepository;
-        this.authIdentityRepository = authIdentityRepository;
-        this.pendingEmailChangeRepository = pendingEmailChangeRepository;
-        this.tokenService = tokenService;
-        this.emailService = emailService;
-        this.frontendLinkService = frontendLinkService;
-    }
 
     @Transactional
     public MessageResponse requestMyEmailChange(Authentication authentication, ChangeEmailRequest request) {
@@ -73,7 +62,7 @@ public class UserEmailService {
         });
         tokenService.deleteTokensForUserAndType(currentUser, TokenType.EMAIL_CHANGE);
 
-        TokenService.IssuedToken issuedToken = tokenService.createEmailChangeToken(currentUser);
+        IssuedToken issuedToken = tokenService.createEmailChangeToken(currentUser);
         PendingEmailChange pendingEmailChange = PendingEmailChange.builder()
                 .user(currentUser)
                 .newEmail(newEmail)
