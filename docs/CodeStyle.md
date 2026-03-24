@@ -77,7 +77,7 @@ findByArtistIdAndStatus(UUID id, Status s)      getArtistTracks(UUID id, Status 
 In this structure, we organize by the functional role of the class. This ensures a clear separation of concerns from the API entry point down to the database.
 
 ```text
-src/main/java/com/soundground/api
+src/main/java/com/Decibel/api
 ├── config/             # Security, Bean definitions
 ├── controllers/        # REST Endpoints (Entry points)
 ├── services/           # Business Logic & Transactions

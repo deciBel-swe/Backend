@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:latest
+    container_name: DeciBel-postgres
+    environment:
+      POSTGRES_USER: DeciBel
+      POSTGRES_PASSWORD: DeciBel1234
+      POSTGRES_DB: DeciBel
+      PGDATA: /data/postgres
+    volumes:
+      - postgres_data:/data/postgres
+    ports:
+      - "5332:5432"
+    networks:
+      - backend
+    restart: unless-stopped
+  backend:
+    build:
+      context: ./DeciBel
+    container_name: DeciBel-backend
+    image: decibel-backend:local
+    ports:
+      - "8081:8081"
+    networks:
+      - backend
+    depends_on:
+      - postgres
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/DeciBel
+      - SPRING_DATASOURCE_USERNAME=DeciBel
+      - SPRING_DATASOURCE_PASSWORD=DeciBel1234
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  postgres_data:
