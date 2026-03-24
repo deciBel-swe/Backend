@@ -3,6 +3,7 @@ package software.decibel.mappers;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.mapstruct.*;
+import org.springframework.data.domain.Page;
 import software.decibel.dtos.track.*;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
@@ -74,4 +75,16 @@ public interface TrackMapper {
   @Mapping(target = "trackId", source = "id")
   @Mapping(target = "duration", source = "durationSeconds")
   TrackWaveFormUrlResponse toTrackWaveFormUrlResponse(Track track);
+
+  // Track Page -> TrackPageResponse DTO
+  // default so i can write my own method
+  default TrackPageResponse toPageResponse(Page<Track> page) {
+    return new TrackPageResponse(
+        page.getContent().stream().map(this::toTrackResponse).toList(),
+        page.getNumber(),
+        page.getSize(),
+        page.getTotalElements(),
+        page.getTotalPages(),
+        page.isLast());
+  }
 }

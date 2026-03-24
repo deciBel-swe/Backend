@@ -75,5 +75,8 @@ public class Track {
   @OneToMany(mappedBy = "track", cascade = CascadeType.ALL, orphanRemoval = true)
   private List<TrackToken> tokens;
 
-
+  // track can have many comments
+  // purpose is to delete comments if track is deleted
+  @OneToMany(mappedBy = "track", cascade = CascadeType.ALL, orphanRemoval = true)
+  private List<Comment> comments;
 }

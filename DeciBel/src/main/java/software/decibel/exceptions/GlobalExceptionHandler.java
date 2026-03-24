@@ -9,12 +9,7 @@ import org.springframework.http.*;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
-import software.decibel.exceptions.custom.AudioDurationReadingException;
-import software.decibel.exceptions.custom.AzureFileStorageException;
-import software.decibel.exceptions.custom.DuplicateResourceException;
-import software.decibel.exceptions.custom.ExternalAuthConfigurationException;
-import software.decibel.exceptions.custom.InvalidGoogleTokenException;
-import software.decibel.exceptions.custom.ResourceNotFoundException;
+import software.decibel.exceptions.custom.*;
 import software.decibel.exceptions.response.ApiErrorResponse;
 
 @RestControllerAdvice
@@ -96,6 +91,21 @@ public class GlobalExceptionHandler {
   }
 
   // ── 400 — Business Rule Violations
+  @ExceptionHandler(InvalidTimestampException.class)
+  public ResponseEntity<ApiErrorResponse> handleInvalidTimestampException(
+      InvalidTimestampException ex, HttpServletRequest request) {
+
+    ApiErrorResponse error =
+        ApiErrorResponse.builder()
+            .timestamp(LocalDateTime.now())
+            .status(HttpStatus.BAD_REQUEST.value())
+            .error("Invalid Timestamp")
+            .message(ex.getMessage())
+            .path(request.getRequestURI())
+            .build();
+
+    return ResponseEntity.badRequest().body(error);
+  }
 
   // -- 500 --internal service error
 

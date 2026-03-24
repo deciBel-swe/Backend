@@ -19,7 +19,7 @@ import software.decibel.enums.Visibility;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.TrackRepository;
-import software.decibel.repositories.UserRepository;
+import software.decibel.services.user.UserService;
 import software.decibel.utils.AudioUtility;
 import software.decibel.utils.FileUtilityAzure;
 import software.decibel.utils.TagUtility;
@@ -32,7 +32,7 @@ import tools.jackson.databind.ObjectMapper;
 public class TrackService {
 
     private final TrackRepository trackRepository;
-    private final UserRepository userRepository;
+  private final UserService userService;
 
     private final FileUtilityAzure fileUtilityAzure;
     private final WaveFormUtility waveFormUtility;
@@ -66,7 +66,7 @@ public class TrackService {
 
         // get userid and user from jwt
         Long userId = JwtService.getCurrentUserId();
-        User uploader = getUserIfExistsById(userId);
+    User uploader = userService.getUserIfExistsById(userId);
 
         // convert track to entity and save as UPLOADING
         Track track = trackMapper.toEntity(request, uploader);
@@ -180,14 +180,14 @@ public class TrackService {
         }
     }
 
-    // Adds tags to tracks (whether tags already exist or create ones) - tags will be title case
-    @Transactional
-    public Track addTrackTags(Track track, List<String> tagTitles) {
+  // Adds tags to tracks (whether tags already exist or create ones) - tags will be title case
+  @Transactional
+  public void addTrackTags(Track track, List<String> tagTitles) {
         List<Tag> tags
                 = tagTitles.stream().map(tagService::getOrCreateTag).collect(Collectors.toList());
 
         track.setTags(tags);
-        return trackRepository.save(track);
+    trackRepository.save(track);
     }
 
     @Transactional
@@ -236,31 +236,18 @@ public class TrackService {
     }
 
     public TrackPageResponse getUserTracks(Long userId, int page, int size) {
-        // make sure user exists
-        getUserIfExistsById(userId);
+    // make sure user exists
+    userService.getUserIfExistsById(userId);
         return getTracksByUserId(userId, page, size);
     }
 
     // Gets tracks by user id (and is pageable)
     private TrackPageResponse getTracksByUserId(Long userId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<Track> tracks = trackRepository.findByUploaderId(userId, pageable);
+    Page<Track> result = trackRepository.findByUploaderId(userId, pageable);
 
-        List<TrackResponse> content
-                = tracks.getContent().stream().map(trackMapper::toTrackResponse).toList();
-
-        return new TrackPageResponse(
-                content,
-                tracks.getNumber(),
-                tracks.getSize(),
-                tracks.getTotalElements(),
-                tracks.getTotalPages(),
-                tracks.isLast());
+    return trackMapper.toPageResponse(result);
     }
 
-    private User getUserIfExistsById(Long userId) {
-        return userRepository
-                .findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User with id " + userId + " not found"));
-    }
+
 }
