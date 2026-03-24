@@ -7,4 +7,6 @@ import software.decibel.entities.Comment;
 
 public interface CommentRepository extends JpaRepository<Comment, Long> {
   Page<Comment> findByTrackId(Long trackId, Pageable pageable);
+
+  Page<Comment> findByParentCommentId(Long parentCommentId, Pageable pageable);
 }
