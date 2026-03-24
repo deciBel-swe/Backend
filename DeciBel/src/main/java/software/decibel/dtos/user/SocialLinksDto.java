@@ -1,9 +1,13 @@
 package software.decibel.dtos.user;
 
-import software.decibel.enums.SocialPlatform;
+import org.hibernate.validator.constraints.URL;
 
 public record SocialLinksDto(
-        SocialPlatform platform,
-        String url) {
+        @URL(message = "Instagram must be a valid URL")
+        String instagram,
+        @URL(message = "Twitter must be a valid URL")
+        String twitter,
+        @URL(message = "Website must be a valid URL")
+        String website) {
 
 }
