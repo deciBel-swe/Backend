@@ -6,7 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import software.decibel.dtos.track.TrackResponse;
 import software.decibel.dtos.track.TrackTokenResponse;
-import software.decibel.services.TrackTokenService;
+import software.decibel.services.track.TrackTokenService;
 
 @RestController
 @RequestMapping("/tracks")
