@@ -107,7 +107,7 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthRefreshTokenResult verifyEmail(VerifyEmailRequest request) {
+    public MessageResponse verifyEmail(VerifyEmailRequest request) {
         Token verificationToken = tokenService.findValidUnusedToken(
                 request.token(),
                 TokenType.EMAIL_VERIFICATION,
@@ -123,9 +123,7 @@ public class AuthService {
 
         tokenService.markTokenUsed(verificationToken);
 
-        // The current API contract for /auth/verify-email accepts only the token,
-        // but this flow still issues a refresh token after successful verification.
-        return issueRefreshToken(user);
+        return new MessageResponse("Email verified");
     }
 
     @Transactional

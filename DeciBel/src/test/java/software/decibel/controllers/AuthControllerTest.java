@@ -24,7 +24,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import software.decibel.dtos.auth.AuthLoginResult;
-import software.decibel.dtos.auth.AuthRefreshTokenResult;
 import software.decibel.dtos.auth.AuthTokenRotationResult;
 import software.decibel.dtos.auth.DeviceInfo;
 import software.decibel.dtos.auth.GoogleOauthRequest;
@@ -131,16 +130,14 @@ class AuthControllerTest {
     }
 
     @Test
-    void verifyEmail_whenRequestIsValid_returnsMessageAndRefreshCookie() throws Exception {
+    void verifyEmail_whenRequestIsValid_returnsMessageWithoutRefreshCookie() throws Exception {
         when(authService.verifyEmail(any(VerifyEmailRequest.class)))
-                .thenReturn(new AuthRefreshTokenResult("refresh-token", 2592000L));
+                .thenReturn(new MessageResponse("Email verified"));
 
         mockMvc.perform(post("/auth/verify-email")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new VerifyEmailRequest("verify-token"))))
                 .andExpect(status().isOk())
-                .andExpect(cookie().value("refreshToken", "refresh-token"))
-                .andExpect(cookie().httpOnly("refreshToken", true))
                 .andExpect(jsonPath("$.message").value("Email verified"));
     }
 
