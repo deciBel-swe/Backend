@@ -15,23 +15,30 @@ import software.decibel.entities.*;
 import software.decibel.exceptions.custom.*;
 import software.decibel.mappers.CommentMapper;
 import software.decibel.repositories.CommentRepository;
+import software.decibel.services.track.TrackService;
 import software.decibel.services.user.UserService;
 
 class CommentServiceTest {
 
   private final Long mockUserId = 1L;
-  @Mock private CommentRepository commentRepository;
-  @Mock private UserService userService;
-  @Mock private TrackService trackService;
-  @Mock private CommentMapper commentMapper;
-  @InjectMocks private CommentService commentService;
+  @Mock
+  private CommentRepository commentRepository;
+  @Mock
+  private UserService userService;
+  @Mock
+  private TrackService trackService;
+  @Mock
+  private CommentMapper commentMapper;
+  @InjectMocks
+  private CommentService commentService;
   private MockedStatic<JwtService> jwtMock;
 
   @BeforeEach
   void setup() {
     MockitoAnnotations.openMocks(this);
 
-    // we will mock jwt once here so that anytime a test or service needs to use it to get user id
+    // we will mock jwt once here so that anytime a test or service needs to use it
+    // to get user id
     // we automatically get user id 1
     jwtMock = mockStatic(JwtService.class);
     jwtMock.when(JwtService::getCurrentUserId).thenReturn(mockUserId);

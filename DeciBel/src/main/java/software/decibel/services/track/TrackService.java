@@ -9,7 +9,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 import software.decibel.dtos.track.*;
+import software.decibel.entities.Like;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
@@ -17,7 +19,9 @@ import software.decibel.enums.FileType;
 import software.decibel.enums.TrackState;
 import software.decibel.enums.Visibility;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
+import software.decibel.mappers.LikeMapper;
 import software.decibel.mappers.TrackMapper;
+import software.decibel.repositories.LikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.services.JwtService;
 import software.decibel.services.TagService;
@@ -34,12 +38,14 @@ import tools.jackson.databind.ObjectMapper;
 public class TrackService {
 
     private final TrackRepository trackRepository;
-  private final UserService userService;
+    private final LikeRepository likeRepository;
+    private final UserService userService;
 
     private final FileUtilityAzure fileUtilityAzure;
     private final WaveFormUtility waveFormUtility;
     private final AudioUtility audioUtility;
     private final TrackMapper trackMapper;
+    private final LikeMapper likeMapper;
 
     private final ObjectMapper objectMapper;
 
@@ -63,12 +69,13 @@ public class TrackService {
     }
 
     // Takes track upload request and saves track
-    // Not transactional as track's insertions an updates must survive to reflect track states
+    // Not transactional as track's insertions an updates must survive to reflect
+    // track states
     public TrackUploadResponse uploadTrack(TrackUploadRequest request) {
 
         // get userid and user from jwt
         Long userId = JwtService.getCurrentUserId();
-    User uploader = userService.getUserIfExistsById(userId);
+        User uploader = userService.getUserIfExistsById(userId);
 
         // convert track to entity and save as UPLOADING
         Track track = trackMapper.toEntity(request, uploader);
@@ -81,14 +88,16 @@ public class TrackService {
 
         Track createdTrack = createUploadingTrack(track);
 
-        // Uploading audio/image files & Processing the audio file for duration may cause exceptions to
+        // Uploading audio/image files & Processing the audio file for duration may
+        // cause exceptions to
         // be handled
         try {
             // save audio file in azure and get its url inside the server
             MultipartFile audioFile = request.audioFile();
             String trackUrl = fileUtilityAzure.saveFile(audioFile, FileType.AUDIO);
 
-            // Extract image file, save, and get its url inside the server (if image provided)
+            // Extract image file, save, and get its url inside the server (if image
+            // provided)
             MultipartFile coverImage = request.coverImage();
             String coverUrl = null;
             if (coverImage != null && !coverImage.isEmpty()) {
@@ -96,9 +105,8 @@ public class TrackService {
             }
 
             // Convert waveform data from json string to list of floats
-            List<Float> waveformData
-                    = objectMapper.readValue(request.waveformData(), new TypeReference<List<Float>>() {
-                    });
+            List<Float> waveformData = objectMapper.readValue(request.waveformData(), new TypeReference<List<Float>>() {
+            });
             String waveformUrl = waveFormUtility.saveWaveformToAzure(waveformData, request.title());
 
             // Set urls manually
@@ -182,14 +190,14 @@ public class TrackService {
         }
     }
 
-  // Adds tags to tracks (whether tags already exist or create ones) - tags will be title case
-  @Transactional
-  public void addTrackTags(Track track, List<String> tagTitles) {
-        List<Tag> tags
-                = tagTitles.stream().map(tagService::getOrCreateTag).collect(Collectors.toList());
+    // Adds tags to tracks (whether tags already exist or create ones) - tags will
+    // be title case
+    @Transactional
+    public void addTrackTags(Track track, List<String> tagTitles) {
+        List<Tag> tags = tagTitles.stream().map(tagService::getOrCreateTag).collect(Collectors.toList());
 
         track.setTags(tags);
-    trackRepository.save(track);
+        trackRepository.save(track);
     }
 
     @Transactional
@@ -232,25 +240,64 @@ public class TrackService {
         return trackMapper.toTrackWaveFormUrlResponse(track);
     }
 
-  public TrackPageResponse getCurrentUserTracks(int page, int size) {
+    public TrackPageResponse getCurrentUserTracks(int page, int size) {
         Long userId = JwtService.getCurrentUserId();
-    return getAllTracksByUserId(userId, page, size);
+        return getAllTracksByUserId(userId, page, size);
     }
 
-  // Gets tracks by user id (and is pageable)
-  private TrackPageResponse getAllTracksByUserId(Long userId, int page, int size) {
-    Pageable pageable = PageRequest.of(page, size);
-    Page<Track> result = trackRepository.findByUploaderId(userId, pageable);
+    // Gets tracks by user id (and is pageable)
+    private TrackPageResponse getAllTracksByUserId(Long userId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Track> result = trackRepository.findByUploaderId(userId, pageable);
 
-    return trackMapper.toPageResponse(result);
+        return trackMapper.toPageResponse(result);
     }
 
-  // Gets tracks by user id (and is pageable) - only public tracks
-  public TrackPageResponse getPublicTracksByUserId(Long userId, int page, int size) {
-    Pageable pageable = PageRequest.of(page, size);
-    Page<Track> result =
-        trackRepository.findByUploaderIdAndVisibility(userId, Visibility.PUBLIC, pageable);
+    // Gets tracks by user id (and is pageable) - only public tracks
+    public TrackPageResponse getPublicTracksByUserId(Long userId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Track> result = trackRepository.findByUploaderIdAndVisibility(userId, Visibility.PUBLIC, pageable);
 
-    return trackMapper.toPageResponse(result);
-  }
+        return trackMapper.toPageResponse(result);
+    }
+
+    @Transactional
+    public LikeResponse likeTrack(Long trackId) {
+        Long userId = JwtService.getCurrentUserId();
+        User user = userService.getUserIfExistsById(userId);
+        Track track = getTrackIfExistsById(trackId);
+
+        if (likeRepository.existsByUserAndTrack(user, track)) {
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT, "Track already liked");
+        }
+
+        likeRepository.save(Like.builder()
+                .user(user)
+                .track(track)
+                .build());
+
+        track.setLikeCount(track.getLikeCount() + 1);
+        trackRepository.save(track);
+
+        return likeMapper.toLikeResponse(true);
+    }
+
+    @Transactional
+    public LikeResponse unlikeTrack(Long trackId) {
+        Long userId = JwtService.getCurrentUserId();
+        User user = userService.getUserIfExistsById(userId);
+        Track track = getTrackIfExistsById(trackId);
+
+        Like like = likeRepository.findByUserAndTrack(user, track)
+                .orElseThrow(() -> new ResourceNotFoundException("Like not found for track with id " + trackId));
+
+        likeRepository.delete(like);
+
+        if (track.getLikeCount() > 0) {
+            track.setLikeCount(track.getLikeCount() - 1);
+            trackRepository.save(track);
+        }
+
+        return likeMapper.toLikeResponse(false);
+    }
 }
