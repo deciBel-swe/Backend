@@ -1,24 +1,14 @@
 package software.decibel.entities;
 
+import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.List;
-
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.ElementCollection;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 import software.decibel.enums.AccountTier;
 
 @Entity
@@ -75,4 +65,11 @@ public class User {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+  // relationships
+
+  // user can have many comments
+  // purpose is to delete comments if user is deleted
+  @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+  private List<Comment> comments;
 }
