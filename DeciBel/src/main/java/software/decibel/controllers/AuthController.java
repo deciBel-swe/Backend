@@ -15,7 +15,6 @@ import org.springframework.web.servlet.view.RedirectView;
 
 import jakarta.validation.Valid;
 import software.decibel.dtos.auth.AuthLoginResult;
-import software.decibel.dtos.auth.AuthRefreshTokenResult;
 import software.decibel.dtos.auth.AuthTokenRotationResult;
 import software.decibel.dtos.auth.GoogleOauthRequest;
 import software.decibel.dtos.auth.LoginLocalRequest;
@@ -81,14 +80,8 @@ public class AuthController {
 
     @PostMapping("/verify-email")
     public ResponseEntity<MessageResponse> verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
-        AuthRefreshTokenResult result = authService.verifyEmail(request);
-        // TODO: Still need to discuss Token issuing strategy for email verification
-        // flow. For now, reusing refresh token mechanism to set cookie and frontend can
-        // discard it immediately after reading the verification success message.
-        ResponseCookie refreshCookie = buildRefreshCookie(result.refreshToken(), result.refreshTokenExpiresIn());
-        return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
-                .body(new MessageResponse("Email verified"));
+        MessageResponse response = authService.verifyEmail(request);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/oauth/google")

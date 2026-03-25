@@ -24,7 +24,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
 
 import software.decibel.dtos.auth.AuthLoginResult;
-import software.decibel.dtos.auth.AuthRefreshTokenResult;
 import software.decibel.dtos.auth.AuthTokenRotationResult;
 import software.decibel.dtos.auth.DeviceInfo;
 import software.decibel.dtos.auth.GoogleOauthRequest;
@@ -218,39 +217,34 @@ class AuthServiceTest {
                 .thenReturn(verificationToken);
         when(authIdentityRepository.findByUserAndProviderAndType(any(), any(), any()))
                 .thenReturn(Optional.of(identity));
+        MessageResponse response = authService.verifyEmail(request);
 
-        Token mockToken = Token.builder().hash("hash").build();
-        when(tokenService.createRefreshToken(user))
-                .thenReturn(new IssuedToken("refresh-token", mockToken));
-
-        authService.verifyEmail(request);
-
+        assertEquals("Email verified", response.message());
         assertTrue(identity.isEmailVerified());
         verify(userRepository, never()).save(any(User.class));
         verify(tokenService).markTokenUsed(verificationToken);
+        verify(tokenService, never()).createRefreshToken(any());
         verify(sessionService, never()).createSession(any(), any(), any());
     }
 
     @Test
-    void verifyEmail_whenLocalIdentityDoesNotExist_stillMarksTokenAndIssuesRefreshToken() {
+    void verifyEmail_whenLocalIdentityDoesNotExist_stillMarksTokenAndReturnsSuccess() {
         VerifyEmailRequest request = new VerifyEmailRequest("raw-token");
         User user = User.builder().id(9L).username("verified-user").build();
         Token verificationToken = Token.builder().user(user).build();
-        Token refreshToken = Token.builder().hash("hash").build();
 
         when(tokenService.findValidUnusedToken(eq("raw-token"), eq(TokenType.EMAIL_VERIFICATION), anyString()))
                 .thenReturn(verificationToken);
         when(authIdentityRepository.findByUserAndProviderAndType(
                 user, AuthProvider.LOCAL, AuthType.PASSWORD))
                 .thenReturn(Optional.empty());
-        when(tokenService.createRefreshToken(user))
-                .thenReturn(new IssuedToken("refresh-token", refreshToken));
 
-        AuthRefreshTokenResult result = authService.verifyEmail(request);
+        MessageResponse response = authService.verifyEmail(request);
 
-        assertEquals("refresh-token", result.refreshToken());
+        assertEquals("Email verified", response.message());
         verify(authIdentityRepository, never()).save(any(AuthIdentity.class));
         verify(tokenService).markTokenUsed(verificationToken);
+        verify(tokenService, never()).createRefreshToken(any());
     }
 
     @Test
