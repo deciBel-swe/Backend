@@ -1,10 +1,9 @@
-package software.decibel.controllers;
+package software.decibel.controllers.Track;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import software.decibel.dtos.track.TrackResponse;
 import software.decibel.dtos.track.TrackTokenResponse;
 import software.decibel.services.TrackTokenService;

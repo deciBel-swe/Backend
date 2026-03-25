@@ -7,6 +7,8 @@ import software.decibel.dtos.comment.CommentPageResponse;
 import software.decibel.dtos.comment.CommentResponse;
 import software.decibel.dtos.comment.CommentUserResponse;
 import software.decibel.dtos.comment.CreateCommentRequest;
+import software.decibel.dtos.comment.replies.ReplyPageResponse;
+import software.decibel.dtos.comment.replies.ReplyResponse;
 import software.decibel.entities.Comment;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
@@ -38,4 +40,29 @@ public interface CommentMapper {
         page.getTotalPages(),
         page.isLast());
   }
+
+  // ------------- Reply Mappers -------------
+
+  @Mapping(target = "replyToCommentId", source = "parentComment.id")
+  @Mapping(target = "body", source = "content")
+  ReplyResponse toReplyResponse(Comment comment);
+
+  default ReplyPageResponse toReplyPageResponse(Page<Comment> page) {
+    return new ReplyPageResponse(
+        page.getContent().stream().map(this::toReplyResponse).toList(),
+        page.getNumber(),
+        page.getSize(),
+        page.getTotalElements(),
+        page.getTotalPages(),
+        page.isLast());
+  }
+
+  @Mapping(target = "id", ignore = true)
+  @Mapping(target = "createdAt", ignore = true)
+  @Mapping(target = "replies", ignore = true)
+  @Mapping(target = "content", source = "request.body")
+  @Mapping(target = "timestampSeconds", ignore = true)
+  @Mapping(target = "parentComment", source = "parentComment") // needed
+  Comment toReplyEntity(
+      CreateCommentRequest request, User user, Track track, Comment parentComment);
 }

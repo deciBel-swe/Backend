@@ -1,4 +1,4 @@
-package software.decibel.controllers;
+package software.decibel.controllers.Comment;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

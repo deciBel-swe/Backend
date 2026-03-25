@@ -1,13 +1,12 @@
-package software.decibel.controllers;
+package software.decibel.controllers.User;
 
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import jakarta.validation.Valid;
 import software.decibel.dtos.auth.PrivacyUpdateRequest;
 import software.decibel.dtos.auth.PrivacyUpdateResponse;
 import software.decibel.services.user.UserPrivacyService;

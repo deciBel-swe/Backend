@@ -91,6 +91,9 @@ public class GlobalExceptionHandler {
   }
 
   // ── 400 — Business Rule Violations
+
+  // Called when a comment's timestamp (the time of a track that's being commented on ) is greater
+  // than the comment's duration (should be impossible)
   @ExceptionHandler(InvalidTimestampException.class)
   public ResponseEntity<ApiErrorResponse> handleInvalidTimestampException(
       InvalidTimestampException ex, HttpServletRequest request) {
@@ -100,6 +103,24 @@ public class GlobalExceptionHandler {
             .timestamp(LocalDateTime.now())
             .status(HttpStatus.BAD_REQUEST.value())
             .error("Invalid Timestamp")
+            .message(ex.getMessage())
+            .path(request.getRequestURI())
+            .build();
+
+    return ResponseEntity.badRequest().body(error);
+  }
+
+  // Called when trying to reply to another reply (according to the docs replies are one level max)
+
+  @ExceptionHandler(ReplyToReplyNotAllowedException.class)
+  public ResponseEntity<ApiErrorResponse> handleReplyToReplyNotAllowedException(
+      ReplyToReplyNotAllowedException ex, HttpServletRequest request) {
+
+    ApiErrorResponse error =
+        ApiErrorResponse.builder()
+            .timestamp(LocalDateTime.now())
+            .status(HttpStatus.BAD_REQUEST.value())
+            .error("Reply Not Allowed")
             .message(ex.getMessage())
             .path(request.getRequestURI())
             .build();

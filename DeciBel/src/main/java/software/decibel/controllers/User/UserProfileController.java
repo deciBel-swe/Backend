@@ -1,5 +1,7 @@
-package software.decibel.controllers;
+package software.decibel.controllers.User;
 
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -11,9 +13,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.user.UpdateProfileRequest;
 import software.decibel.dtos.user.UpdateProfileResponse;
 import software.decibel.dtos.user.UpdateUserImagesRequest;
