@@ -90,6 +90,24 @@ public class GlobalExceptionHandler {
     return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
   }
 
+  // ── 403 — Unauthorized Violation
+
+  @ExceptionHandler(UnauthorizedActionException.class)
+  public ResponseEntity<ApiErrorResponse> handleUnauthorizedActionException(
+      UnauthorizedActionException ex, HttpServletRequest request) {
+
+    ApiErrorResponse error =
+        ApiErrorResponse.builder()
+            .timestamp(LocalDateTime.now())
+            .status(HttpStatus.FORBIDDEN.value())
+            .error("Forbidden")
+            .message(ex.getMessage())
+            .path(request.getRequestURI())
+            .build();
+
+    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
+  }
+
   // ── 400 — Business Rule Violations
 
   // Called when a comment's timestamp (the time of a track that's being commented on ) is greater

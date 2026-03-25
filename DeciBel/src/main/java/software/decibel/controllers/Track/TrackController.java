@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import software.decibel.dtos.track.*;
-import software.decibel.services.TrackService;
+import software.decibel.services.track.TrackService;
 
 @RestController
 @RequestMapping("/tracks")
