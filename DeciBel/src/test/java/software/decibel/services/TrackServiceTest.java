@@ -15,6 +15,7 @@ import software.decibel.enums.*;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.TrackRepository;
+import software.decibel.services.track.TrackService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.*;
 
@@ -300,7 +301,7 @@ class TrackServiceTest {
 
     // -------------------- Act --------------------
 
-    TrackPageResponse result = trackService.getUserTracks(userId, 0, 10);
+    TrackPageResponse result = trackService.getPublicTracksByUserId(userId, 0, 10);
 
     // -------------------- Assert --------------------
 

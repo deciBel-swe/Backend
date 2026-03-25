@@ -1,4 +1,4 @@
-package software.decibel.services;
+package software.decibel.services.track;
 
 import jakarta.transaction.Transactional;
 import java.util.List;
@@ -19,6 +19,8 @@ import software.decibel.enums.Visibility;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.TrackRepository;
+import software.decibel.services.JwtService;
+import software.decibel.services.TagService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.AudioUtility;
 import software.decibel.utils.FileUtilityAzure;
@@ -230,24 +232,25 @@ public class TrackService {
         return trackMapper.toTrackWaveFormUrlResponse(track);
     }
 
-    public TrackPageResponse getCurrentUserTracks(int page, int size) {
+  public TrackPageResponse getCurrentUserTracks(int page, int size) {
         Long userId = JwtService.getCurrentUserId();
-        return getTracksByUserId(userId, page, size);
+    return getAllTracksByUserId(userId, page, size);
     }
 
-    public TrackPageResponse getUserTracks(Long userId, int page, int size) {
-    // make sure user exists
-    userService.getUserIfExistsById(userId);
-        return getTracksByUserId(userId, page, size);
-    }
-
-    // Gets tracks by user id (and is pageable)
-    private TrackPageResponse getTracksByUserId(Long userId, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
+  // Gets tracks by user id (and is pageable)
+  private TrackPageResponse getAllTracksByUserId(Long userId, int page, int size) {
+    Pageable pageable = PageRequest.of(page, size);
     Page<Track> result = trackRepository.findByUploaderId(userId, pageable);
 
     return trackMapper.toPageResponse(result);
     }
 
+  // Gets tracks by user id (and is pageable) - only public tracks
+  public TrackPageResponse getPublicTracksByUserId(Long userId, int page, int size) {
+    Pageable pageable = PageRequest.of(page, size);
+    Page<Track> result =
+        trackRepository.findByUploaderIdAndVisibility(userId, Visibility.PUBLIC, pageable);
 
+    return trackMapper.toPageResponse(result);
+  }
 }
