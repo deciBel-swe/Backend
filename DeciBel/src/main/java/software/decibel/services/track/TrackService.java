@@ -15,13 +15,16 @@ import software.decibel.entities.Like;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
+import software.decibel.entities.Repost;
 import software.decibel.enums.FileType;
 import software.decibel.enums.TrackState;
 import software.decibel.enums.Visibility;
+import software.decibel.mappers.RepostMapper;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.LikeMapper;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.LikeRepository;
+import software.decibel.repositories.RepostRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.services.JwtService;
 import software.decibel.services.TagService;
@@ -39,6 +42,7 @@ public class TrackService {
 
     private final TrackRepository trackRepository;
     private final LikeRepository likeRepository;
+    private final RepostRepository repostRepository;
     private final UserService userService;
 
     private final FileUtilityAzure fileUtilityAzure;
@@ -46,6 +50,7 @@ public class TrackService {
     private final AudioUtility audioUtility;
     private final TrackMapper trackMapper;
     private final LikeMapper likeMapper;
+    private final RepostMapper repostMapper;
 
     private final ObjectMapper objectMapper;
 
@@ -259,6 +264,46 @@ public class TrackService {
         Page<Track> result = trackRepository.findByUploaderIdAndVisibility(userId, Visibility.PUBLIC, pageable);
 
         return trackMapper.toPageResponse(result);
+    }
+
+    @Transactional
+    public RepostResponse repostTrack(Long trackId) {
+        Long userId = JwtService.getCurrentUserId();
+        User user = userService.getUserIfExistsById(userId);
+        Track track = getTrackIfExistsById(trackId);
+
+        if (repostRepository.existsByUserAndTrack(user, track)) {
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT, "Track already reposted");
+        }
+
+        repostRepository.save(Repost.builder()
+                .user(user)
+                .track(track)
+                .build());
+
+        track.setRepostCount(track.getRepostCount() + 1);
+        trackRepository.save(track);
+
+        return repostMapper.toRepostResponse(true);
+    }
+
+    @Transactional
+    public RepostResponse removeRepost(Long trackId) {
+        Long userId = JwtService.getCurrentUserId();
+        User user = userService.getUserIfExistsById(userId);
+        Track track = getTrackIfExistsById(trackId);
+
+        Repost repost = repostRepository.findByUserAndTrack(user, track)
+                .orElseThrow(() -> new ResourceNotFoundException("Repost not found for track with id " + trackId));
+
+        repostRepository.delete(repost);
+
+        if (track.getRepostCount() > 0) {
+            track.setRepostCount(track.getRepostCount() - 1);
+            trackRepository.save(track);
+        }
+
+        return repostMapper.toRepostResponse(false);
     }
 
     @Transactional
