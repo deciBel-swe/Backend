@@ -15,6 +15,7 @@ import software.decibel.entities.*;
 import software.decibel.exceptions.custom.*;
 import software.decibel.mappers.CommentMapper;
 import software.decibel.repositories.CommentRepository;
+import software.decibel.services.track.TrackService;
 import software.decibel.services.user.UserService;
 
 class CommentServiceTest {
