@@ -14,8 +14,10 @@ import software.decibel.entities.UserProfileToken;
 import software.decibel.enums.FileType;
 import software.decibel.enums.SocialPlatform;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
+import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.SocialLinksRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.JwtService;
 import software.decibel.utils.FileUtilityAzure;
 import software.decibel.utils.LocationUtility;
 import software.decibel.utils.UserMappingUtility;
@@ -31,19 +33,20 @@ public class UserProfileService {
     private final LocationUtility locationUtility;
     private final UserMappingUtility userMappingUtility;
     private final UserProfileTokenRepository userProfileTokenRepository;
+    private final FollowRepository followRepository;
 
     // Public profile — no auth required
     @Transactional(readOnly = true)
     public UpdateProfileResponse getUserPublicProfile(Long userId) {
         User user = findUserById(userId);
-        return userMappingUtility.toUpdateProfileResponse(user, false, false);
+        return getResponseWithFollowStatus(user, false, false);
     }
 
     // Private profile — authenticated, includes privacy settings and email verified
     @Transactional(readOnly = true)
     public UpdateProfileResponse getMyProfile(Long userId) {
         User user = findUserById(userId);
-        return userMappingUtility.toUpdateProfileResponse(user, true, userMappingUtility.isEmailVerified(user));
+        return getResponseWithFollowStatus(user, true, userMappingUtility.isEmailVerified(user));
     }
 
     // Update profile — authenticated, partial update
@@ -80,14 +83,14 @@ public class UserProfileService {
         }
         //load updated user
         User updatedUser = findUserById(userId);
-        return userMappingUtility.toUpdateProfileResponse(updatedUser, true, userMappingUtility.isEmailVerified(updatedUser));
+        return getResponseWithFollowStatus(updatedUser, true, userMappingUtility.isEmailVerified(updatedUser));
     }
 
     @Transactional(readOnly = true)
     public UpdateProfileResponse getUserPublicProfileByUsername(String username) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User with username " + username + " not found"));
-        return userMappingUtility.toUpdateProfileResponse(user, false, false);
+        return getResponseWithFollowStatus(user, false, false);
     }
 
     // Update profile/cover images — authenticated
@@ -136,7 +139,25 @@ public class UserProfileService {
                 .findByTokenAndIsDeletedFalse(token)
                 .orElseThrow(() -> new ResourceNotFoundException("Invalid or expired profile token"));
 
-        return userMappingUtility.toUpdateProfileResponse(profileToken.getUser(), false, false);
+        return getResponseWithFollowStatus(profileToken.getUser(), false, false);
+    }
+
+    private UpdateProfileResponse getResponseWithFollowStatus(User profileUser, boolean includePrivacy, boolean emailVerified) {
+        boolean isFollowed = false;
+        boolean isFollowing = false;
+
+        try {
+            Long currentUserId = JwtService.getCurrentUserId();
+            if (currentUserId != null && !currentUserId.equals(profileUser.getId())) {
+                User currentUser = userRepository.getReferenceById(currentUserId);
+                isFollowed = followRepository.existsByFollowerAndFollowing(currentUser, profileUser);
+                isFollowing = followRepository.existsByFollowerAndFollowing(profileUser, currentUser);
+            }
+        } catch (Exception ignored) {
+            // No authenticated user or other security context issue
+        }
+
+        return userMappingUtility.toUpdateProfileResponse(profileUser, includePrivacy, emailVerified, isFollowed, isFollowing);
     }
 
     private User findUserById(Long userId) {
