@@ -16,6 +16,8 @@ import software.decibel.dtos.track.*;
 import software.decibel.entities.*;
 import software.decibel.enums.*;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
+import software.decibel.mappers.LikeMapper;
+import software.decibel.repositories.LikeRepository;
 import software.decibel.mappers.RepostMapper;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.RepostRepository;
@@ -29,12 +31,14 @@ import tools.jackson.databind.ObjectMapper;
 class TrackServiceTest {
 
   @Mock private TrackRepository trackRepository;
+  @Mock private LikeRepository likeRepository;
   @Mock private RepostRepository repostRepository;
   @Mock private UserService userService;
   @Mock private FileUtilityAzure fileUtilityAzure;
   @Mock private WaveFormUtility waveFormUtility;
   @Mock private AudioUtility audioUtility;
   @Mock private TrackMapper trackMapper;
+  @Mock private LikeMapper likeMapper;
   @Mock private RepostMapper repostMapper;
   @Mock private TagService tagService;
   @Mock private ObjectMapper objectMapper;
@@ -474,6 +478,131 @@ class TrackServiceTest {
     assertEquals(response, result);
     assertEquals(0, track.getRepostCount());
     verify(repostRepository).delete(repost);
+    verify(trackRepository, never()).save(track);
+  }
+
+  @Test
+  void likeTrack_shouldSaveLikeAndIncrementCount() {
+    User user = new User();
+    user.setId(mockUserId);
+    Track track = new Track();
+    track.setId(2L);
+    track.setLikeCount(0);
+    LikeResponse response = new LikeResponse("Track liked", true);
+
+    when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
+    when(trackRepository.findById(2L)).thenReturn(Optional.of(track));
+    when(likeRepository.existsByUserAndTrack(user, track)).thenReturn(false);
+    when(likeMapper.toLikeResponse(true)).thenReturn(response);
+
+    LikeResponse result = trackService.likeTrack(2L);
+
+    assertEquals(response, result);
+    assertEquals(1, track.getLikeCount());
+    verify(likeRepository).save(any(Like.class));
+    verify(trackRepository).save(track);
+  }
+
+  @Test
+  void likeTrack_shouldThrowConflict_whenAlreadyLiked() {
+    User user = new User();
+    Track track = new Track();
+    track.setId(2L);
+
+    when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
+    when(trackRepository.findById(2L)).thenReturn(Optional.of(track));
+    when(likeRepository.existsByUserAndTrack(user, track)).thenReturn(true);
+
+    ResponseStatusException exception =
+        assertThrows(ResponseStatusException.class, () -> trackService.likeTrack(2L));
+
+    assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+    verify(likeRepository, never()).save(any(Like.class));
+  }
+
+  @Test
+  void likeTrack_shouldThrowNotFound_whenTrackDoesNotExist() {
+    User user = new User();
+
+    when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
+    when(trackRepository.findById(2L)).thenReturn(Optional.empty());
+
+    assertThrows(ResourceNotFoundException.class, () -> trackService.likeTrack(2L));
+
+    verify(likeRepository, never()).existsByUserAndTrack(any(), any());
+    verify(likeRepository, never()).save(any(Like.class));
+  }
+
+  @Test
+  void unlikeTrack_shouldDeleteLikeAndDecrementCount() {
+    User user = new User();
+    user.setId(mockUserId);
+    Track track = new Track();
+    track.setId(2L);
+    track.setLikeCount(2);
+    Like like = Like.builder().user(user).track(track).build();
+    LikeResponse response = new LikeResponse("Like removed", false);
+
+    when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
+    when(trackRepository.findById(2L)).thenReturn(Optional.of(track));
+    when(likeRepository.findByUserAndTrack(user, track)).thenReturn(Optional.of(like));
+    when(likeMapper.toLikeResponse(false)).thenReturn(response);
+
+    LikeResponse result = trackService.unlikeTrack(2L);
+
+    assertEquals(response, result);
+    assertEquals(1, track.getLikeCount());
+    verify(likeRepository).delete(like);
+    verify(trackRepository).save(track);
+  }
+
+  @Test
+  void unlikeTrack_shouldThrowNotFound_whenLikeMissing() {
+    User user = new User();
+    Track track = new Track();
+    track.setId(2L);
+
+    when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
+    when(trackRepository.findById(2L)).thenReturn(Optional.of(track));
+    when(likeRepository.findByUserAndTrack(user, track)).thenReturn(Optional.empty());
+
+    assertThrows(ResourceNotFoundException.class, () -> trackService.unlikeTrack(2L));
+
+    verify(likeRepository, never()).delete(any(Like.class));
+  }
+
+  @Test
+  void unlikeTrack_shouldThrowNotFound_whenTrackDoesNotExist() {
+    User user = new User();
+
+    when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
+    when(trackRepository.findById(2L)).thenReturn(Optional.empty());
+
+    assertThrows(ResourceNotFoundException.class, () -> trackService.unlikeTrack(2L));
+
+    verify(likeRepository, never()).findByUserAndTrack(any(), any());
+  }
+
+  @Test
+  void unlikeTrack_shouldDeleteLikeWithoutSavingTrack_whenCountAlreadyZero() {
+    User user = new User();
+    user.setId(mockUserId);
+    Track track = new Track();
+    track.setId(2L);
+    track.setLikeCount(0);
+    Like like = Like.builder().user(user).track(track).build();
+    LikeResponse response = new LikeResponse("Like removed", false);
+
+    when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
+    when(trackRepository.findById(2L)).thenReturn(Optional.of(track));
+    when(likeRepository.findByUserAndTrack(user, track)).thenReturn(Optional.of(like));
+    when(likeMapper.toLikeResponse(false)).thenReturn(response);
+
+    LikeResponse result = trackService.unlikeTrack(2L);
+
+    assertEquals(response, result);
+    assertEquals(0, track.getLikeCount());
+    verify(likeRepository).delete(like);
     verify(trackRepository, never()).save(track);
   }
 }

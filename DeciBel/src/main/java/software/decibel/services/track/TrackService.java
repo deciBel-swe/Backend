@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import software.decibel.dtos.track.*;
+import software.decibel.entities.Like;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
@@ -20,7 +21,9 @@ import software.decibel.enums.TrackState;
 import software.decibel.enums.Visibility;
 import software.decibel.mappers.RepostMapper;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
+import software.decibel.mappers.LikeMapper;
 import software.decibel.mappers.TrackMapper;
+import software.decibel.repositories.LikeRepository;
 import software.decibel.repositories.RepostRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.services.JwtService;
@@ -38,6 +41,7 @@ import tools.jackson.databind.ObjectMapper;
 public class TrackService {
 
     private final TrackRepository trackRepository;
+    private final LikeRepository likeRepository;
     private final RepostRepository repostRepository;
     private final UserService userService;
 
@@ -45,6 +49,7 @@ public class TrackService {
     private final WaveFormUtility waveFormUtility;
     private final AudioUtility audioUtility;
     private final TrackMapper trackMapper;
+    private final LikeMapper likeMapper;
     private final RepostMapper repostMapper;
 
     private final ObjectMapper objectMapper;
@@ -299,5 +304,45 @@ public class TrackService {
         }
 
         return repostMapper.toRepostResponse(false);
+    }
+
+    @Transactional
+    public LikeResponse likeTrack(Long trackId) {
+        Long userId = JwtService.getCurrentUserId();
+        User user = userService.getUserIfExistsById(userId);
+        Track track = getTrackIfExistsById(trackId);
+
+        if (likeRepository.existsByUserAndTrack(user, track)) {
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT, "Track already liked");
+        }
+
+        likeRepository.save(Like.builder()
+                .user(user)
+                .track(track)
+                .build());
+
+        track.setLikeCount(track.getLikeCount() + 1);
+        trackRepository.save(track);
+
+        return likeMapper.toLikeResponse(true);
+    }
+
+    @Transactional
+    public LikeResponse unlikeTrack(Long trackId) {
+        Long userId = JwtService.getCurrentUserId();
+        User user = userService.getUserIfExistsById(userId);
+        Track track = getTrackIfExistsById(trackId);
+
+        Like like = likeRepository.findByUserAndTrack(user, track)
+                .orElseThrow(() -> new ResourceNotFoundException("Like not found for track with id " + trackId));
+
+        likeRepository.delete(like);
+
+        if (track.getLikeCount() > 0) {
+            track.setLikeCount(track.getLikeCount() - 1);
+            trackRepository.save(track);
+        }
+
+        return likeMapper.toLikeResponse(false);
     }
 }
