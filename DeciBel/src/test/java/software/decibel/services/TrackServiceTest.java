@@ -5,37 +5,56 @@ import static org.mockito.Mockito.*;
 
 import java.time.LocalDate;
 import java.util.*;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.*;
+import org.springframework.http.HttpStatus;
 import org.springframework.data.domain.*;
+import org.springframework.web.server.ResponseStatusException;
 import software.decibel.dtos.track.*;
 import software.decibel.entities.*;
 import software.decibel.enums.*;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
+import software.decibel.mappers.RepostMapper;
 import software.decibel.mappers.TrackMapper;
+import software.decibel.repositories.RepostRepository;
 import software.decibel.repositories.TrackRepository;
+import software.decibel.services.JwtService;
 import software.decibel.services.track.TrackService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.*;
+import tools.jackson.databind.ObjectMapper;
 
 class TrackServiceTest {
 
   @Mock private TrackRepository trackRepository;
+  @Mock private RepostRepository repostRepository;
   @Mock private UserService userService;
   @Mock private FileUtilityAzure fileUtilityAzure;
   @Mock private WaveFormUtility waveFormUtility;
   @Mock private AudioUtility audioUtility;
   @Mock private TrackMapper trackMapper;
+  @Mock private RepostMapper repostMapper;
   @Mock private TagService tagService;
+  @Mock private ObjectMapper objectMapper;
 
   // only one actually there but the rest are injected inside it and are not real
   // we tell these mocks how to act using when().then()''
   @InjectMocks private TrackService trackService;
+  private MockedStatic<JwtService> jwtMock;
+  private final Long mockUserId = 1L;
 
   @BeforeEach
   void setUp() {
     MockitoAnnotations.openMocks(this);
+    jwtMock = mockStatic(JwtService.class);
+    jwtMock.when(JwtService::getCurrentUserId).thenReturn(mockUserId);
+  }
+
+  @AfterEach
+  void tearDown() {
+    jwtMock.close();
   }
 
   // getTrackIfExistsById
@@ -292,7 +311,8 @@ class TrackServiceTest {
 
     // when repository is called with this userId and any pagination,
     // return the fake page
-    when(trackRepository.findByUploaderId(eq(userId), any(Pageable.class))).thenReturn(page);
+    when(trackRepository.findByUploaderIdAndVisibility(eq(userId), eq(Visibility.PUBLIC), any(Pageable.class)))
+        .thenReturn(page);
 
     // when mapper converts page ->  return our fake response
     when(trackMapper.toPageResponse(page)).thenReturn(response);
@@ -330,5 +350,130 @@ class TrackServiceTest {
 
     // Assert
     verify(trackRepository).delete(track);
+  }
+
+  @Test
+  void repostTrack_shouldSaveRepostAndIncrementCount() {
+    User user = new User();
+    user.setId(mockUserId);
+    Track track = new Track();
+    track.setId(2L);
+    track.setRepostCount(0);
+    RepostResponse response = new RepostResponse("Track reposted", true);
+
+    when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
+    when(trackRepository.findById(2L)).thenReturn(Optional.of(track));
+    when(repostRepository.existsByUserAndTrack(user, track)).thenReturn(false);
+    when(repostMapper.toRepostResponse(true)).thenReturn(response);
+
+    RepostResponse result = trackService.repostTrack(2L);
+
+    assertEquals(response, result);
+    assertEquals(1, track.getRepostCount());
+    verify(repostRepository).save(any(Repost.class));
+    verify(trackRepository).save(track);
+  }
+
+  @Test
+  void repostTrack_shouldThrowConflict_whenAlreadyReposted() {
+    User user = new User();
+    Track track = new Track();
+    track.setId(2L);
+
+    when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
+    when(trackRepository.findById(2L)).thenReturn(Optional.of(track));
+    when(repostRepository.existsByUserAndTrack(user, track)).thenReturn(true);
+
+    ResponseStatusException exception =
+        assertThrows(ResponseStatusException.class, () -> trackService.repostTrack(2L));
+
+    assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+    verify(repostRepository, never()).save(any(Repost.class));
+  }
+
+  @Test
+  void repostTrack_shouldThrowNotFound_whenTrackDoesNotExist() {
+    User user = new User();
+
+    when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
+    when(trackRepository.findById(2L)).thenReturn(Optional.empty());
+
+    assertThrows(ResourceNotFoundException.class, () -> trackService.repostTrack(2L));
+
+    verify(repostRepository, never()).existsByUserAndTrack(any(), any());
+    verify(repostRepository, never()).save(any(Repost.class));
+  }
+
+  @Test
+  void removeRepost_shouldDeleteRepostAndDecrementCount() {
+    User user = new User();
+    user.setId(mockUserId);
+    Track track = new Track();
+    track.setId(2L);
+    track.setRepostCount(2);
+    Repost repost = Repost.builder().user(user).track(track).build();
+    RepostResponse response = new RepostResponse("Repost removed", false);
+
+    when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
+    when(trackRepository.findById(2L)).thenReturn(Optional.of(track));
+    when(repostRepository.findByUserAndTrack(user, track)).thenReturn(Optional.of(repost));
+    when(repostMapper.toRepostResponse(false)).thenReturn(response);
+
+    RepostResponse result = trackService.removeRepost(2L);
+
+    assertEquals(response, result);
+    assertEquals(1, track.getRepostCount());
+    verify(repostRepository).delete(repost);
+    verify(trackRepository).save(track);
+  }
+
+  @Test
+  void removeRepost_shouldThrowNotFound_whenRepostMissing() {
+    User user = new User();
+    Track track = new Track();
+    track.setId(2L);
+
+    when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
+    when(trackRepository.findById(2L)).thenReturn(Optional.of(track));
+    when(repostRepository.findByUserAndTrack(user, track)).thenReturn(Optional.empty());
+
+    assertThrows(ResourceNotFoundException.class, () -> trackService.removeRepost(2L));
+
+    verify(repostRepository, never()).delete(any(Repost.class));
+  }
+
+  @Test
+  void removeRepost_shouldThrowNotFound_whenTrackDoesNotExist() {
+    User user = new User();
+
+    when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
+    when(trackRepository.findById(2L)).thenReturn(Optional.empty());
+
+    assertThrows(ResourceNotFoundException.class, () -> trackService.removeRepost(2L));
+
+    verify(repostRepository, never()).findByUserAndTrack(any(), any());
+  }
+
+  @Test
+  void removeRepost_shouldDeleteRepostWithoutSavingTrack_whenCountAlreadyZero() {
+    User user = new User();
+    user.setId(mockUserId);
+    Track track = new Track();
+    track.setId(2L);
+    track.setRepostCount(0);
+    Repost repost = Repost.builder().user(user).track(track).build();
+    RepostResponse response = new RepostResponse("Repost removed", false);
+
+    when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
+    when(trackRepository.findById(2L)).thenReturn(Optional.of(track));
+    when(repostRepository.findByUserAndTrack(user, track)).thenReturn(Optional.of(repost));
+    when(repostMapper.toRepostResponse(false)).thenReturn(response);
+
+    RepostResponse result = trackService.removeRepost(2L);
+
+    assertEquals(response, result);
+    assertEquals(0, track.getRepostCount());
+    verify(repostRepository).delete(repost);
+    verify(trackRepository, never()).save(track);
   }
 }
