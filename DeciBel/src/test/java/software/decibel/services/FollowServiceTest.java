@@ -113,7 +113,7 @@ class FollowServiceTest {
         Page<UserFollowDto> result = followService.getFollowers(1L, null, pageable);
 
         assertEquals(1, result.getContent().size());
-        assertEquals("follower", result.getContent().get(0).getUsername());
+        assertEquals("follower", result.getContent().get(0).username());
         assertFalse(result.getContent().get(0).isFollowing());
     }
 }

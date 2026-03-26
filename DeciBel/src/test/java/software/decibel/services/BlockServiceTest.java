@@ -117,6 +117,6 @@ class BlockServiceTest {
 
         assertNotNull(result);
         assertEquals(1, result.getTotalElements());
-        assertEquals("blocked", result.getContent().get(0).getUsername());
+        assertEquals("blocked", result.getContent().get(0).username());
     }
 }
