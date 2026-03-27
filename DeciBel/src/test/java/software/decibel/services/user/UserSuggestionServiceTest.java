@@ -10,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 import software.decibel.dtos.user.UserFollowDto;
 import software.decibel.entities.User;
 import software.decibel.mappers.UserMapper;
+import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.UserRepository;
 
@@ -28,6 +29,9 @@ class UserSuggestionServiceTest {
 
     @Mock
     private TrackRepository trackRepository;
+
+    @Mock
+    private FollowRepository followRepository;
 
     @Mock
     private UserMapper userMapper;
@@ -67,6 +71,8 @@ class UserSuggestionServiceTest {
                 .isFollowing(false)
                 .build();
         when(userMapper.toUserFollowDto(suggestedUser)).thenReturn(dto);
+        when(followRepository.existsByFollowerAndFollowing(eq(currentUser), eq(suggestedUser)))
+                .thenReturn(false);
 
         List<UserFollowDto> result = userSuggestionService.getSuggestedUsers(currentUser, 5);
 
@@ -78,14 +84,32 @@ class UserSuggestionServiceTest {
     }
 
     @Test
-    void getSuggestedUsers_noInterests_returnsEmptyList() {
+    void getSuggestedUsers_noInterests_returnsPopularUsers() {
         currentUser.setFavoriteGenres(new ArrayList<>());
         when(trackRepository.findGenresOfLikedTracksByUserId(1L)).thenReturn(new ArrayList<>());
+
+        User popularUser = User.builder()
+                .id(3L)
+                .username("popular")
+                .followerCount(100)
+                .build();
+        when(userRepository.findPopularUsers(eq(1L), any(Pageable.class)))
+                .thenReturn(List.of(popularUser));
+
+        UserFollowDto dto = UserFollowDto.builder()
+                .id(3L)
+                .username("popular")
+                .isFollowing(false)
+                .build();
+        when(userMapper.toUserFollowDto(popularUser)).thenReturn(dto);
+        when(followRepository.existsByFollowerAndFollowing(eq(currentUser), eq(popularUser)))
+                .thenReturn(false);
 
         List<UserFollowDto> result = userSuggestionService.getSuggestedUsers(currentUser, 5);
 
         assertNotNull(result);
-        assertTrue(result.isEmpty());
+        assertEquals(1, result.size());
+        assertEquals("popular", result.get(0).username());
     }
 
     @Test
@@ -99,5 +123,19 @@ class UserSuggestionServiceTest {
 
         assertNotNull(result);
         assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void getSuggestedUsers_doesNotSuggestSelf_explicitCheck() {
+        // Mock a scenario where repository hypothetically returns current user
+        currentUser.setFavoriteGenres(List.of("Rock"));
+        when(trackRepository.findGenresOfLikedTracksByUserId(1L)).thenReturn(new ArrayList<>());
+        
+        when(userRepository.findSuggestedUsersByGenres(eq(1L), anyList(), any(Pageable.class)))
+                .thenReturn(List.of(currentUser));
+
+        List<UserFollowDto> result = userSuggestionService.getSuggestedUsers(currentUser, 5);
+
+        assertTrue(result.isEmpty(), "Result should be empty if current user is returned by repository");
     }
 }

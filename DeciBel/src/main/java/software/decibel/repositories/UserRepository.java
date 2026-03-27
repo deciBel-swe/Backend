@@ -34,4 +34,18 @@ public interface UserRepository extends JpaRepository<User, Long> {
         )
     """)
     List<User> findSuggestedUsersByGenres(Long userId, List<String> genres, Pageable pageable);
+
+    @Query("""
+        SELECT u FROM User u
+        WHERE u.id <> :userId
+        AND NOT EXISTS (
+            SELECT 1 FROM Follow f WHERE f.follower.id = :userId AND f.following.id = u.id
+        )
+        AND NOT EXISTS (
+            SELECT 1 FROM Block b WHERE (b.blocker.id = :userId AND b.blocked.id = u.id)
+            OR (b.blocker.id = u.id AND b.blocked.id = :userId)
+        )
+        ORDER BY u.followerCount DESC, u.id ASC
+    """)
+    List<User> findPopularUsers(Long userId, Pageable pageable);
 }
