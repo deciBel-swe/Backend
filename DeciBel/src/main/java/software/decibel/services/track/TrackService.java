@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
@@ -73,6 +74,8 @@ public class TrackService {
         trackRepository.delete(track);
     }
 
+    private final SimpMessagingTemplate messagingTemplate;
+
     // Takes track upload request and saves track
     // Not transactional as track's insertions an updates must survive to reflect
     // track states
@@ -98,11 +101,13 @@ public class TrackService {
         // be handled
         try {
             // save audio file in azure and get its url inside the server
+            updateTrackState(createdTrack, TrackState.UPLOADING, 10, "Saving audio file", null);
             MultipartFile audioFile = request.audioFile();
             String trackUrl = fileUtilityAzure.saveFile(audioFile, FileType.AUDIO);
 
             // Extract image file, save, and get its url inside the server (if image
             // provided)
+            updateTrackState(createdTrack, TrackState.UPLOADING, 40, "Saving cover image", null);
             MultipartFile coverImage = request.coverImage();
             String coverUrl = null;
             if (coverImage != null && !coverImage.isEmpty()) {
@@ -110,6 +115,7 @@ public class TrackService {
             }
 
             // Convert waveform data from json string to list of floats
+            updateTrackState(createdTrack, TrackState.UPLOADING, 70, "Generating waveform", null);
             List<Float> waveformData = objectMapper.readValue(request.waveformData(), new TypeReference<List<Float>>() {
             });
             String waveformUrl = waveFormUtility.saveWaveformToAzure(waveformData, request.title());
@@ -120,20 +126,20 @@ public class TrackService {
             createdTrack.setWaveformUrl(waveformUrl);
 
             // save track as PROCESSING
-            updateTrackState(createdTrack, TrackState.PROCESSING);
+            updateTrackState(createdTrack, TrackState.PROCESSING, 90, "Extracting audio duration", null);
 
             createdTrack.setDurationSeconds(
                     audioUtility.getAudioFileDurationInSeconds(audioFile, request.title()));
 
             // after processing (getting duration is done) save track as FINISHED
-            updateTrackState(createdTrack, TrackState.FINISHED);
+            updateTrackState(createdTrack, TrackState.FINISHED, 100, "Done", null);
 
             Track saved = trackRepository.save(createdTrack);
 
             return trackMapper.toTrackUploadResponse(saved);
 
         } catch (Exception e) {
-            updateTrackState(track, TrackState.FAILED);
+            updateTrackState(createdTrack, TrackState.FAILED, null, null, e.getMessage());
             throw e;
         }
     }
@@ -143,15 +149,27 @@ public class TrackService {
     @Transactional
     public Track createUploadingTrack(Track track) {
         track.setState(TrackState.UPLOADING);
-        return trackRepository.save(track);
+        Track saved = trackRepository.save(track);
+        messagingTemplate.convertAndSend(
+                "/topic/track-status/" + saved.getId(),
+                new TrackStatusResponse(TrackState.UPLOADING, saved.getId()));
+        return saved;
     }
 
     // Function to update track entity's state and save
     @Transactional
     public void updateTrackState(Track t, TrackState state) {
+        updateTrackState(t, state, null, null, null);
+    }
 
+    // Function to update track entity's state and save with rich status
+    @Transactional
+    public void updateTrackState(Track t, TrackState state, Integer progress, String stepName, String errorMessage) {
         t.setState(state);
         trackRepository.save(t);
+        messagingTemplate.convertAndSend(
+                "/topic/track-status/" + t.getId(),
+                new TrackStatusResponse(state, t.getId(), progress, stepName, errorMessage));
     }
 
     // Returns track entity by id and throws exception if not found
