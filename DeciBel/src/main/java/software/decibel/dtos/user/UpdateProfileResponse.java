@@ -15,6 +15,7 @@ public record UpdateProfileResponse(
         int trackCount,
         boolean isFollowed,
         boolean isFollowing,
+        boolean isBlocked,
         UserProfile profile,
         List<SocialLinksDto> socialLinksDto,
         PrivacySettings privacySettings) {

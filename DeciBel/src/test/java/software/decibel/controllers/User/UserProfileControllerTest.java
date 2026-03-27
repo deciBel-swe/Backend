@@ -42,7 +42,7 @@ class UserProfileControllerTest {
     void getUserProfileByUsername_returnsFollowStatus() throws Exception {
         String username = "testuser";
         UpdateProfileResponse response = new UpdateProfileResponse(
-                2L, "test@example.com", username, true, null, 10, 5, 2, true, false, null, null, null
+                2L, "test@example.com", username, true, null, 10, 5, 2, true, false, false, null, null, null
         );
 
         when(userService.getUserPublicProfileByUsername(username)).thenReturn(response);
@@ -51,7 +51,8 @@ class UserProfileControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.username").value(username))
                 .andExpect(jsonPath("$.isFollowed").value(true))
-                .andExpect(jsonPath("$.isFollowing").value(false));
+                .andExpect(jsonPath("$.isFollowing").value(false))
+                .andExpect(jsonPath("$.isBlocked").value(false));
 
         verify(userService).getUserPublicProfileByUsername(username);
     }
