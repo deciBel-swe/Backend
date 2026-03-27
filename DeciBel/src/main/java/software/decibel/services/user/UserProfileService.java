@@ -14,6 +14,7 @@ import software.decibel.entities.UserProfileToken;
 import software.decibel.enums.FileType;
 import software.decibel.enums.SocialPlatform;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
+import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.SocialLinksRepository;
 import software.decibel.repositories.UserRepository;
@@ -34,6 +35,7 @@ public class UserProfileService {
     private final UserMappingUtility userMappingUtility;
     private final UserProfileTokenRepository userProfileTokenRepository;
     private final FollowRepository followRepository;
+    private final BlockRepository blockRepository;
 
     // Public profile — no auth required
     @Transactional(readOnly = true)
@@ -145,6 +147,7 @@ public class UserProfileService {
     private UpdateProfileResponse getResponseWithFollowStatus(User profileUser, boolean includePrivacy, boolean emailVerified) {
         boolean isFollowed = false;
         boolean isFollowing = false;
+        boolean isBlocked = false;
 
         try {
             Long currentUserId = JwtService.getCurrentUserId();
@@ -152,12 +155,13 @@ public class UserProfileService {
                 User currentUser = userRepository.getReferenceById(currentUserId);
                 isFollowed = followRepository.existsByFollowerAndFollowing(currentUser, profileUser);
                 isFollowing = followRepository.existsByFollowerAndFollowing(profileUser, currentUser);
+                isBlocked = blockRepository.existsByBlockerAndBlocked(currentUser, profileUser);
             }
         } catch (Exception ignored) {
             // No authenticated user or other security context issue
         }
 
-        return userMappingUtility.toUpdateProfileResponse(profileUser, includePrivacy, emailVerified, isFollowed, isFollowing);
+        return userMappingUtility.toUpdateProfileResponse(profileUser, includePrivacy, emailVerified, isFollowed, isFollowing, isBlocked);
     }
 
     private User findUserById(Long userId) {

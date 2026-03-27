@@ -24,7 +24,7 @@ public class UserMappingUtility {
     private final LocationUtility locationUtility;
 
     // Builds the full UpdateProfileResponse for a user
-    public UpdateProfileResponse toUpdateProfileResponse(User user, boolean includePrivacy, boolean emailVerified, boolean isFollowed, boolean isFollowing) {
+    public UpdateProfileResponse toUpdateProfileResponse(User user, boolean includePrivacy, boolean emailVerified, boolean isFollowed, boolean isFollowing, boolean isBlocked) {
         return new UpdateProfileResponse(
                 user.getId(),
                 resolveEmail(user),
@@ -36,6 +36,7 @@ public class UserMappingUtility {
                 user.getTrackCount(),
                 isFollowed,
                 isFollowing,
+                isBlocked,
                 toUserProfile(user),
                 toSocialLinksDto(user),
                 includePrivacy ? new PrivacySettings(user.isPrivate(), user.isShowHistory()) : null
