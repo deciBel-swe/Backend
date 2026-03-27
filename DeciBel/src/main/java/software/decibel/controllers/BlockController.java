@@ -14,14 +14,14 @@ import software.decibel.services.JwtService;
  * Controller for user blocking and unblocking operations.
  */
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/users")
 @RequiredArgsConstructor
 public class BlockController {
 
     private final BlockService blockService;
 
     /**
-     * POST /api/users/{userId}/block
+     * POST /users/{userId}/block
      * Blocks the specified user.
      */
     @PostMapping("/{userId}/block")
@@ -32,7 +32,7 @@ public class BlockController {
     }
 
     /**
-     * DELETE /api/users/{userId}/block
+     * DELETE /users/{userId}/block
      * Unblocks the specified user.
      */
     @DeleteMapping("/{userId}/block")
@@ -43,7 +43,7 @@ public class BlockController {
     }
 
     /**
-     * GET /api/users/me/blocked
+     * GET /users/me/blocked
      * Retrieves a paginated list of blocked users for the current user.
      */
     @GetMapping("/me/blocked")

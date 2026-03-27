@@ -47,7 +47,7 @@ class BlockControllerTest {
         try (MockedStatic<JwtService> jwtServiceMock = mockStatic(JwtService.class)) {
             jwtServiceMock.when(JwtService::getCurrentUserId).thenReturn(1L);
 
-            mockMvc.perform(post("/api/users/2/block"))
+            mockMvc.perform(post("/users/2/block"))
                     .andExpect(status().isOk());
 
             verify(blockService).blockUser(1L, 2L);
@@ -59,7 +59,7 @@ class BlockControllerTest {
         try (MockedStatic<JwtService> jwtServiceMock = mockStatic(JwtService.class)) {
             jwtServiceMock.when(JwtService::getCurrentUserId).thenReturn(1L);
 
-            mockMvc.perform(delete("/api/users/2/block"))
+            mockMvc.perform(delete("/users/2/block"))
                     .andExpect(status().isNoContent());
 
             verify(blockService).unblockUser(1L, 2L);
@@ -76,7 +76,7 @@ class BlockControllerTest {
 
             when(blockService.getBlockedUsers(eq(1L), any(Pageable.class))).thenReturn(page);
 
-            mockMvc.perform(get("/api/users/me/blocked"))
+            mockMvc.perform(get("/users/me/blocked"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content[0].id").value(2))
                     .andExpect(jsonPath("$.content[0].username").value("blocked"));
