@@ -51,9 +51,11 @@ public class AuthService {
     private final JwtService jwtService;
     private final GoogleTokenVerificationService googleTokenVerificationService;
     private final UserProfileUtility userProfileUtility;
+    private final CaptchaService captchaService;
 
     @Transactional
     public MessageResponse registerLocal(RegisterLocalRequest request) {
+        captchaService.validateCaptcha(request.captchaToken());
         if (authIdentityRepository.existsByEmailIgnoreCase(request.email())
                 || authIdentityRepository.existsByEmailIgnoreCaseAndProviderAndType(
                         request.email(), AuthProvider.LOCAL, AuthType.PASSWORD)) {
