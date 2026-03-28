@@ -157,6 +157,8 @@ public class AuthService {
         User user = oldToken.getUser();
         AuthIdentity identity = authIdentityRepository
                 .findByUserAndProviderAndType(user, AuthProvider.LOCAL, AuthType.PASSWORD)
+                .or(() -> authIdentityRepository.findByUserAndProviderAndType(
+                        user, AuthProvider.GOOGLE, AuthType.OAUTH))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User identity not found"));
 
         // 1- Mark old token as used (Rotation)
