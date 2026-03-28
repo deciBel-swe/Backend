@@ -57,4 +57,9 @@ public class TrackController {
   public ResponseEntity<TrackWaveFormUrlResponse> getTrackWaveformUrl(@PathVariable Long trackId) {
     return ResponseEntity.status(HttpStatus.OK).body((trackService.getTrackWaveformUrl(trackId)));
   }
+
+  @PostMapping("/{trackId}/publish")
+  public ResponseEntity<TrackPublishResponse> publishTrack(@PathVariable Long trackId) {
+    return ResponseEntity.status(HttpStatus.OK).body(trackService.publishTrack(trackId));
+  }
 }
