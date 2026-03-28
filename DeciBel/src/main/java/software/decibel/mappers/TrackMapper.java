@@ -1,6 +1,7 @@
 package software.decibel.mappers;
 
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.mapstruct.*;
 import org.springframework.data.domain.Page;
@@ -14,14 +15,40 @@ public interface TrackMapper {
 
   // ----------------- TrackResponse DTOs ---------------------
 
+  // MapStruct handles this fully - no default needed
+
   @Mapping(target = "artist", expression = "java(mapArtist(track.getUploader()))")
   @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
-  TrackResponse toTrackResponse(Track track);
+  @Mapping(target = "isLiked", expression = "java(likedTrackIds.contains(track.getId()))")
+  @Mapping(target = "isReposted", expression = "java(repostedTrackIds.contains(track.getId()))")
+  TrackResponse toTrackResponse(Track track, Set<Long> likedTrackIds, Set<Long> repostedTrackIds);
+
+  // default so i can write my own method
+  default TrackPageResponse toPageResponse(
+      Page<Track> page, Set<Long> likedTrackIds, Set<Long> repostedTrackIds) {
+    return new TrackPageResponse(
+        page.getContent().stream()
+            .map(track -> toTrackResponse(track, likedTrackIds, repostedTrackIds))
+            .toList(),
+        page.getNumber(),
+        page.getSize(),
+        page.getTotalElements(),
+        page.getTotalPages(),
+        page.isLast());
+  }
+
+  // for one track only (i can get if it's liked or not easily)
+  @Mapping(target = "artist", expression = "java(mapArtist(track.getUploader()))")
+  @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
+  @Mapping(target = "isLiked", expression = "java(isLiked)")
+  @Mapping(target = "isReposted", expression = "java(isReposted)")
+  TrackResponse toTrackResponse(Track track, boolean isLiked, boolean isReposted);
 
   default TrackArtist mapArtist(User user) {
     if (user == null) return null;
     return new TrackArtist(user.getId(), user.getUsername(), user.getAvatarUrl());
   }
+  
 
   // ----------------- TrackUpload DTOs ---------------------
 
@@ -76,15 +103,5 @@ public interface TrackMapper {
   @Mapping(target = "duration", source = "durationSeconds")
   TrackWaveFormUrlResponse toTrackWaveFormUrlResponse(Track track);
 
-  // Track Page -> TrackPageResponse DTO
-  // default so i can write my own method
-  default TrackPageResponse toPageResponse(Page<Track> page) {
-    return new TrackPageResponse(
-        page.getContent().stream().map(this::toTrackResponse).toList(),
-        page.getNumber(),
-        page.getSize(),
-        page.getTotalElements(),
-        page.getTotalPages(),
-        page.isLast());
-  }
+  
 }

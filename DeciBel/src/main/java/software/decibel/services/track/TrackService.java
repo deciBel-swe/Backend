@@ -3,7 +3,9 @@ package software.decibel.services.track;
 import jakarta.transaction.Transactional;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -13,20 +15,19 @@ import org.springframework.http.HttpStatus;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import software.decibel.dtos.track.*;
 import software.decibel.entities.Like;
+import software.decibel.entities.Repost;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
-import software.decibel.entities.Repost;
 import software.decibel.enums.FileType;
 import software.decibel.enums.TrackState;
 import software.decibel.enums.Visibility;
-import software.decibel.mappers.RepostMapper;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.LikeMapper;
+import software.decibel.mappers.RepostMapper;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.LikeRepository;
 import software.decibel.repositories.RepostRepository;
@@ -351,7 +352,15 @@ public class TrackService {
         Pageable pageable = PageRequest.of(page, size);
         Page<Track> result = trackRepository.findByUploaderId(userId, pageable);
 
-        return trackMapper.toPageResponse(result);
+    // Get set of liked and reposted tracks
+    // to fill isLiked and isReposted booleans
+    Set<Long> likedTrackIds = new HashSet<>(likeRepository.findTrackIdsByUserId(userId));
+    Set<Long> repostedTrackIds = new HashSet<>(repostRepository.findTrackIdsByUserId(userId));
+
+    System.out.println("likedTrackIds: " + likedTrackIds);
+    System.out.println("repostedTrackIds: " + repostedTrackIds);
+
+    return trackMapper.toPageResponse(result, likedTrackIds, repostedTrackIds);
     }
 
     // Gets tracks by user id (and is pageable) - only public tracks
@@ -359,7 +368,9 @@ public class TrackService {
         Pageable pageable = PageRequest.of(page, size);
         Page<Track> result = trackRepository.findByUploaderIdAndVisibility(userId, Visibility.PUBLIC, pageable);
 
-        return trackMapper.toPageResponse(result);
+    Set<Long> likedTrackIds = new HashSet<>(likeRepository.findTrackIdsByUserId(userId));
+    Set<Long> repostedTrackIds = new HashSet<>(repostRepository.findTrackIdsByUserId(userId));
+    return trackMapper.toPageResponse(result, likedTrackIds, repostedTrackIds);
     }
 
     @Transactional
