@@ -36,6 +36,7 @@ import software.decibel.services.TagService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.AudioUtility;
 import software.decibel.utils.FileUtilityAzure;
+import software.decibel.utils.ProgressCallback;
 import software.decibel.utils.TagUtility;
 import software.decibel.utils.WaveFormUtility;
 import tools.jackson.core.type.TypeReference;
@@ -125,46 +126,59 @@ public class TrackService {
     @Async
     public void processTrackUploadAsync(Track createdTrack, TrackUploadRequest request, byte[] audioBytes,
             String audioOriginalFilename, byte[] coverBytes, String coverOriginalFilename) {
-        int totalSteps = 5;
-        int currentStep = 0;
         try {
-            // save audio file in azure and get its url inside the server
-            currentStep++;
-            updateTrackState(createdTrack, TrackState.UPLOADING, (currentStep * 100) / totalSteps, "Saving audio file", null);
-            String trackUrl = fileUtilityAzure.saveFileFromStream(new ByteArrayInputStream(audioBytes), audioBytes.length,
-                    FileType.AUDIO, audioOriginalFilename);
+            // Weights for each step to make progress feel natural (total = 100)
+            int audioWeight = 50;
+            int coverWeight = 15;
+            int waveformWeight = 15;
+            int durationWeight = 15;
+            int finalWeight = 5;
 
-            // Extract image file, save, and get its url inside the server (if image provided)
-            currentStep++;
-            updateTrackState(createdTrack, TrackState.UPLOADING, (currentStep * 100) / totalSteps, "Saving cover image", null);
+            // Start with explicit 0% update
+            updateTrackState(createdTrack, TrackState.UPLOADING, 0, "Processing started", null);
+
+            // 1. Save audio file (0% - 50%)
+            String trackUrl = fileUtilityAzure.saveFileFromStream(
+                    new ByteArrayInputStream(audioBytes),
+                    (long) audioBytes.length,
+                    FileType.AUDIO,
+                    audioOriginalFilename,
+                    createProgressCallback(createdTrack, 0, audioWeight, "Uploading audio file"));
+
+            // 2. Save cover image (50% - 65%)
             String coverUrl = null;
             if (coverBytes != null) {
-                coverUrl = fileUtilityAzure.saveFileFromStream(new ByteArrayInputStream(coverBytes), coverBytes.length,
-                        FileType.TRACK_COVERS, coverOriginalFilename);
+                coverUrl = fileUtilityAzure.saveFileFromStream(
+                        new ByteArrayInputStream(coverBytes),
+                        (long) coverBytes.length,
+                        FileType.TRACK_COVERS,
+                        coverOriginalFilename,
+                        createProgressCallback(createdTrack, audioWeight, coverWeight, "Uploading cover image"));
+            } else {
+                updateTrackState(createdTrack, TrackState.UPLOADING, audioWeight + coverWeight, "No cover provided", null);
             }
 
-            // Convert waveform data from json string to list of floats
-            currentStep++;
-            updateTrackState(createdTrack, TrackState.UPLOADING, (currentStep * 100) / totalSteps, "Generating waveform", null);
+            // 3. Generating waveform (65% - 80%)
+            updateTrackState(createdTrack, TrackState.UPLOADING, audioWeight + coverWeight, "Generating waveform", null);
             List<Float> waveformData = objectMapper.readValue(request.waveformData(), new TypeReference<List<Float>>() {
             });
             String waveformUrl = waveFormUtility.saveWaveformToAzure(waveformData, request.title());
+            updateTrackState(createdTrack, TrackState.UPLOADING, audioWeight + coverWeight + waveformWeight, "Waveform ready", null);
 
             // Set urls manually
             createdTrack.setTrackUrl(trackUrl);
             createdTrack.setCoverUrl(coverUrl);
             createdTrack.setWaveformUrl(waveformUrl);
 
-            // save track as PROCESSING
-            currentStep++;
-            updateTrackState(createdTrack, TrackState.PROCESSING, (currentStep * 100) / totalSteps, "Extracting audio duration", null);
-
+            // 4. Extracting audio duration (80% - 95%)
+            updateTrackState(createdTrack, TrackState.PROCESSING, audioWeight + coverWeight + waveformWeight, "Extracting audio duration", null);
             createdTrack.setDurationSeconds(
                     audioUtility.getAudioFileDurationInSeconds(audioBytes, audioOriginalFilename, request.title()));
+            updateTrackState(createdTrack, TrackState.PROCESSING, audioWeight + coverWeight + waveformWeight + durationWeight, "Duration extracted", null);
 
-            // after processing (getting duration is done) save track as FINISHED
-            currentStep++;
-            updateTrackState(createdTrack, TrackState.FINISHED, (currentStep * 100) / totalSteps, "Done", null);
+            // 5. Done (100%)
+            createdTrack.setState(TrackState.FINISHED);
+            updateTrackState(createdTrack, TrackState.FINISHED, 100, "Done", null);
 
             trackRepository.save(createdTrack);
 
@@ -174,6 +188,38 @@ public class TrackService {
                 : "An unexpected error occurred during track processing";
             updateTrackState(createdTrack, TrackState.FAILED, null, null, errorMessage);
         }
+    }
+
+    private ProgressCallback createProgressCallback(Track track, int startPercentage, int weight, String stepName) {
+        return new ProgressCallback() {
+            private int lastReportedProgress = -1;
+
+            @Override
+            public void onProgress(long bytesRead, long totalBytes) {
+                int subProgress = (int) ((bytesRead * weight) / totalBytes);
+                int totalProgress = startPercentage + subProgress;
+                
+                // Always send 0%, lastReportedProgress, or multiple of 5 (to avoid flooding)
+                boolean isStartOfStep = totalProgress == startPercentage;
+                boolean isEndOfStep = totalProgress == startPercentage + weight;
+                boolean isMultipleOfFive = totalProgress % 5 == 0;
+
+                if (totalProgress != lastReportedProgress && (isStartOfStep || isEndOfStep || isMultipleOfFive)) {
+                    updateTrackState(track, TrackState.UPLOADING, totalProgress, stepName, null);
+                    lastReportedProgress = totalProgress;
+
+                    // Small artificial delay (20ms) only during "Uploading" steps to make it visible
+                    // if the file is small and in-memory.
+                    if (stepName.contains("Uploading")) {
+                        try {
+                            Thread.sleep(20);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }
+                }
+            }
+        };
     }
 
     // ------------- TRACK SERVICE HELPER FUNCTIONS ---------------------

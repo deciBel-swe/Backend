@@ -67,14 +67,30 @@ public class FileUtilityAzure {
   // Saves a file into azure storage from a stream of bytes
   public String saveFileFromStream(
       InputStream inputStream, long size, FileType fileType, String fileTitle) {
+    return saveFileFromStream(inputStream, size, fileType, fileTitle, null);
+  }
+
+  // Saves a file into azure storage from a stream of bytes with optional progress callback
+  public String saveFileFromStream(
+      InputStream inputStream,
+      long size,
+      FileType fileType,
+      String fileTitle,
+      ProgressCallback callback) {
     // Generate unique filename to avoid collisions
-    // ex:
-    // "waveform-data/fae40b70-2913-470c-9307-47656c8e81cc_wind.json",
+    String extension = cleanFileName(fileTitle).endsWith(".json") ? "" : ".json";
+    if (fileType == FileType.AUDIO || fileType == FileType.TRACK_COVERS) {
+      extension = ""; // already has extension or handled by cleanFileName
+    }
+
     String fileName =
-        fileType.getPath() + "/" + UUID.randomUUID() + "_" + cleanFileName(fileTitle) + ".json";
+        fileType.getPath() + "/" + UUID.randomUUID() + "_" + cleanFileName(fileTitle) + extension;
+
     try {
+      InputStream streamToUpload =
+          callback != null ? new ProgressInputStream(inputStream, size, callback) : inputStream;
       BlobClient blobClient = blobContainerClient.getBlobClient(fileName);
-      blobClient.upload(inputStream, size, true);
+      blobClient.upload(streamToUpload, size, true);
       return blobContainerClient.getBlobContainerUrl() + "/" + fileName;
     } catch (Exception e) {
       throw new AzureFileStorageException("Could not save file '" + fileName + "' to Azure", e);
