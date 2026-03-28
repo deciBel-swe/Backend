@@ -125,14 +125,18 @@ public class TrackService {
     @Async
     public void processTrackUploadAsync(Track createdTrack, TrackUploadRequest request, byte[] audioBytes,
             String audioOriginalFilename, byte[] coverBytes, String coverOriginalFilename) {
+        int totalSteps = 5;
+        int currentStep = 0;
         try {
             // save audio file in azure and get its url inside the server
-            updateTrackState(createdTrack, TrackState.UPLOADING, 10, "Saving audio file", null);
+            currentStep++;
+            updateTrackState(createdTrack, TrackState.UPLOADING, (currentStep * 100) / totalSteps, "Saving audio file", null);
             String trackUrl = fileUtilityAzure.saveFileFromStream(new ByteArrayInputStream(audioBytes), audioBytes.length,
                     FileType.AUDIO, audioOriginalFilename);
 
             // Extract image file, save, and get its url inside the server (if image provided)
-            updateTrackState(createdTrack, TrackState.UPLOADING, 40, "Saving cover image", null);
+            currentStep++;
+            updateTrackState(createdTrack, TrackState.UPLOADING, (currentStep * 100) / totalSteps, "Saving cover image", null);
             String coverUrl = null;
             if (coverBytes != null) {
                 coverUrl = fileUtilityAzure.saveFileFromStream(new ByteArrayInputStream(coverBytes), coverBytes.length,
@@ -140,7 +144,8 @@ public class TrackService {
             }
 
             // Convert waveform data from json string to list of floats
-            updateTrackState(createdTrack, TrackState.UPLOADING, 70, "Generating waveform", null);
+            currentStep++;
+            updateTrackState(createdTrack, TrackState.UPLOADING, (currentStep * 100) / totalSteps, "Generating waveform", null);
             List<Float> waveformData = objectMapper.readValue(request.waveformData(), new TypeReference<List<Float>>() {
             });
             String waveformUrl = waveFormUtility.saveWaveformToAzure(waveformData, request.title());
@@ -151,13 +156,15 @@ public class TrackService {
             createdTrack.setWaveformUrl(waveformUrl);
 
             // save track as PROCESSING
-            updateTrackState(createdTrack, TrackState.PROCESSING, 90, "Extracting audio duration", null);
+            currentStep++;
+            updateTrackState(createdTrack, TrackState.PROCESSING, (currentStep * 100) / totalSteps, "Extracting audio duration", null);
 
             createdTrack.setDurationSeconds(
                     audioUtility.getAudioFileDurationInSeconds(audioBytes, audioOriginalFilename, request.title()));
 
             // after processing (getting duration is done) save track as FINISHED
-            updateTrackState(createdTrack, TrackState.FINISHED, 100, "Done", null);
+            currentStep++;
+            updateTrackState(createdTrack, TrackState.FINISHED, (currentStep * 100) / totalSteps, "Done", null);
 
             trackRepository.save(createdTrack);
 
