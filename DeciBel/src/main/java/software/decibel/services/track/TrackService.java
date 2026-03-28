@@ -1,12 +1,17 @@
 package software.decibel.services.track;
 
 import jakarta.transaction.Transactional;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
@@ -31,6 +36,7 @@ import software.decibel.services.TagService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.AudioUtility;
 import software.decibel.utils.FileUtilityAzure;
+import software.decibel.utils.ProgressCallback;
 import software.decibel.utils.TagUtility;
 import software.decibel.utils.WaveFormUtility;
 import tools.jackson.core.type.TypeReference;
@@ -73,6 +79,8 @@ public class TrackService {
         trackRepository.delete(track);
     }
 
+    private final SimpMessagingTemplate messagingTemplate;
+
     // Takes track upload request and saves track
     // Not transactional as track's insertions an updates must survive to reflect
     // track states
@@ -93,49 +101,125 @@ public class TrackService {
 
         Track createdTrack = createUploadingTrack(track);
 
-        // Uploading audio/image files & Processing the audio file for duration may
-        // cause exceptions to
-        // be handled
+        // Capture files' data and metadata for async processing
         try {
-            // save audio file in azure and get its url inside the server
-            MultipartFile audioFile = request.audioFile();
-            String trackUrl = fileUtilityAzure.saveFile(audioFile, FileType.AUDIO);
-
-            // Extract image file, save, and get its url inside the server (if image
-            // provided)
-            MultipartFile coverImage = request.coverImage();
-            String coverUrl = null;
-            if (coverImage != null && !coverImage.isEmpty()) {
-                coverUrl = fileUtilityAzure.saveFile(coverImage, FileType.TRACK_COVERS);
+            byte[] audioBytes = request.audioFile().getBytes();
+            String audioOriginalFilename = request.audioFile().getOriginalFilename();
+            byte[] coverBytes = null;
+            String coverOriginalFilename = null;
+            if (request.coverImage() != null && !request.coverImage().isEmpty()) {
+                coverBytes = request.coverImage().getBytes();
+                coverOriginalFilename = request.coverImage().getOriginalFilename();
             }
 
-            // Convert waveform data from json string to list of floats
+            // Start processing in the background
+            processTrackUploadAsync(createdTrack, request, audioBytes, audioOriginalFilename, coverBytes,
+                    coverOriginalFilename);
+
+            return trackMapper.toTrackUploadResponse(createdTrack);
+        } catch (IOException e) {
+            updateTrackState(createdTrack, TrackState.FAILED, null, null, "Failed to read upload data");
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error reading uploaded files", e);
+        }
+    }
+
+    @Async
+    public void processTrackUploadAsync(Track createdTrack, TrackUploadRequest request, byte[] audioBytes,
+            String audioOriginalFilename, byte[] coverBytes, String coverOriginalFilename) {
+        try {
+            // Weights for each step to make progress feel natural (total = 100)
+            int audioWeight = 50;
+            int coverWeight = 15;
+            int waveformWeight = 15;
+            int durationWeight = 15;
+            int finalWeight = 5;
+
+            // Start with explicit 0% update
+            updateTrackState(createdTrack, TrackState.UPLOADING, 0, "Processing started", null);
+
+            // 1. Save audio file (0% - 50%)
+            String trackUrl = fileUtilityAzure.saveFileFromStream(
+                    new ByteArrayInputStream(audioBytes),
+                    (long) audioBytes.length,
+                    FileType.AUDIO,
+                    audioOriginalFilename,
+                    createProgressCallback(createdTrack, 0, audioWeight, "Uploading audio file"));
+
+            // 2. Save cover image (50% - 65%)
+            String coverUrl = null;
+            if (coverBytes != null) {
+                coverUrl = fileUtilityAzure.saveFileFromStream(
+                        new ByteArrayInputStream(coverBytes),
+                        (long) coverBytes.length,
+                        FileType.TRACK_COVERS,
+                        coverOriginalFilename,
+                        createProgressCallback(createdTrack, audioWeight, coverWeight, "Uploading cover image"));
+            } else {
+                updateTrackState(createdTrack, TrackState.UPLOADING, audioWeight + coverWeight, "No cover provided", null);
+            }
+
+            // 3. Generating waveform (65% - 80%)
+            updateTrackState(createdTrack, TrackState.UPLOADING, audioWeight + coverWeight, "Generating waveform", null);
             List<Float> waveformData = objectMapper.readValue(request.waveformData(), new TypeReference<List<Float>>() {
             });
             String waveformUrl = waveFormUtility.saveWaveformToAzure(waveformData, request.title());
+            updateTrackState(createdTrack, TrackState.UPLOADING, audioWeight + coverWeight + waveformWeight, "Waveform ready", null);
 
             // Set urls manually
             createdTrack.setTrackUrl(trackUrl);
             createdTrack.setCoverUrl(coverUrl);
             createdTrack.setWaveformUrl(waveformUrl);
 
-            // save track as PROCESSING
-            updateTrackState(createdTrack, TrackState.PROCESSING);
-
+            // 4. Extracting audio duration (80% - 95%)
+            updateTrackState(createdTrack, TrackState.PROCESSING, audioWeight + coverWeight + waveformWeight, "Extracting audio duration", null);
             createdTrack.setDurationSeconds(
-                    audioUtility.getAudioFileDurationInSeconds(audioFile, request.title()));
+                    audioUtility.getAudioFileDurationInSeconds(audioBytes, audioOriginalFilename, request.title()));
+            updateTrackState(createdTrack, TrackState.PROCESSING, audioWeight + coverWeight + waveformWeight + durationWeight, "Duration extracted", null);
 
-            // after processing (getting duration is done) save track as FINISHED
-            updateTrackState(createdTrack, TrackState.FINISHED);
+            // 5. Done (100%)
+            createdTrack.setState(TrackState.FINISHED);
+            updateTrackState(createdTrack, TrackState.FINISHED, 100, "Done", null);
 
-            Track saved = trackRepository.save(createdTrack);
-
-            return trackMapper.toTrackUploadResponse(saved);
+            trackRepository.save(createdTrack);
 
         } catch (Exception e) {
-            updateTrackState(track, TrackState.FAILED);
-            throw e;
+            String errorMessage = (e.getMessage() != null && !e.getMessage().isBlank()) 
+                ? e.getMessage() 
+                : "An unexpected error occurred during track processing";
+            updateTrackState(createdTrack, TrackState.FAILED, null, null, errorMessage);
         }
+    }
+
+    private ProgressCallback createProgressCallback(Track track, int startPercentage, int weight, String stepName) {
+        return new ProgressCallback() {
+            private int lastReportedProgress = -1;
+
+            @Override
+            public void onProgress(long bytesRead, long totalBytes) {
+                int subProgress = (int) ((bytesRead * weight) / totalBytes);
+                int totalProgress = startPercentage + subProgress;
+                
+                // Always send 0%, lastReportedProgress, or multiple of 5 (to avoid flooding)
+                boolean isStartOfStep = totalProgress == startPercentage;
+                boolean isEndOfStep = totalProgress == startPercentage + weight;
+                boolean isMultipleOfFive = totalProgress % 5 == 0;
+
+                if (totalProgress != lastReportedProgress && (isStartOfStep || isEndOfStep || isMultipleOfFive)) {
+                    updateTrackState(track, TrackState.UPLOADING, totalProgress, stepName, null);
+                    lastReportedProgress = totalProgress;
+
+                    // Small artificial delay (20ms) only during "Uploading" steps to make it visible
+                    // if the file is small and in-memory.
+                    if (stepName.contains("Uploading")) {
+                        try {
+                            Thread.sleep(20);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }
+                }
+            }
+        };
     }
 
     // ------------- TRACK SERVICE HELPER FUNCTIONS ---------------------
@@ -143,15 +227,27 @@ public class TrackService {
     @Transactional
     public Track createUploadingTrack(Track track) {
         track.setState(TrackState.UPLOADING);
-        return trackRepository.save(track);
+        Track saved = trackRepository.save(track);
+        messagingTemplate.convertAndSend(
+                "/topic/track-status/" + saved.getId(),
+                new TrackStatusResponse(TrackState.UPLOADING, saved.getId()));
+        return saved;
     }
 
     // Function to update track entity's state and save
     @Transactional
     public void updateTrackState(Track t, TrackState state) {
+        updateTrackState(t, state, null, null, null);
+    }
 
+    // Function to update track entity's state and save with rich status
+    @Transactional
+    public void updateTrackState(Track t, TrackState state, Integer progress, String stepName, String errorMessage) {
         t.setState(state);
         trackRepository.save(t);
+        messagingTemplate.convertAndSend(
+                "/topic/track-status/" + t.getId(),
+                new TrackStatusResponse(state, t.getId(), progress, stepName, errorMessage));
     }
 
     // Returns track entity by id and throws exception if not found

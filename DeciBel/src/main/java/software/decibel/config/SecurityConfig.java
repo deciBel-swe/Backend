@@ -35,6 +35,7 @@ public class SecurityConfig {
                 // Define endpoint accessibility: /auth/** is public, all others require authentication
                 .authorizeHttpRequests(
                         auth -> auth.requestMatchers("/auth/**").permitAll()
+                                .requestMatchers("/ws/**").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/*/followers").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/*/following").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{userId}").permitAll()
@@ -56,7 +57,7 @@ public class SecurityConfig {
                                 .contentSecurityPolicy(
                                         csp
                                         -> csp.policyDirectives(
-                                                "default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none';"))
+                                                "default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; connect-src 'self' ws: wss:;"))
                                 .permissionsPolicyHeader(
                                         permissions
                                         -> permissions.policy("geolocation=(), microphone=(), camera=()")))

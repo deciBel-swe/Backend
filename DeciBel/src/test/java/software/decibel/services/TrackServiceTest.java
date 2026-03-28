@@ -9,6 +9,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.*;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.data.domain.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -42,6 +43,7 @@ class TrackServiceTest {
   @Mock private RepostMapper repostMapper;
   @Mock private TagService tagService;
   @Mock private ObjectMapper objectMapper;
+  @Mock private SimpMessagingTemplate messagingTemplate;
 
   // only one actually there but the rest are injected inside it and are not real
   // we tell these mocks how to act using when().then()''
@@ -94,6 +96,7 @@ class TrackServiceTest {
   void shouldUpdateTrackState() {
     // Arrange
     Track track = new Track();
+    track.setId(1L);
 
     // Act
     trackService.updateTrackState(track, TrackState.PROCESSING);
@@ -102,6 +105,38 @@ class TrackServiceTest {
     assertEquals(TrackState.PROCESSING, track.getState());
     // make sure it saved to repo
     verify(trackRepository).save(track);
+    verify(messagingTemplate)
+        .convertAndSend(
+            eq("/topic/track-status/1"),
+            argThat(
+                (TrackStatusResponse response) ->
+                    response.trackState() == TrackState.PROCESSING
+                        && response.trackId().equals(1L)
+                        && response.progressPercentage() == null));
+  }
+
+  @Test
+  void shouldUpdateTrackStateWithRichStatus() {
+    // Arrange
+    Track track = new Track();
+    track.setId(1L);
+
+    // Act
+    trackService.updateTrackState(track, TrackState.UPLOADING, 50, "Step", "Error");
+
+    // Assert
+    assertEquals(TrackState.UPLOADING, track.getState());
+    verify(trackRepository).save(track);
+    verify(messagingTemplate)
+        .convertAndSend(
+            eq("/topic/track-status/1"),
+            argThat(
+                (TrackStatusResponse response) ->
+                    response.trackState() == TrackState.UPLOADING
+                        && response.trackId().equals(1L)
+                        && response.progressPercentage().equals(50)
+                        && response.stepName().equals("Step")
+                        && response.errorMessage().equals("Error")));
   }
 
   @Test
@@ -121,6 +156,7 @@ class TrackServiceTest {
   void shouldSetStateUploading_whenCreatingTrack() {
     // Arrange
     Track track = new Track();
+    track.setId(1L);
     when(trackRepository.save(track)).thenReturn(track);
 
     // Act
@@ -128,6 +164,8 @@ class TrackServiceTest {
 
     // Assert
     assertEquals(TrackState.UPLOADING, result.getState());
+    verify(messagingTemplate)
+        .convertAndSend(eq("/topic/track-status/1"), any(TrackStatusResponse.class));
   }
 
   // deleteTrackCover
