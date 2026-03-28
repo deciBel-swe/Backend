@@ -1,13 +1,17 @@
 package software.decibel.services.track;
 
 import jakarta.transaction.Transactional;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
@@ -96,22 +100,43 @@ public class TrackService {
 
         Track createdTrack = createUploadingTrack(track);
 
-        // Uploading audio/image files & Processing the audio file for duration may
-        // cause exceptions to
-        // be handled
+        // Capture files' data and metadata for async processing
+        try {
+            byte[] audioBytes = request.audioFile().getBytes();
+            String audioOriginalFilename = request.audioFile().getOriginalFilename();
+            byte[] coverBytes = null;
+            String coverOriginalFilename = null;
+            if (request.coverImage() != null && !request.coverImage().isEmpty()) {
+                coverBytes = request.coverImage().getBytes();
+                coverOriginalFilename = request.coverImage().getOriginalFilename();
+            }
+
+            // Start processing in the background
+            processTrackUploadAsync(createdTrack, request, audioBytes, audioOriginalFilename, coverBytes,
+                    coverOriginalFilename);
+
+            return trackMapper.toTrackUploadResponse(createdTrack);
+        } catch (IOException e) {
+            updateTrackState(createdTrack, TrackState.FAILED, null, null, "Failed to read upload data");
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error reading uploaded files", e);
+        }
+    }
+
+    @Async
+    public void processTrackUploadAsync(Track createdTrack, TrackUploadRequest request, byte[] audioBytes,
+            String audioOriginalFilename, byte[] coverBytes, String coverOriginalFilename) {
         try {
             // save audio file in azure and get its url inside the server
             updateTrackState(createdTrack, TrackState.UPLOADING, 10, "Saving audio file", null);
-            MultipartFile audioFile = request.audioFile();
-            String trackUrl = fileUtilityAzure.saveFile(audioFile, FileType.AUDIO);
+            String trackUrl = fileUtilityAzure.saveFileFromStream(new ByteArrayInputStream(audioBytes), audioBytes.length,
+                    FileType.AUDIO, audioOriginalFilename);
 
-            // Extract image file, save, and get its url inside the server (if image
-            // provided)
+            // Extract image file, save, and get its url inside the server (if image provided)
             updateTrackState(createdTrack, TrackState.UPLOADING, 40, "Saving cover image", null);
-            MultipartFile coverImage = request.coverImage();
             String coverUrl = null;
-            if (coverImage != null && !coverImage.isEmpty()) {
-                coverUrl = fileUtilityAzure.saveFile(coverImage, FileType.TRACK_COVERS);
+            if (coverBytes != null) {
+                coverUrl = fileUtilityAzure.saveFileFromStream(new ByteArrayInputStream(coverBytes), coverBytes.length,
+                        FileType.TRACK_COVERS, coverOriginalFilename);
             }
 
             // Convert waveform data from json string to list of floats
@@ -129,18 +154,18 @@ public class TrackService {
             updateTrackState(createdTrack, TrackState.PROCESSING, 90, "Extracting audio duration", null);
 
             createdTrack.setDurationSeconds(
-                    audioUtility.getAudioFileDurationInSeconds(audioFile, request.title()));
+                    audioUtility.getAudioFileDurationInSeconds(audioBytes, audioOriginalFilename, request.title()));
 
             // after processing (getting duration is done) save track as FINISHED
             updateTrackState(createdTrack, TrackState.FINISHED, 100, "Done", null);
 
-            Track saved = trackRepository.save(createdTrack);
-
-            return trackMapper.toTrackUploadResponse(saved);
+            trackRepository.save(createdTrack);
 
         } catch (Exception e) {
-            updateTrackState(createdTrack, TrackState.FAILED, null, null, e.getMessage());
-            throw e;
+            String errorMessage = (e.getMessage() != null && !e.getMessage().isBlank()) 
+                ? e.getMessage() 
+                : "An unexpected error occurred during track processing";
+            updateTrackState(createdTrack, TrackState.FAILED, null, null, errorMessage);
         }
     }
 
