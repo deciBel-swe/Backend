@@ -37,6 +37,9 @@ public interface TrackMapper {
   @Mapping(target = "durationSeconds", ignore = true)
   @Mapping(target = "tags", ignore = true)
   @Mapping(target = "id", ignore = true)
+  @Mapping(target = "slug", ignore = true)
+  @Mapping(target = "published", ignore = true)
+  @Mapping(target = "publishedAt", ignore = true)
   @Mapping(
       target = "visibility",
       expression =
@@ -87,4 +90,10 @@ public interface TrackMapper {
         page.getTotalPages(),
         page.isLast());
   }
+
+  // --------------- TrackPublish DTOs ---------------------
+  // track -> response
+
+  @Mapping(target = "publishedAt", source = "publishedAt")
+  TrackPublishResponse toTrackPublishResponse(Track track);
 }

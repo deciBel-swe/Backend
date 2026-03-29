@@ -146,6 +146,23 @@ public class GlobalExceptionHandler {
     return ResponseEntity.badRequest().body(error);
   }
 
+  // Called when trying to publish an already published track
+  @ExceptionHandler(TrackAlreadyPublishedException.class)
+  public ResponseEntity<ApiErrorResponse> handleTrackAlreadyPublishedException(
+      TrackAlreadyPublishedException ex, HttpServletRequest request) {
+
+    ApiErrorResponse error =
+        ApiErrorResponse.builder()
+            .timestamp(LocalDateTime.now())
+            .status(HttpStatus.CONFLICT.value())
+            .error("Track already published")
+            .message(ex.getMessage())
+            .path(request.getRequestURI())
+            .build();
+
+    return ResponseEntity.badRequest().body(error);
+  }
+
   // -- 500 --internal service error
 
   @ExceptionHandler(AudioDurationReadingException.class)
