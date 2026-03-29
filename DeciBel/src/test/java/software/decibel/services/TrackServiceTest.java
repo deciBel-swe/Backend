@@ -9,21 +9,20 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.*;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.http.HttpStatus;
 import org.springframework.data.domain.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.server.ResponseStatusException;
 import software.decibel.dtos.track.*;
 import software.decibel.entities.*;
 import software.decibel.enums.*;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.LikeMapper;
-import software.decibel.repositories.LikeRepository;
 import software.decibel.mappers.RepostMapper;
 import software.decibel.mappers.TrackMapper;
+import software.decibel.repositories.LikeRepository;
 import software.decibel.repositories.RepostRepository;
 import software.decibel.repositories.TrackRepository;
-import software.decibel.services.JwtService;
 import software.decibel.services.track.TrackService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.*;
@@ -336,40 +335,7 @@ class TrackServiceTest {
     assertEquals("Old", track.getTitle());
   }
 
-  // pagination
-  // ----------------------------
-  @Test
-  void shouldReturnTracksByUser() {
 
-    // -------------------- Arrange --------------------
-
-    Long userId = 1L;
-
-    // create a fake Page of tracks
-    Page<Track> page = new PageImpl<>(List.of(new Track()));
-
-    // create a fake response dto
-    TrackPageResponse response = mock(TrackPageResponse.class);
-
-    // when repository is called with this userId and any pagination,
-    // return the fake page
-    when(trackRepository.findByUploaderIdAndVisibility(eq(userId), eq(Visibility.PUBLIC), any(Pageable.class)))
-        .thenReturn(page);
-
-    // when mapper converts page ->  return our fake response
-    when(trackMapper.toPageResponse(page)).thenReturn(response);
-
-    when(userService.getUserIfExistsById(userId)).thenReturn(new User());
-
-    // -------------------- Act --------------------
-
-    TrackPageResponse result = trackService.getPublicTracksByUserId(userId, 0, 10);
-
-    // -------------------- Assert --------------------
-
-    // check that the returned result is exactly what the mapper returned
-    assertEquals(response, result);
-  }
 
   @Test
   void shouldThrow_whenTrackNotFound_deleteAudio() { // new

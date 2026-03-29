@@ -3,8 +3,10 @@ package software.decibel.services.track;
 import jakarta.transaction.Transactional;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.HashSet;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -349,7 +351,15 @@ public class TrackService {
         Pageable pageable = PageRequest.of(page, size);
         Page<Track> result = trackRepository.findByUploaderId(userId, pageable);
 
-        return trackMapper.toPageResponse(result);
+    // Get set of liked and reposted tracks
+    // to fill isLiked and isReposted booleans
+    Set<Long> likedTrackIds = new HashSet<>(likeRepository.findTrackIdsByUserId(userId));
+    Set<Long> repostedTrackIds = new HashSet<>(repostRepository.findTrackIdsByUserId(userId));
+
+    System.out.println("likedTrackIds: " + likedTrackIds);
+    System.out.println("repostedTrackIds: " + repostedTrackIds);
+
+    return trackMapper.toPageResponse(result, likedTrackIds, repostedTrackIds);
     }
 
     // Gets tracks by user id (and is pageable) - only public tracks
@@ -357,7 +367,9 @@ public class TrackService {
         Pageable pageable = PageRequest.of(page, size);
         Page<Track> result = trackRepository.findByUploaderIdAndVisibility(userId, Visibility.PUBLIC, pageable);
 
-        return trackMapper.toPageResponse(result);
+    Set<Long> likedTrackIds = new HashSet<>(likeRepository.findTrackIdsByUserId(userId));
+    Set<Long> repostedTrackIds = new HashSet<>(repostRepository.findTrackIdsByUserId(userId));
+    return trackMapper.toPageResponse(result, likedTrackIds, repostedTrackIds);
     }
 
     @Transactional
