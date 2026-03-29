@@ -18,4 +18,6 @@ public interface TrackRepository extends JpaRepository<Track, Long> {
   // function to find distinct genres of tracks liked by user
   @Query("SELECT DISTINCT t.genre FROM Track t JOIN Like l ON l.track.id = t.id WHERE l.user.id = :userId")
   List<String> findGenresOfLikedTracksByUserId(Long userId);
+
+  boolean existsBySlug(String slug);
 }

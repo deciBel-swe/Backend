@@ -4,6 +4,7 @@ import jakarta.transaction.Transactional;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.HashSet;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -26,6 +27,8 @@ import software.decibel.enums.FileType;
 import software.decibel.enums.TrackState;
 import software.decibel.enums.Visibility;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
+import software.decibel.exceptions.custom.TrackAlreadyPublishedException;
+import software.decibel.exceptions.custom.UnauthorizedActionException;
 import software.decibel.mappers.LikeMapper;
 import software.decibel.mappers.RepostMapper;
 import software.decibel.mappers.TrackMapper;
@@ -35,11 +38,7 @@ import software.decibel.repositories.TrackRepository;
 import software.decibel.services.JwtService;
 import software.decibel.services.TagService;
 import software.decibel.services.user.UserService;
-import software.decibel.utils.AudioUtility;
-import software.decibel.utils.FileUtilityAzure;
-import software.decibel.utils.ProgressCallback;
-import software.decibel.utils.TagUtility;
-import software.decibel.utils.WaveFormUtility;
+import software.decibel.utils.*;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
@@ -452,4 +451,29 @@ public class TrackService {
 
         return likeMapper.toLikeResponse(false);
     }
+
+  // publish track
+  @Transactional
+  public TrackPublishResponse publishTrack(Long trackId) {
+    Track track = getTrackIfExistsById(trackId);
+
+    // Check user trying to publish track is the uploader
+    if (!track.getUploader().getId().equals(JwtService.getCurrentUserId())) {
+      throw new UnauthorizedActionException("You are not allowed to publish this track.");
+    }
+
+    // if track alr published
+    if (track.isPublished()) {
+      throw new TrackAlreadyPublishedException(trackId);
+    }
+
+    // pass the func that checks if slug is unique or not
+    String slug = SlugUtility.generateUniqueSlug(track.getTitle(), trackRepository::existsBySlug);
+
+    track.setSlug(slug);
+    track.setPublished(true);
+    track.setPublishedAt(LocalDateTime.now());
+
+    return trackMapper.toTrackPublishResponse(trackRepository.save(track));
+  }
 }
