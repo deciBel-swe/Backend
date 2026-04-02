@@ -2,6 +2,7 @@ package software.decibel.utils;
 
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.List;
 
 import org.springframework.stereotype.Component;
 
@@ -52,7 +53,7 @@ public class UserMappingUtility {
                 user.getAvatarUrl(),
                 user.getCoverPhotoUrl(),
                 user.getFavoriteGenres(),
-                toSocialLinksDto(user)
+                List.of(toSocialLinksDto(user))
         );
     }
 
