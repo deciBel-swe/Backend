@@ -15,7 +15,6 @@ import software.decibel.dtos.auth.GoogleOauthRequest;
 import software.decibel.dtos.auth.IssuedToken;
 import software.decibel.dtos.auth.LoginLocalRequest;
 import software.decibel.dtos.auth.LoginLocalResponse;
-import software.decibel.dtos.auth.LogoutSessionRequest;
 import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.auth.RefreshTokenResponse;
 import software.decibel.dtos.auth.RegisterLocalRequest;
@@ -174,9 +173,9 @@ public class AuthService {
     }
 
     @Transactional
-    public MessageResponse logout(LogoutSessionRequest request) {
+    public MessageResponse logout(String refreshTokenValue) {
         Token refreshToken = tokenService.findValidUnusedToken(
-                request.refreshToken(),
+                refreshTokenValue,
                 TokenType.REFRESH_TOKEN,
                 "Invalid refresh token");
 
@@ -187,9 +186,9 @@ public class AuthService {
     }
 
     @Transactional
-    public MessageResponse logoutAll(LogoutSessionRequest request) {
+    public MessageResponse logoutAll(String refreshTokenValue) {
         Token refreshToken = tokenService.findValidUnusedToken(
-                request.refreshToken(),
+                refreshTokenValue,
                 TokenType.REFRESH_TOKEN,
                 "Invalid refresh token");
 
