@@ -1,5 +1,7 @@
 package software.decibel.services.user;
 
+import java.util.Objects;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -89,9 +91,13 @@ public class UserProfileService {
     }
 
     @Transactional(readOnly = true)
-    public UpdateProfileResponse getUserPublicProfileByUsername(String username) {
+    public UpdateProfileResponse getUserPublicProfileByUsername(String username, Long currentUserId) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User with username " + username + " not found"));
+        //If the profile is private AND the current user is not the owner, throw a 404
+        if (user.isPrivate() && !Objects.equals(user.getId(), currentUserId)) {
+            throw new ResourceNotFoundException("User with username " + username + " not found");
+        }
         return getResponseWithFollowStatus(user, false);
     }
 

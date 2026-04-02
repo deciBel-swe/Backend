@@ -28,6 +28,7 @@ import software.decibel.exceptions.custom.TrackAlreadyPublishedException;
 import software.decibel.exceptions.custom.UnauthorizedActionException;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.TrackRepository;
+import software.decibel.repositories.UserRepository;
 import software.decibel.services.JwtService;
 import software.decibel.services.TagService;
 import software.decibel.services.engagement.LikeService;
@@ -42,6 +43,7 @@ import tools.jackson.databind.ObjectMapper;
 public class TrackService {
 
     private final TrackRepository trackRepository;
+    private final UserRepository userRepository;
     private final UserService userService;
 
     // Injected newly separated services
@@ -97,7 +99,7 @@ public class TrackService {
                 coverOriginalFilename = request.coverImage().getOriginalFilename();
             }
 
-            processTrackUploadAsync(createdTrack, request, audioBytes, audioOriginalFilename, coverBytes, coverOriginalFilename);
+            processTrackUploadAsync(createdTrack, request, audioBytes, audioOriginalFilename, coverBytes, coverOriginalFilename, userId);
 
             return trackMapper.toTrackUploadResponse(createdTrack);
         } catch (IOException e) {
@@ -108,7 +110,7 @@ public class TrackService {
 
     @Async
     public void processTrackUploadAsync(Track createdTrack, TrackUploadRequest request, byte[] audioBytes,
-            String audioOriginalFilename, byte[] coverBytes, String coverOriginalFilename) {
+            String audioOriginalFilename, byte[] coverBytes, String coverOriginalFilename, Long userId) {
         try {
             int audioWeight = 50;
             int coverWeight = 15;
@@ -156,6 +158,9 @@ public class TrackService {
             updateTrackState(createdTrack, TrackState.FINISHED, 100, "Done", null);
 
             trackRepository.save(createdTrack);
+            User user = userService.getUserIfExistsById(userId);
+            user.setTrackCount(user.getTrackCount() + 1);
+            userRepository.save(user);
 
         } catch (Exception e) {
             String errorMessage = (e.getMessage() != null && !e.getMessage().isBlank())
