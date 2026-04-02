@@ -10,17 +10,22 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import software.decibel.exceptions.custom.AudioDurationReadingException;
 import software.decibel.exceptions.custom.AzureFileStorageException;
-import software.decibel.exceptions.custom.CaptchaValidationException;
+import software.decibel.exceptions.custom.CooldownActiveException;
 import software.decibel.exceptions.custom.DuplicateResourceException;
 import software.decibel.exceptions.custom.ExternalAuthConfigurationException;
 import software.decibel.exceptions.custom.InvalidGoogleTokenException;
+import software.decibel.exceptions.custom.InvalidTimestampException;
+import software.decibel.exceptions.custom.ReplyToReplyNotAllowedException;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
-import software.decibel.exceptions.custom.TierException;
+import software.decibel.exceptions.custom.TrackAlreadyPublishedException;
+import software.decibel.exceptions.custom.UnauthorizedActionException;
 import software.decibel.exceptions.response.ApiErrorResponse;
 
 @RestControllerAdvice
@@ -67,38 +72,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(error);
     }
 
-    // ── 400 — Captcha Validation Failure
-    @ExceptionHandler(CaptchaValidationException.class)
-    public ResponseEntity<ApiErrorResponse> handleCaptchaValidationException(
-            CaptchaValidationException ex, HttpServletRequest request) {
-
-        ApiErrorResponse error = ApiErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.BAD_REQUEST.value())
-                .error("Captcha Validation Failed")
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .build();
-
-        return ResponseEntity.badRequest().body(error);
-    }
-    // ── 400 — Tier Business Rule Violation
-
-    @ExceptionHandler(TierException.class)
-    public ResponseEntity<ApiErrorResponse> handleTierException(
-            TierException ex, HttpServletRequest request) {
-
-        ApiErrorResponse error = ApiErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.BAD_REQUEST.value())
-                .error("Tier Update Error")
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .build();
-
-        return ResponseEntity.badRequest().body(error);
-    }
-
     // ── 404 — Resource Not Found
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiErrorResponse> handleNotFoundException(
@@ -131,7 +104,76 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }
 
+    // ── 403 — Unauthorized Violation
+    @ExceptionHandler(UnauthorizedActionException.class)
+    public ResponseEntity<ApiErrorResponse> handleUnauthorizedActionException(
+            UnauthorizedActionException ex, HttpServletRequest request) {
+
+        ApiErrorResponse error
+                = ApiErrorResponse.builder()
+                        .timestamp(LocalDateTime.now())
+                        .status(HttpStatus.FORBIDDEN.value())
+                        .error("Forbidden")
+                        .message(ex.getMessage())
+                        .path(request.getRequestURI())
+                        .build();
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
+    }
+
     // ── 400 — Business Rule Violations
+    // Called when a comment's timestamp (the time of a track that's being commented on ) is greater
+    // than the comment's duration (should be impossible)
+    @ExceptionHandler(InvalidTimestampException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidTimestampException(
+            InvalidTimestampException ex, HttpServletRequest request) {
+
+        ApiErrorResponse error
+                = ApiErrorResponse.builder()
+                        .timestamp(LocalDateTime.now())
+                        .status(HttpStatus.BAD_REQUEST.value())
+                        .error("Invalid Timestamp")
+                        .message(ex.getMessage())
+                        .path(request.getRequestURI())
+                        .build();
+
+        return ResponseEntity.badRequest().body(error);
+    }
+
+    // Called when trying to reply to another reply (according to the docs replies are one level max)
+    @ExceptionHandler(ReplyToReplyNotAllowedException.class)
+    public ResponseEntity<ApiErrorResponse> handleReplyToReplyNotAllowedException(
+            ReplyToReplyNotAllowedException ex, HttpServletRequest request) {
+
+        ApiErrorResponse error
+                = ApiErrorResponse.builder()
+                        .timestamp(LocalDateTime.now())
+                        .status(HttpStatus.BAD_REQUEST.value())
+                        .error("Reply Not Allowed")
+                        .message(ex.getMessage())
+                        .path(request.getRequestURI())
+                        .build();
+
+        return ResponseEntity.badRequest().body(error);
+    }
+
+    // Called when trying to publish an already published track
+    @ExceptionHandler(TrackAlreadyPublishedException.class)
+    public ResponseEntity<ApiErrorResponse> handleTrackAlreadyPublishedException(
+            TrackAlreadyPublishedException ex, HttpServletRequest request) {
+
+        ApiErrorResponse error
+                = ApiErrorResponse.builder()
+                        .timestamp(LocalDateTime.now())
+                        .status(HttpStatus.CONFLICT.value())
+                        .error("Track already published")
+                        .message(ex.getMessage())
+                        .path(request.getRequestURI())
+                        .build();
+
+        return ResponseEntity.badRequest().body(error);
+    }
+
     // -- 500 --internal service error
     @ExceptionHandler(AudioDurationReadingException.class)
     public ResponseEntity<ApiErrorResponse> handleAudioDurationReadingException(
@@ -163,8 +205,7 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(error);
-    }
-    // ── 500 — Catch All Safety Net
+    } // ── 500 — Catch All Safety Net
 
     @ExceptionHandler(ExternalAuthConfigurationException.class)
     public ResponseEntity<ApiErrorResponse> handleExternalAuthConfigurationException(
@@ -181,7 +222,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
     }
 
-    // ── 401 — Invalid Google Token
     @ExceptionHandler(InvalidGoogleTokenException.class)
     public ResponseEntity<ApiErrorResponse> handleInvalidGoogleTokenException(
             InvalidGoogleTokenException ex, HttpServletRequest request) {
@@ -214,5 +254,37 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    }
+// ── 404 — Endpoint Not Found (Spring Boot 3.2+)
+
+    @ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})
+    public ResponseEntity<ApiErrorResponse> handleEndpointNotFoundException(
+            Exception ex, HttpServletRequest request) {
+
+        ApiErrorResponse error = ApiErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.NOT_FOUND.value())
+                .error("Endpoint Not Found")
+                // We use request.getMethod() and request.getRequestURI() because they work for both exception types
+                .message(String.format("The endpoint %s %s does not exist.", request.getMethod(), request.getRequestURI()))
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+
+    @ExceptionHandler(CooldownActiveException.class)
+    public ResponseEntity<ApiErrorResponse> handleCooldownException(
+            CooldownActiveException ex, HttpServletRequest request) {
+
+        ApiErrorResponse error = ApiErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.TOO_MANY_REQUESTS.value())
+                .error("Too Many Requests")
+                .message(ex.getMessage())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(error);
     }
 }

@@ -1,11 +1,11 @@
-package software.decibel.controllers;
+package software.decibel.controllers.Track;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import software.decibel.dtos.track.*;
-import software.decibel.services.TrackService;
+import software.decibel.services.track.TrackService;
 
 @RestController
 @RequestMapping("/tracks")
@@ -56,5 +56,10 @@ public class TrackController {
   @GetMapping("/{trackId}/waveform-url")
   public ResponseEntity<TrackWaveFormUrlResponse> getTrackWaveformUrl(@PathVariable Long trackId) {
     return ResponseEntity.status(HttpStatus.OK).body((trackService.getTrackWaveformUrl(trackId)));
+  }
+
+  @PostMapping("/{trackId}/publish")
+  public ResponseEntity<TrackPublishResponse> publishTrack(@PathVariable Long trackId) {
+    return ResponseEntity.status(HttpStatus.OK).body(trackService.publishTrack(trackId));
   }
 }

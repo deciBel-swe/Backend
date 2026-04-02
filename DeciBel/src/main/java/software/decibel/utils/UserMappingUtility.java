@@ -26,31 +26,33 @@ public class UserMappingUtility {
     private final LocationUtility locationUtility;
 
     // Builds the full UpdateProfileResponse for a user
-    public UpdateProfileResponse toUpdateProfileResponse(User user, boolean includePrivacy, boolean emailVerified) {
+    public UpdateProfileResponse toUpdateProfileResponse(User user, boolean includePrivacy, boolean isFollowed, boolean isFollowing, boolean isBlocked) {
         return new UpdateProfileResponse(
-                user.getId(),
-                resolveEmail(user),
-                user.getUsername(),
-                emailVerified,
-                user.getTier(),
-                user.getFollowerCount(),
-                user.getFollowingCount(),
-                user.getTrackCount(),
-                toUserProfile(user),
-                toSocialLinksDto(user),
+                toUserProfile(user, isFollowed, isFollowing, isBlocked),
                 includePrivacy ? new PrivacySettings(user.isPrivate(), user.isShowHistory()) : null
         );
     }
 
     // Maps User entity to UserProfile DTO
-    public UserProfile toUserProfile(User user) {
+    public UserProfile toUserProfile(User user, boolean isFollowed, boolean isFollowing, boolean isBlocked) {
         return new UserProfile(
+                user.getId(),
+                resolveEmail(user),
+                user.getUsername(),
+                user.getTier(),
+                user.getFollowerCount(),
+                user.getFollowingCount(),
+                user.getTrackCount(),
+                isFollowed,
+                isFollowing,
+                isBlocked,
                 user.getBio(),
                 locationUtility.parseCity(user.getLocation()),
                 locationUtility.parseCountry(user.getLocation()),
                 user.getAvatarUrl(),
                 user.getCoverPhotoUrl(),
-                user.getFavoriteGenres()
+                user.getFavoriteGenres(),
+                toSocialLinksDto(user)
         );
     }
 

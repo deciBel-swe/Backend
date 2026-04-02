@@ -1,7 +1,6 @@
 package software.decibel.dtos.track;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 public record TrackResponse(
@@ -12,10 +11,12 @@ public record TrackResponse(
     String coverUrl,
     String waveformUrl,
     String genre,
+    boolean isReposted,
+    boolean isLiked,
     List<String> tags,
     LocalDate releaseDate,
     int playCount,
     int likeCount,
     int repostCount,
-    LocalDateTime uploadDate,
+    LocalDate uploadDate,
     String description) {}

@@ -21,6 +21,9 @@ public interface TokenRepository extends JpaRepository<Token, Long> {
 
     void deleteByExpiresAtBefore(LocalDateTime dateTime);
 
+    //find the most recent token of a specific type for a user
+    Optional<Token> findFirstByUserAndTokenTypeOrderByCreatedAtDesc(User user, TokenType type);
+
     /**
      * Finds an unconsumed token by hash and functional type.
      */

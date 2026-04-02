@@ -14,16 +14,16 @@ import software.decibel.exceptions.custom.AudioDurationReadingException;
 public class AudioUtility {
 
   // Returns duration in seconds
-  public int getAudioFileDurationInSeconds(MultipartFile file, String title) {
+  public int getAudioFileDurationInSeconds(byte[] fileBytes, String originalFilename, String title) {
     Path tempFile = null;
     try {
 
       // extension important in reading audio files cant be null
-      String extension = FilenameUtils.getExtension(file.getOriginalFilename());
+      String extension = FilenameUtils.getExtension(originalFilename);
       // save file temporarily on disk
       tempFile = Files.createTempFile("tmp", "." + extension);
-      // transfer audio file to temp (contents)
-      file.transferTo(tempFile.toFile());
+      // write bytes to temp
+      Files.write(tempFile, fileBytes);
 
       // return length in seconds
       AudioFile audioFile = AudioFileIO.read(tempFile.toFile());
@@ -39,6 +39,15 @@ public class AudioUtility {
         // if it wasn't deleted not a big deal
       } catch (IOException e) {
       }
+    }
+  }
+
+  // Returns duration in seconds (overload for MultipartFile)
+  public int getAudioFileDurationInSeconds(MultipartFile file, String title) {
+    try {
+        return getAudioFileDurationInSeconds(file.getBytes(), file.getOriginalFilename(), title);
+    } catch (IOException e) {
+        throw new AudioDurationReadingException(title, e);
     }
   }
 }

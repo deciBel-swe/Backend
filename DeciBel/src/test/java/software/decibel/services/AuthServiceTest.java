@@ -24,13 +24,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
 
 import software.decibel.dtos.auth.AuthLoginResult;
-import software.decibel.dtos.auth.AuthRefreshTokenResult;
 import software.decibel.dtos.auth.AuthTokenRotationResult;
 import software.decibel.dtos.auth.DeviceInfo;
 import software.decibel.dtos.auth.GoogleOauthRequest;
 import software.decibel.dtos.auth.IssuedToken;
 import software.decibel.dtos.auth.LoginLocalRequest;
-import software.decibel.dtos.auth.LogoutSessionRequest;
 import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.auth.RegisterLocalRequest;
 import software.decibel.dtos.auth.VerifyEmailRequest;
@@ -220,53 +218,48 @@ class AuthServiceTest {
                 .thenReturn(verificationToken);
         when(authIdentityRepository.findByUserAndProviderAndType(any(), any(), any()))
                 .thenReturn(Optional.of(identity));
+        MessageResponse response = authService.verifyEmail(request);
 
-        Token mockToken = Token.builder().hash("hash").build();
-        when(tokenService.createRefreshToken(user))
-                .thenReturn(new IssuedToken("refresh-token", mockToken));
-
-        authService.verifyEmail(request);
-
+        assertEquals("Email verified", response.message());
         assertTrue(identity.isEmailVerified());
         verify(userRepository, never()).save(any(User.class));
         verify(tokenService).markTokenUsed(verificationToken);
+        verify(tokenService, never()).createRefreshToken(any());
         verify(sessionService, never()).createSession(any(), any(), any());
     }
 
     @Test
-    void verifyEmail_whenLocalIdentityDoesNotExist_stillMarksTokenAndIssuesRefreshToken() {
+    void verifyEmail_whenLocalIdentityDoesNotExist_stillMarksTokenAndReturnsSuccess() {
         VerifyEmailRequest request = new VerifyEmailRequest("raw-token");
         User user = User.builder().id(9L).username("verified-user").build();
         Token verificationToken = Token.builder().user(user).build();
-        Token refreshToken = Token.builder().hash("hash").build();
 
         when(tokenService.findValidUnusedToken(eq("raw-token"), eq(TokenType.EMAIL_VERIFICATION), anyString()))
                 .thenReturn(verificationToken);
         when(authIdentityRepository.findByUserAndProviderAndType(
                 user, AuthProvider.LOCAL, AuthType.PASSWORD))
                 .thenReturn(Optional.empty());
-        when(tokenService.createRefreshToken(user))
-                .thenReturn(new IssuedToken("refresh-token", refreshToken));
 
-        AuthRefreshTokenResult result = authService.verifyEmail(request);
+        MessageResponse response = authService.verifyEmail(request);
 
-        assertEquals("refresh-token", result.refreshToken());
+        assertEquals("Email verified", response.message());
         verify(authIdentityRepository, never()).save(any(AuthIdentity.class));
         verify(tokenService).markTokenUsed(verificationToken);
+        verify(tokenService, never()).createRefreshToken(any());
     }
 
     @Test
     void logout_whenRefreshTokenIsValid_deletesSessionAndToken() {
-        LogoutSessionRequest request = new LogoutSessionRequest("refresh-token");
+        String refreshTokenValue = "refresh-token";
         Token refreshToken = Token.builder().hash("hash").build();
 
         when(tokenService.findValidUnusedToken(
-                "refresh-token",
+                refreshTokenValue,
                 software.decibel.enums.TokenType.REFRESH_TOKEN,
                 "Invalid refresh token"))
                 .thenReturn(refreshToken);
 
-        MessageResponse response = authService.logout(request);
+        MessageResponse response = authService.logout(refreshTokenValue);
 
         assertEquals("Logged out successfully", response.message());
         verify(sessionService).deleteSessionByRefreshToken(refreshToken);
@@ -275,18 +268,18 @@ class AuthServiceTest {
 
     @Test
     void logout_whenRefreshTokenIsInvalid_propagatesExceptionAndDoesNotDeleteAnything() {
-        LogoutSessionRequest request = new LogoutSessionRequest("refresh-token");
+        String refreshTokenValue = "refresh-token";
         ResponseStatusException exception = new ResponseStatusException(HttpStatus.BAD_REQUEST,
                 "Invalid refresh token");
 
         when(tokenService.findValidUnusedToken(
-                "refresh-token",
+                refreshTokenValue,
                 TokenType.REFRESH_TOKEN,
                 "Invalid refresh token"))
                 .thenThrow(exception);
 
         ResponseStatusException thrown = assertThrows(ResponseStatusException.class,
-                () -> authService.logout(request));
+                () -> authService.logout(refreshTokenValue));
 
         assertEquals(HttpStatus.BAD_REQUEST, thrown.getStatusCode());
         verify(sessionService, never()).deleteSessionByRefreshToken(any());
@@ -295,17 +288,17 @@ class AuthServiceTest {
 
     @Test
     void logoutAll_whenRefreshTokenIsValid_deletesAllUserSessionsAndRefreshTokens() {
-        LogoutSessionRequest request = new LogoutSessionRequest("refresh-token");
+        String refreshTokenValue = "refresh-token";
         User user = User.builder().id(21L).username("listener").build();
         Token refreshToken = Token.builder().hash("hash").user(user).build();
 
         when(tokenService.findValidUnusedToken(
-                "refresh-token",
+                refreshTokenValue,
                 software.decibel.enums.TokenType.REFRESH_TOKEN,
                 "Invalid refresh token"))
                 .thenReturn(refreshToken);
 
-        MessageResponse response = authService.logoutAll(request);
+        MessageResponse response = authService.logoutAll(refreshTokenValue);
 
         assertEquals("Logged out of all sessions", response.message());
         verify(sessionService).deleteAllSessionsForUser(user);
@@ -314,18 +307,18 @@ class AuthServiceTest {
 
     @Test
     void logoutAll_whenRefreshTokenIsInvalid_propagatesExceptionAndDoesNotDeleteAnything() {
-        LogoutSessionRequest request = new LogoutSessionRequest("refresh-token");
+        String refreshTokenValue = "refresh-token";
         ResponseStatusException exception = new ResponseStatusException(HttpStatus.BAD_REQUEST,
                 "Invalid refresh token");
 
         when(tokenService.findValidUnusedToken(
-                "refresh-token",
+                refreshTokenValue,
                 TokenType.REFRESH_TOKEN,
                 "Invalid refresh token"))
                 .thenThrow(exception);
 
         ResponseStatusException thrown = assertThrows(ResponseStatusException.class,
-                () -> authService.logoutAll(request));
+                () -> authService.logoutAll(refreshTokenValue));
 
         assertEquals(HttpStatus.BAD_REQUEST, thrown.getStatusCode());
         verify(sessionService, never()).deleteAllSessionsForUser(any());
