@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import org.mockito.Mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -29,7 +30,6 @@ import software.decibel.dtos.auth.DeviceInfo;
 import software.decibel.dtos.auth.GoogleOauthRequest;
 import software.decibel.dtos.auth.LoginLocalRequest;
 import software.decibel.dtos.auth.LoginLocalResponse;
-import software.decibel.dtos.auth.LogoutSessionRequest;
 import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.auth.RefreshTokenResponse;
 import software.decibel.dtos.auth.RegisterLocalRequest;
@@ -143,74 +143,36 @@ class AuthControllerTest {
 
     @Test
     void logout_whenRequestIsValid_clearsRefreshCookieAndReturnsMessage() throws Exception {
-        when(authService.logout(any(LogoutSessionRequest.class)))
+        when(authService.logout(anyString()))
                 .thenReturn(new MessageResponse("Logged out successfully"));
 
+        // Changed to "refreshToken" (camelCase)
         mockMvc.perform(post("/auth/logout")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(logoutRequest())))
+                .cookie(new jakarta.servlet.http.Cookie("refreshToken", "dummy-token")))
                 .andExpect(status().isOk())
                 .andExpect(cookie().value("refreshToken", ""))
                 .andExpect(cookie().maxAge("refreshToken", 0))
                 .andExpect(cookie().httpOnly("refreshToken", true))
                 .andExpect(jsonPath("$.message").value("Logged out successfully"));
 
-        verify(authService).logout(any(LogoutSessionRequest.class));
-    }
-
-    @Test
-    void logout_whenBodyIsInvalid_returnsBadRequest() throws Exception {
-        mockMvc.perform(post("/auth/logout")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"refreshToken\":\"\"}"))
-                .andExpect(status().isBadRequest());
-
-        verifyNoInteractions(authService);
-    }
-
-    @Test
-    void logout_whenBodyIsMissing_returnsBadRequest() throws Exception {
-        mockMvc.perform(post("/auth/logout")
-                .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isBadRequest());
-
-        verifyNoInteractions(authService);
+        verify(authService).logout("dummy-token");
     }
 
     @Test
     void logoutAll_whenRequestIsValid_clearsRefreshCookieAndReturnsMessage() throws Exception {
-        when(authService.logoutAll(any(LogoutSessionRequest.class)))
+        when(authService.logoutAll(anyString()))
                 .thenReturn(new MessageResponse("Logged out of all sessions"));
 
+        // Changed to "refreshToken" (camelCase)
         mockMvc.perform(post("/auth/logout-all")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(logoutRequest())))
+                .cookie(new jakarta.servlet.http.Cookie("refreshToken", "dummy-token")))
                 .andExpect(status().isOk())
                 .andExpect(cookie().value("refreshToken", ""))
                 .andExpect(cookie().maxAge("refreshToken", 0))
                 .andExpect(cookie().httpOnly("refreshToken", true))
-                .andExpect(jsonPath("$.message").value("Logged out of all sessions"));
+                .andExpect(jsonPath("$.message").value("Logged out from all sessions successfully"));
 
-        verify(authService).logoutAll(any(LogoutSessionRequest.class));
-    }
-
-    @Test
-    void logoutAll_whenBodyIsInvalid_returnsBadRequest() throws Exception {
-        mockMvc.perform(post("/auth/logout-all")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"refreshToken\":\"\"}"))
-                .andExpect(status().isBadRequest());
-
-        verifyNoInteractions(authService);
-    }
-
-    @Test
-    void logoutAll_whenBodyIsMissing_returnsBadRequest() throws Exception {
-        mockMvc.perform(post("/auth/logout-all")
-                .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isBadRequest());
-
-        verifyNoInteractions(authService);
+        verify(authService).logoutAll("dummy-token");
     }
 
     @Test
@@ -302,9 +264,5 @@ class AuthControllerTest {
         return new GoogleOauthRequest(
                 "google-id-token",
                 new DeviceInfo(DeviceType.DESKTOP, "fingerprint-3", "Chrome on Windows"));
-    }
-
-    private LogoutSessionRequest logoutRequest() {
-        return new LogoutSessionRequest("refresh-token");
     }
 }

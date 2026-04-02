@@ -24,12 +24,11 @@ public class UserMappingUtility {
     private final LocationUtility locationUtility;
 
     // Builds the full UpdateProfileResponse for a user
-    public UpdateProfileResponse toUpdateProfileResponse(User user, boolean includePrivacy, boolean emailVerified, boolean isFollowed, boolean isFollowing, boolean isBlocked) {
+    public UpdateProfileResponse toUpdateProfileResponse(User user, boolean includePrivacy, boolean isFollowed, boolean isFollowing, boolean isBlocked) {
         return new UpdateProfileResponse(
                 user.getId(),
                 resolveEmail(user),
                 user.getUsername(),
-                emailVerified,
                 user.getTier(),
                 user.getFollowerCount(),
                 user.getFollowingCount(),

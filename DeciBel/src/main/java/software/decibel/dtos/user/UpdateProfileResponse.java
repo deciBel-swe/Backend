@@ -8,7 +8,6 @@ public record UpdateProfileResponse(
         Long id,
         String email,
         String username,
-        boolean emailVerified,
         AccountTier tier,
         int followerCount,
         int followingCount,
