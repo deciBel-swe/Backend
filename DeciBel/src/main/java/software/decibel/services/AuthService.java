@@ -1,5 +1,7 @@
 package software.decibel.services;
 
+import java.time.LocalDateTime;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -27,7 +29,9 @@ import software.decibel.entities.User;
 import software.decibel.enums.AuthProvider;
 import software.decibel.enums.AuthType;
 import software.decibel.enums.TokenType;
+import software.decibel.exceptions.custom.CooldownActiveException;
 import software.decibel.repositories.AuthIdentityRepository;
+import software.decibel.repositories.TokenRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.utils.UserProfileUtility;
 
@@ -39,9 +43,11 @@ public class AuthService {
      * Refresh token lifetime in seconds (30 days).
      */
     private static final long REFRESH_TOKEN_EXPIRES_IN_SECONDS = 30L * 24L * 60L * 60L;
+    private static final long COOLDOWN_SECONDS = 60L; // 1 minute cooldown for resending verification emails
 
     private final UserRepository userRepository;
     private final AuthIdentityRepository authIdentityRepository;
+    private final TokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final TokenService tokenService;
     private final SessionService sessionService;
@@ -207,20 +213,26 @@ public class AuthService {
                 .orElse(null);
 
         // Return silently if email not found — prevent email enumeration
-        if (identity == null) {
-            return new MessageResponse("If an unverified account exists with that email, a verification link has been sent.");
-        }
-
-        // Only resend if not yet verified
-        if (identity.isEmailVerified()) {
+        if (identity == null || identity.isEmailVerified()) {
             return new MessageResponse("If an unverified account exists with that email, a verification link has been sent.");
         }
 
         User user = identity.getUser();
+        LocalDateTime now = LocalDateTime.now();
+
+        //find the most recent email verification token for the user
+        tokenRepository.findFirstByUserAndTokenTypeOrderByCreatedAtDesc(user, TokenType.EMAIL_VERIFICATION)
+                .ifPresent(lastToken -> {
+                    LocalDateTime cooldownWindow = lastToken.getCreatedAt().plusSeconds(COOLDOWN_SECONDS);
+
+                    if (now.isBefore(cooldownWindow)) {
+                        long secondsLeft = java.time.Duration.between(now, cooldownWindow).toSeconds();
+                        throw new CooldownActiveException("Please wait " + secondsLeft + " seconds before requesting another link.");
+                    }
+                });
 
         // Delete any existing unused verification tokens before issuing a new one
         tokenService.deleteTokensForUserAndType(user, TokenType.EMAIL_VERIFICATION);
-        tokenService.deleteExpiredTokens();
 
         IssuedToken issuedToken = tokenService.createEmailVerificationToken(user);
         String verificationLink = frontendLinkService.buildEmailVerificationLink(issuedToken.rawToken());

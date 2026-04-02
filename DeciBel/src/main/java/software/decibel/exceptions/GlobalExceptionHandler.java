@@ -17,6 +17,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import software.decibel.exceptions.custom.AudioDurationReadingException;
 import software.decibel.exceptions.custom.AzureFileStorageException;
+import software.decibel.exceptions.custom.CooldownActiveException;
 import software.decibel.exceptions.custom.DuplicateResourceException;
 import software.decibel.exceptions.custom.ExternalAuthConfigurationException;
 import software.decibel.exceptions.custom.InvalidGoogleTokenException;
@@ -270,5 +271,20 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+
+    @ExceptionHandler(CooldownActiveException.class)
+    public ResponseEntity<ApiErrorResponse> handleCooldownException(
+            CooldownActiveException ex, HttpServletRequest request) {
+
+        ApiErrorResponse error = ApiErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.TOO_MANY_REQUESTS.value())
+                .error("Too Many Requests")
+                .message(ex.getMessage())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(error);
     }
 }
