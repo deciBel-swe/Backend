@@ -71,10 +71,10 @@ class UserProfileControllerTest {
 
         mockMvc.perform(get("/users/username/" + username))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.username").value(username))
-                .andExpect(jsonPath("$.isFollowed").value(true))
-                .andExpect(jsonPath("$.isFollowing").value(false))
-                .andExpect(jsonPath("$.isBlocked").value(false));
+                .andExpect(jsonPath("$.profile.username").value(username))
+                .andExpect(jsonPath("$.profile.isFollowed").value(true))
+                .andExpect(jsonPath("$.profile.isFollowing").value(false))
+                .andExpect(jsonPath("$.profile.isBlocked").value(false));
 
         verify(userService).getUserPublicProfileByUsername(username, null);
     }
