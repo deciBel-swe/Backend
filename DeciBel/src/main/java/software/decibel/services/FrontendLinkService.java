@@ -8,7 +8,7 @@ public class FrontendLinkService {
 
     private final String frontendBaseUrl;
 
-    public FrontendLinkService(@Value("${decibel://verify?token=XYZ}") String frontendBaseUrl) {
+    public FrontendLinkService(@Value("${https://decibel.foo}") String frontendBaseUrl) {
         this.frontendBaseUrl = frontendBaseUrl;
     }
 

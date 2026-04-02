@@ -66,10 +66,9 @@ public class User {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
-  // relationships
-
-  // user can have many comments
-  // purpose is to delete comments if user is deleted
-  @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-  private List<Comment> comments;
+    // relationships
+    // user can have many comments
+    // purpose is to delete comments if user is deleted
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Comment> comments;
 }

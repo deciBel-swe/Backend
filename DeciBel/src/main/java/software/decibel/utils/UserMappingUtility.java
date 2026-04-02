@@ -26,6 +26,14 @@ public class UserMappingUtility {
     // Builds the full UpdateProfileResponse for a user
     public UpdateProfileResponse toUpdateProfileResponse(User user, boolean includePrivacy, boolean isFollowed, boolean isFollowing, boolean isBlocked) {
         return new UpdateProfileResponse(
+                toUserProfile(user, isFollowed, isFollowing, isBlocked),
+                includePrivacy ? new PrivacySettings(user.isPrivate(), user.isShowHistory()) : null
+        );
+    }
+
+    // Maps User entity to UserProfile DTO
+    public UserProfile toUserProfile(User user, boolean isFollowed, boolean isFollowing, boolean isBlocked) {
+        return new UserProfile(
                 user.getId(),
                 resolveEmail(user),
                 user.getUsername(),
@@ -36,21 +44,13 @@ public class UserMappingUtility {
                 isFollowed,
                 isFollowing,
                 isBlocked,
-                toUserProfile(user),
-                toSocialLinksDto(user),
-                includePrivacy ? new PrivacySettings(user.isPrivate(), user.isShowHistory()) : null
-        );
-    }
-
-    // Maps User entity to UserProfile DTO
-    public UserProfile toUserProfile(User user) {
-        return new UserProfile(
                 user.getBio(),
                 locationUtility.parseCity(user.getLocation()),
                 locationUtility.parseCountry(user.getLocation()),
                 user.getAvatarUrl(),
                 user.getCoverPhotoUrl(),
-                user.getFavoriteGenres()
+                user.getFavoriteGenres(),
+                toSocialLinksDto(user)
         );
     }
 
