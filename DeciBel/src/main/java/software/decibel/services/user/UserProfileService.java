@@ -1,5 +1,7 @@
 package software.decibel.services.user;
 
+import java.util.Objects;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -17,12 +19,12 @@ import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.SocialLinksRepository;
+import software.decibel.repositories.UserProfileTokenRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.JwtService;
 import software.decibel.utils.FileUtilityAzure;
 import software.decibel.utils.LocationUtility;
 import software.decibel.utils.UserMappingUtility;
-import software.decibel.repositories.UserProfileTokenRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -41,14 +43,14 @@ public class UserProfileService {
     @Transactional(readOnly = true)
     public UpdateProfileResponse getUserPublicProfile(Long userId) {
         User user = findUserById(userId);
-        return getResponseWithFollowStatus(user, false, false);
+        return getResponseWithFollowStatus(user, false);
     }
 
     // Private profile — authenticated, includes privacy settings and email verified
     @Transactional(readOnly = true)
     public UpdateProfileResponse getMyProfile(Long userId) {
         User user = findUserById(userId);
-        return getResponseWithFollowStatus(user, true, userMappingUtility.isEmailVerified(user));
+        return getResponseWithFollowStatus(user, true);
     }
 
     // Update profile — authenticated, partial update
@@ -85,14 +87,18 @@ public class UserProfileService {
         }
         //load updated user
         User updatedUser = findUserById(userId);
-        return getResponseWithFollowStatus(updatedUser, true, userMappingUtility.isEmailVerified(updatedUser));
+        return getResponseWithFollowStatus(updatedUser, true);
     }
 
     @Transactional(readOnly = true)
-    public UpdateProfileResponse getUserPublicProfileByUsername(String username) {
+    public UpdateProfileResponse getUserPublicProfileByUsername(String username, Long currentUserId) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User with username " + username + " not found"));
-        return getResponseWithFollowStatus(user, false, false);
+        //If the profile is private AND the current user is not the owner, throw a 404
+        if (user.isPrivate() && !Objects.equals(user.getId(), currentUserId)) {
+            throw new ResourceNotFoundException("User with username " + username + " not found");
+        }
+        return getResponseWithFollowStatus(user, false);
     }
 
     // Update profile/cover images — authenticated
@@ -141,10 +147,10 @@ public class UserProfileService {
                 .findByTokenAndIsDeletedFalse(token)
                 .orElseThrow(() -> new ResourceNotFoundException("Invalid or expired profile token"));
 
-        return getResponseWithFollowStatus(profileToken.getUser(), false, false);
+        return getResponseWithFollowStatus(profileToken.getUser(), false);
     }
 
-    private UpdateProfileResponse getResponseWithFollowStatus(User profileUser, boolean includePrivacy, boolean emailVerified) {
+    private UpdateProfileResponse getResponseWithFollowStatus(User profileUser, boolean includePrivacy) {
         boolean isFollowed = false;
         boolean isFollowing = false;
         boolean isBlocked = false;
@@ -161,7 +167,7 @@ public class UserProfileService {
             // No authenticated user or other security context issue
         }
 
-        return userMappingUtility.toUpdateProfileResponse(profileUser, includePrivacy, emailVerified, isFollowed, isFollowing, isBlocked);
+        return userMappingUtility.toUpdateProfileResponse(profileUser, includePrivacy, isFollowed, isFollowing, isBlocked);
     }
 
     private User findUserById(Long userId) {

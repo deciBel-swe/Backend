@@ -1,41 +1,28 @@
 package software.decibel.utils;
 
-import java.text.Normalizer;
-import java.util.UUID;
+import java.util.function.Predicate;
 
-import org.springframework.stereotype.Component;
-
-import lombok.RequiredArgsConstructor;
-import software.decibel.repositories.PlaylistRepository;
-
-@Component
-@RequiredArgsConstructor
 public class SlugUtility {
 
-    private final PlaylistRepository playlistRepository;
+    // Takes a title and a function that checks if a slug already exists (usually repo that has wants
+    // to check if slug exists)
+    // returns unique slug
+    // predicate<string> -> function that takes string and returls bool
+    public static String generateUniqueSlug(String title, Predicate<String> slugExists) {
 
-    // Generates a unique slug from a title
-    // ex: "My Playlist" -> "my-playlist" or "my-playlist-a1b2" if taken
-    public String generateUniqueSlug(String title) {
-        String base = toSlug(title);
-        String slug = base;
+        // convert title to be url friendly
+        // any character not lower case or a digit replaced by -
+        String baseTitle = title.toLowerCase().trim().replaceAll("[^a-z0-9]+", "-");
 
-        // Append short UUID suffix if slug is taken
-        while (playlistRepository.existsBySlug(slug)) {
-            slug = base + "-" + UUID.randomUUID().toString().substring(0, 4);
+        String slug = baseTitle;
+        int counter = 1;
+
+        // keep on incrementing till unique
+        while (slugExists.test(slug)) {
+            slug = baseTitle + "-" + counter;
+            counter++;
         }
 
         return slug;
     }
-
-    private String toSlug(String input) {
-        return Normalizer.normalize(input, Normalizer.Form.NFD)
-                .replaceAll("[^\\p{ASCII}]", "")
-                .toLowerCase()
-                .trim()
-                .replaceAll("[^a-z0-9\\s-]", "")
-                .replaceAll("\\s+", "-")
-                .replaceAll("-+", "-");
-    }
-
 }

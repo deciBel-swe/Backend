@@ -57,7 +57,15 @@ public class Track {
   private String trackUrl;
   private String coverUrl;
   private String waveformUrl;
-  
+
+  // ---- publishing ----
+
+  @Column(unique = true)
+  private String slug;
+
+  private boolean published = false;
+  private LocalDateTime publishedAt;
+
   // --- Relationships ---
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "uploader_id", nullable = false)

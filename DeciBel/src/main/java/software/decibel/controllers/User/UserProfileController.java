@@ -25,6 +25,8 @@ import software.decibel.repositories.UserRepository;
 import software.decibel.services.JwtService;
 import software.decibel.services.user.UserProfileService;
 import software.decibel.services.user.UserProfileTokenService;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import software.decibel.dtos.auth.UserPrincipal;
 import software.decibel.services.user.UserSuggestionService;
 
 import java.util.List;
@@ -102,8 +104,9 @@ public class UserProfileController {
 
     // GET /users/username/{username} — public, no auth required
     @GetMapping("/username/{username}")
-    public ResponseEntity<UpdateProfileResponse> getUserProfileByUsername(@PathVariable String username) {
-        return ResponseEntity.ok(userService.getUserPublicProfileByUsername(username));
+    public ResponseEntity<UpdateProfileResponse> getUserProfileByUsername(@PathVariable String username, @AuthenticationPrincipal UserPrincipal principal) {
+        Long currentUserId = (principal != null) ? principal.getId() : null;
+        return ResponseEntity.ok(userService.getUserPublicProfileByUsername(username, currentUserId));
     }
 
     //GET /users/me/secret-link — get active profile token
