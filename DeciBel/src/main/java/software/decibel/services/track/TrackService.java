@@ -362,6 +362,13 @@ public class TrackService {
         } catch (Exception e) {
             // User is not logged in, leave currentUserId as null
         }
+        //privacy check
+        if (track.getVisibility() == Visibility.PRIVATE) {
+            // If the user isn't logged in, or isn't the owner, hide the track's existence
+            if (currentUserId == null || !track.getUploader().getId().equals(currentUserId)) {
+                throw new ResourceNotFoundException("Track with id " + trackId + " not found");
+            }
+        }
         return buildTrackResponse(track, currentUserId);
     }
 
