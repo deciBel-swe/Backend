@@ -22,9 +22,9 @@ import software.decibel.mappers.PlaylistMapper;
 import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.PlaylistSlugRepository;
 import software.decibel.repositories.TrackRepository;
+import software.decibel.services.user.UserService;
 import software.decibel.utils.FileUtilityAzure;
 import software.decibel.utils.SlugUtility;
-import software.decibel.services.user.UserService;
 
 @Service
 @RequiredArgsConstructor
@@ -34,7 +34,6 @@ public class PlaylistService {
     private final PlaylistSlugRepository playlistSlugRepository;
     private final TrackRepository trackRepository;
     private final FileUtilityAzure fileUtilityAzure;
-    private final SlugUtility slugUtility;
     private final PlaylistMapper playlistMapper;
     private final UserService userService;
 
@@ -43,7 +42,9 @@ public class PlaylistService {
         User user = userService.getUserIfExistsById(userId);
 
         // 1. Handle Business Logic (Slugs & Files)
-        String slug = slugUtility.generateUniqueSlug(request.title());
+        String slug = SlugUtility.generateUniqueSlug(
+                request.title(),
+                playlistRepository::existsBySlug);
 
         String coverArtUrl = null;
         if (request.coverArt() != null && !request.coverArt().isEmpty()) {
@@ -81,7 +82,9 @@ public class PlaylistService {
                         playlistSlugRepository.save(s);
                     });
 
-            newSlug = slugUtility.generateUniqueSlug(request.title());
+            newSlug = SlugUtility.generateUniqueSlug(
+                    request.title(),
+                    playlistRepository::existsBySlug);
 
             playlistSlugRepository.save(PlaylistSlug.builder()
                     .slug(newSlug)

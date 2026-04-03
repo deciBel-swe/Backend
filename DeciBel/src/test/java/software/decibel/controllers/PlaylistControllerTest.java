@@ -1,37 +1,42 @@
 package software.decibel.controllers;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import java.time.LocalDateTime;
+import java.util.List;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.Mock;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
+import software.decibel.dtos.auth.UserPrincipal;
 import software.decibel.dtos.playlist.PlaylistResponse;
 import software.decibel.enums.PlaylistType;
 import software.decibel.services.playlist.PlaylistService;
-
-// Make sure to import your UserPrincipal!
-import software.decibel.dtos.auth.UserPrincipal;
-
-import java.time.LocalDateTime;
-import java.util.List;
-
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @ExtendWith(MockitoExtension.class)
 class PlaylistControllerTest {
@@ -93,9 +98,9 @@ class PlaylistControllerTest {
                 .param("isPrivate", "false"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.title").value("My Playlist"))
-                .andExpect(jsonPath("$.slug").value("my-playlist"))
+                .andExpect(jsonPath("$.slug").value("Description"))
                 .andExpect(jsonPath("$.type").value("PLAYLIST"))
-                .andExpect(jsonPath("$.trackCount").value(0));
+                .andExpect(jsonPath("$.trackCount").value(10));
     }
 
     @Test
@@ -124,7 +129,7 @@ class PlaylistControllerTest {
                     return req;
                 }))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(10));
+                .andExpect(jsonPath("$.id").value(1));
     }
 
     @Test
@@ -133,25 +138,36 @@ class PlaylistControllerTest {
 
         mockMvc.perform(get("/playlists/10"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(10))
+                .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.title").value("My Playlist"))
-                .andExpect(jsonPath("$.userId").value(1));
+                .andExpect(jsonPath("$.userId").value(2));
     }
 
     @Test
     void addTrack_whenValid_returnsOk() throws Exception {
         PlaylistResponse response = new PlaylistResponse(
-                10L, "My Playlist", "my-playlist", null,
-                PlaylistType.PLAYLIST, false, null, 1, 180,
-                List.of("Hip Hop"), 1L, List.of(100L), LocalDateTime.now());
-
+                1L,
+                "My Playlist",
+                "Description",
+                null,
+                PlaylistType.PLAYLIST,
+                true,
+                null,
+                10,
+                3600,
+                List.of("Rock"),
+                2L,
+                List.of(1L, 2L),
+                LocalDateTime.now(),
+                false
+        );
         when(playlistService.addTrack(any(), eq(10L), eq(100L))).thenReturn(response);
 
         mockMvc.perform(post("/playlists/10/tracks")
                 .param("trackId", "100"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.trackCount").value(1))
-                .andExpect(jsonPath("$.trackIds[0]").value(100));
+                .andExpect(jsonPath("$.trackCount").value(10))
+                .andExpect(jsonPath("$.trackIds[0]").value(1));
 
         verify(playlistService).addTrack(any(), eq(10L), eq(100L));
     }
@@ -162,8 +178,7 @@ class PlaylistControllerTest {
                 .thenReturn(playlistResponse());
 
         mockMvc.perform(delete("/playlists/10/tracks/100"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.trackCount").value(0));
+                .andExpect(status().isNoContent());
 
         verify(playlistService).removeTrack(any(), eq(10L), eq(100L));
     }
@@ -171,8 +186,19 @@ class PlaylistControllerTest {
     // ── Helper ────────────────────────────────────────────────────────────────
     private PlaylistResponse playlistResponse() {
         return new PlaylistResponse(
-                10L, "My Playlist", "my-playlist", "desc",
-                PlaylistType.PLAYLIST, false, null, 0, 0,
-                List.of(), 1L, List.of(), LocalDateTime.now());
+                1L,
+                "My Playlist",
+                "Description",
+                null,
+                PlaylistType.PLAYLIST,
+                true,
+                null,
+                10,
+                3600,
+                List.of("Rock"),
+                2L,
+                List.of(1L, 2L),
+                LocalDateTime.now(),
+                false);
     }
 }

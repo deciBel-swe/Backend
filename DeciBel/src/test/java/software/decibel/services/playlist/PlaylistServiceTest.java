@@ -1,13 +1,30 @@
 package software.decibel.services.playlist;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
+
 import software.decibel.dtos.playlist.CreatePlaylistRequest;
 import software.decibel.dtos.playlist.PatchPlaylistRequest;
 import software.decibel.dtos.playlist.PlaylistResponse;
@@ -22,16 +39,8 @@ import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.PlaylistSlugRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.user.UserService;
 import software.decibel.utils.FileUtilityAzure;
-import software.decibel.utils.SlugUtility;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class PlaylistServiceTest {
@@ -46,8 +55,9 @@ class PlaylistServiceTest {
     private UserRepository userRepository;
     @Mock
     private FileUtilityAzure fileUtilityAzure;
+
     @Mock
-    private SlugUtility slugUtility;
+    private UserService userService;
 
     @Spy
     private PlaylistMapper playlistMapper = new PlaylistMapper();
@@ -59,11 +69,10 @@ class PlaylistServiceTest {
     @Test
     void createPlaylist_whenRequestIsValid_returnsPlaylistResponse() {
         User user = user();
+        when(userService.getUserIfExistsById(anyLong())).thenReturn(user);
         CreatePlaylistRequest request = new CreatePlaylistRequest(
                 "My Playlist", "desc", PlaylistType.PLAYLIST, false, null);
-
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(slugUtility.generateUniqueSlug("My Playlist")).thenReturn("my-playlist");
+        when(playlistRepository.existsBySlug(anyString())).thenReturn(false);
         when(playlistRepository.save(any(Playlist.class))).thenAnswer(inv -> {
             Playlist p = inv.getArgument(0);
             p.setId(10L);
@@ -84,7 +93,8 @@ class PlaylistServiceTest {
 
     @Test
     void createPlaylist_whenUserNotFound_throwsNotFoundException() {
-        when(userRepository.findById(99L)).thenReturn(Optional.empty());
+        when(userService.getUserIfExistsById(anyLong()))
+                .thenThrow(new ResourceNotFoundException("User not found"));
 
         CreatePlaylistRequest request = new CreatePlaylistRequest(
                 "My Playlist", null, PlaylistType.PLAYLIST, false, null);
@@ -100,13 +110,11 @@ class PlaylistServiceTest {
         User user = user();
         var mockFile = mock(org.springframework.web.multipart.MultipartFile.class);
         when(mockFile.isEmpty()).thenReturn(false);
-        when(mockFile.getOriginalFilename()).thenReturn("cover.jpg");
 
         CreatePlaylistRequest request = new CreatePlaylistRequest(
                 "My Album", "desc", PlaylistType.ALBUM, true, mockFile);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(slugUtility.generateUniqueSlug("My Album")).thenReturn("my-album");
+        when(playlistRepository.existsBySlug(anyString())).thenReturn(false);
         when(fileUtilityAzure.saveFile(any(), any())).thenReturn("https://azure.com/cover.jpg");
         when(playlistRepository.save(any(Playlist.class))).thenAnswer(inv -> {
             Playlist p = inv.getArgument(0);
@@ -130,7 +138,7 @@ class PlaylistServiceTest {
 
         when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
         when(playlistSlugRepository.findBySlugAndIsDeletedFalse("old-title")).thenReturn(Optional.of(oldSlug));
-        when(slugUtility.generateUniqueSlug("New Title")).thenReturn("new-title");
+        when(playlistRepository.existsBySlug(anyString())).thenReturn(false);
         when(playlistRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(playlistSlugRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -232,7 +240,6 @@ class PlaylistServiceTest {
         Playlist playlist = playlist(owner);
 
         when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
-        // ✅ Ghost Mock Removed: trackRepository.findById(100L)
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> playlistService.addTrack(99L, 10L, 100L));
