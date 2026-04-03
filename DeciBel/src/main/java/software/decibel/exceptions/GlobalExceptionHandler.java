@@ -236,6 +236,23 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
     }
+    // ── 404 — Endpoint Not Found 
+
+    @ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})
+    public ResponseEntity<ApiErrorResponse> handleEndpointNotFoundException(
+            Exception ex, HttpServletRequest request) {
+
+        ApiErrorResponse error = ApiErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.NOT_FOUND.value())
+                .error("Endpoint Not Found")
+                // We use request.getMethod() and request.getRequestURI() because they work for both exception types
+                .message(String.format("The endpoint %s %s does not exist.", request.getMethod(), request.getRequestURI()))
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
 
     // ── 500 — Catch All Safety Net
     @ExceptionHandler(Exception.class)
@@ -254,23 +271,6 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
-    }
-// ── 404 — Endpoint Not Found (Spring Boot 3.2+)
-
-    @ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})
-    public ResponseEntity<ApiErrorResponse> handleEndpointNotFoundException(
-            Exception ex, HttpServletRequest request) {
-
-        ApiErrorResponse error = ApiErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.NOT_FOUND.value())
-                .error("Endpoint Not Found")
-                // We use request.getMethod() and request.getRequestURI() because they work for both exception types
-                .message(String.format("The endpoint %s %s does not exist.", request.getMethod(), request.getRequestURI()))
-                .path(request.getRequestURI())
-                .build();
-
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
     }
 
     @ExceptionHandler(CooldownActiveException.class)

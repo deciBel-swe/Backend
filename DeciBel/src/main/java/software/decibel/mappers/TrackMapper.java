@@ -21,6 +21,13 @@ public interface TrackMapper {
     @Mapping(target = "isReposted", expression = "java(repostedTrackIds.contains(track.getId()))")
     TrackResponse toTrackResponse(Track track, Set<Long> likedTrackIds, Set<Long> repostedTrackIds);
 
+    // MapStruct to handle single track response
+    @Mapping(target = "artist", expression = "java(mapArtist(track.getUploader()))")
+    @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
+    @Mapping(target = "isLiked", source = "isLiked")
+    @Mapping(target = "isReposted", source = "isReposted")
+    TrackResponse toTrackResponseSingle(Track track, boolean isLiked, boolean isReposted);
+
     // This method perfectly handles your paginated views using the Sets passed from the Service
     default TrackPageResponse toPageResponse(
             Page<Track> page, Set<Long> likedTrackIds, Set<Long> repostedTrackIds) {

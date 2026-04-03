@@ -352,4 +352,48 @@ public class TrackService {
 
         return trackMapper.toTrackPublishResponse(trackRepository.save(track));
     }
+
+    public TrackResponse getTrackData(Long trackId) {
+        Track track = getTrackIfExistsById(trackId);
+        Long currentUserId = null;
+        try {
+            // Attempt to get the current user ID. 
+            currentUserId = JwtService.getCurrentUserId();
+        } catch (Exception e) {
+            // User is not logged in, leave currentUserId as null
+        }
+        //privacy check
+        if (track.getVisibility() == Visibility.PRIVATE) {
+            // If the user isn't logged in, or isn't the owner, hide the track's existence
+            if (currentUserId == null || !track.getUploader().getId().equals(currentUserId)) {
+                throw new ResourceNotFoundException("Track with id " + trackId + " not found");
+            }
+        }
+        return buildTrackResponse(track, currentUserId);
+    }
+
+    public TrackResponse getCurrentUserTrackData(Long trackId) {
+        Track track = getTrackIfExistsById(trackId);
+        Long currentUserId = JwtService.getCurrentUserId();
+
+        // Check if the track actually belongs to the current user
+        if (!track.getUploader().getId().equals(currentUserId)) {
+            throw new UnauthorizedActionException("You do not have permission to access this track.");
+        }
+
+        return buildTrackResponse(track, currentUserId);
+    }
+
+    //HELPER functions for track response
+    private TrackResponse buildTrackResponse(Track track, Long userId) {
+        boolean isLiked = false;
+        boolean isReposted = false;
+
+        if (userId != null) {
+            isLiked = likeService.getLikedTrackIds(userId).contains(track.getId());
+            isReposted = repostService.getRepostedTrackIds(userId).contains(track.getId());
+        }
+
+        return trackMapper.toTrackResponseSingle(track, isLiked, isReposted);
+    }
 }
