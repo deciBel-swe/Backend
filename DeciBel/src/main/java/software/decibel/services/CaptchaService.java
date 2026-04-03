@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
 import lombok.extern.slf4j.Slf4j;
+import software.decibel.dtos.auth.CaptchaResponse;
 import software.decibel.exceptions.custom.CaptchaValidationException;
 
 @Slf4j
@@ -13,6 +14,9 @@ public class CaptchaService {
 
     private static final String RECAPTCHA_VERIFY_URL = "https://www.google.com/recaptcha/api/siteverify";
     private static final double MIN_SCORE = 0.5; // 0.0 = bot, 1.0 = human
+
+    @Value("${captcha.bypass-token:}") // put empty in production
+    private String bypassToken;
 
     private final RestClient restClient;
     private final String recaptchaSecretKey;
@@ -25,6 +29,9 @@ public class CaptchaService {
     }
 
     public void validateCaptcha(String captchaToken) {
+        if (!bypassToken.isEmpty() && bypassToken.equals(captchaToken)) {
+            return; // Success! Skip Google verification.
+        }
         // Skip validation in local/dev if secret key is not configured
         if (recaptchaSecretKey == null || recaptchaSecretKey.isBlank()) {
             log.warn("reCAPTCHA secret key not configured — skipping captcha validation");
@@ -48,15 +55,5 @@ public class CaptchaService {
         }
 
         log.info("Captcha validated successfully. score={} action={}", response.score(), response.action());
-    }
-
-    // Google reCAPTCHA v3 response
-    private record CaptchaResponse(
-            boolean success,
-            double score,
-            String action,
-            String hostname
-            ) {
-
     }
 }

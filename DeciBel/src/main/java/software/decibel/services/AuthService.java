@@ -115,10 +115,11 @@ public class AuthService {
 
     @Transactional
     public MessageResponse verifyEmail(VerifyEmailRequest request) {
+        //Fetch token and TokenService automatically throw 400 if expired or invalid
         Token verificationToken = tokenService.findValidUnusedToken(
                 request.token(),
                 TokenType.EMAIL_VERIFICATION,
-                "Invalid verification token");
+                "Invalid or expired verification token");
 
         User user = verificationToken.getUser();
 
@@ -161,7 +162,7 @@ public class AuthService {
         AuthIdentity identity = authIdentityRepository
                 .findByUserAndProviderAndType(user, AuthProvider.LOCAL, AuthType.PASSWORD)
                 .or(() -> authIdentityRepository.findByUserAndProviderAndType(
-                        user, AuthProvider.GOOGLE, AuthType.OAUTH))
+                user, AuthProvider.GOOGLE, AuthType.OAUTH))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User identity not found"));
 
         // 1- Mark old token as used (Rotation)
