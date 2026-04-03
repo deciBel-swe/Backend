@@ -72,4 +72,11 @@ public class PlaylistController {
         return ResponseEntity.noContent().build();
     }
 
+    // DELETE /playlists/{playlistId}
+    @DeleteMapping("/{playlistId}")
+    public ResponseEntity<Void> deletePlaylist(@PathVariable Long playlistId) {
+        playlistService.deletePlaylist(playlistId);
+        return ResponseEntity.noContent().build();
+    }
+
 }

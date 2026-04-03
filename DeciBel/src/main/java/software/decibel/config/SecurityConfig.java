@@ -42,6 +42,7 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/users/username/**").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/profile/token/**").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/playlists/{playlistId}").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/tracks/{trackId}").permitAll()
                                 .anyRequest().authenticated())
                 // Use stateless sessions for JWT authentication
                 .sessionManagement(

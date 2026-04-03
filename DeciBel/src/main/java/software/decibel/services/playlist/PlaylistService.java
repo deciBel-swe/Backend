@@ -18,10 +18,12 @@ import software.decibel.entities.Track;
 import software.decibel.entities.User;
 import software.decibel.enums.FileType;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
+import software.decibel.exceptions.custom.UnauthorizedActionException;
 import software.decibel.mappers.PlaylistMapper;
 import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.PlaylistSlugRepository;
 import software.decibel.repositories.TrackRepository;
+import software.decibel.services.JwtService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.FileUtilityAzure;
 import software.decibel.utils.SlugUtility;
@@ -163,6 +165,22 @@ public class PlaylistService {
         playlist.setGenres(updatedGenres);
 
         return playlistMapper.toResponse(playlistRepository.save(playlist));
+    }
+
+    @Transactional
+    public void deletePlaylist(Long playlistId) {
+        Playlist playlist = playlistRepository.findById(playlistId)
+                .orElseThrow(() -> new ResourceNotFoundException("Playlist with id " + playlistId + " not found"));
+
+        Long currentUserId = JwtService.getCurrentUserId();
+
+        // Check if the playlist belongs to the current user.
+        // Note: adjust 'getUser()' or 'getOwner()' based on your Playlist entity structure.
+        if (!playlist.getUser().getId().equals(currentUserId)) {
+            throw new UnauthorizedActionException("You are not allowed to delete this playlist.");
+        }
+
+        playlistRepository.delete(playlist);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
