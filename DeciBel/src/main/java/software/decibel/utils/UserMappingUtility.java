@@ -1,7 +1,8 @@
 package software.decibel.utils;
 
-import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.List;
 
 import org.springframework.stereotype.Component;
 
@@ -11,7 +12,9 @@ import software.decibel.dtos.user.SocialLinksDto;
 import software.decibel.dtos.user.UpdateProfileResponse;
 import software.decibel.dtos.user.UserProfile;
 import software.decibel.entities.AuthIdentity;
+import software.decibel.entities.SocialLinks;
 import software.decibel.entities.User;
+import software.decibel.enums.SocialPlatform;
 import software.decibel.repositories.AuthIdentityRepository;
 import software.decibel.repositories.SocialLinksRepository;
 
@@ -50,16 +53,21 @@ public class UserMappingUtility {
                 user.getAvatarUrl(),
                 user.getCoverPhotoUrl(),
                 user.getFavoriteGenres(),
-                toSocialLinksDto(user)
+                List.of(toSocialLinksDto(user))
         );
     }
 
-    // Maps social links list to flat SocialLinksDto
-    public List<SocialLinksDto> toSocialLinksDto(User user) {
-        return socialLinksRepository.findAllByUser(user)
+    // Maps social links to flat SocialLinksDto
+    public SocialLinksDto toSocialLinksDto(User user) {
+        Map<SocialPlatform, String> linksMap = socialLinksRepository.findAllByUser(user)
                 .stream()
-                .map(s -> new SocialLinksDto(s.getPlatform(), s.getUrl()))
-                .collect(Collectors.toList());
+                .collect(Collectors.toMap(SocialLinks::getPlatform, SocialLinks::getUrl));
+
+        return new SocialLinksDto(
+                linksMap.get(SocialPlatform.INSTAGRAM),
+                linksMap.get(SocialPlatform.TWITTER),
+                linksMap.get(SocialPlatform.WEBSITE)
+        );
     }
 
     // Checks if any identity for the user has verified email

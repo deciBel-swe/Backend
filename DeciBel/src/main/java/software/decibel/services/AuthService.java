@@ -56,9 +56,11 @@ public class AuthService {
     private final JwtService jwtService;
     private final GoogleTokenVerificationService googleTokenVerificationService;
     private final UserProfileUtility userProfileUtility;
+    private final CaptchaService captchaService;
 
     @Transactional
     public MessageResponse registerLocal(RegisterLocalRequest request) {
+        captchaService.validateCaptcha(request.captchaToken());
         if (authIdentityRepository.existsByEmailIgnoreCase(request.email())
                 || authIdentityRepository.existsByEmailIgnoreCaseAndProviderAndType(
                         request.email(), AuthProvider.LOCAL, AuthType.PASSWORD)) {
@@ -113,10 +115,11 @@ public class AuthService {
 
     @Transactional
     public MessageResponse verifyEmail(VerifyEmailRequest request) {
+        //Fetch token and TokenService automatically throw 400 if expired or invalid
         Token verificationToken = tokenService.findValidUnusedToken(
                 request.token(),
                 TokenType.EMAIL_VERIFICATION,
-                "Invalid verification token");
+                "Invalid or expired verification token");
 
         User user = verificationToken.getUser();
 
@@ -158,6 +161,8 @@ public class AuthService {
         User user = oldToken.getUser();
         AuthIdentity identity = authIdentityRepository
                 .findByUserAndProviderAndType(user, AuthProvider.LOCAL, AuthType.PASSWORD)
+                .or(() -> authIdentityRepository.findByUserAndProviderAndType(
+                user, AuthProvider.GOOGLE, AuthType.OAUTH))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User identity not found"));
 
         // 1- Mark old token as used (Rotation)

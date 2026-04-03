@@ -67,6 +67,8 @@ class AuthServiceTest {
     private JwtService jwtService;
     @Mock
     private GoogleTokenVerificationService googleTokenVerificationService;
+    @Mock
+    private CaptchaService captchaService;
 
     @Mock
     private UserProfileUtility userProfileUtility;
@@ -347,6 +349,39 @@ class AuthServiceTest {
     }
 
     @Test
+    void refreshToken_whenLocalIdentityMissingAndGoogleIdentityExists_usesGoogleFallback() {
+        User user = verifiedUser();
+        Token oldToken = Token.builder().user(user).hash("old-hash").build();
+        Token newToken = Token.builder().user(user).hash("new-hash").build();
+        AuthIdentity googleIdentity = AuthIdentity.builder()
+                .user(user)
+                .email("google@example.com")
+                .emailVerified(true)
+                .provider(AuthProvider.GOOGLE)
+                .type(AuthType.OAUTH)
+                .build();
+
+        when(tokenService.findValidUnusedToken("old-refresh-token", TokenType.REFRESH_TOKEN,
+                "Invalid refresh token"))
+                .thenReturn(oldToken);
+        when(authIdentityRepository.findByUserAndProviderAndType(user, AuthProvider.LOCAL, AuthType.PASSWORD))
+                .thenReturn(Optional.empty());
+        when(authIdentityRepository.findByUserAndProviderAndType(user, AuthProvider.GOOGLE, AuthType.OAUTH))
+                .thenReturn(Optional.of(googleIdentity));
+        when(tokenService.createRefreshToken(user))
+                .thenReturn(new IssuedToken("new-refresh-token", newToken));
+        when(jwtService.buildAccessToken(user, googleIdentity.getEmail())).thenReturn("google-access-token");
+
+        AuthTokenRotationResult result = authService.refreshToken("old-refresh-token");
+
+        assertEquals("google-access-token", result.response().accessToken());
+        assertEquals("new-refresh-token", result.refreshToken());
+        verify(authIdentityRepository).findByUserAndProviderAndType(user, AuthProvider.LOCAL, AuthType.PASSWORD);
+        verify(authIdentityRepository).findByUserAndProviderAndType(user, AuthProvider.GOOGLE, AuthType.OAUTH);
+        verify(tokenService).markTokenUsed(oldToken);
+    }
+
+    @Test
     void refreshToken_whenUserIdentityDoesNotExist_throwsUnauthorized() {
         User user = verifiedUser();
         Token oldToken = Token.builder().user(user).hash("old-hash").build();
@@ -356,12 +391,16 @@ class AuthServiceTest {
                 .thenReturn(oldToken);
         when(authIdentityRepository.findByUserAndProviderAndType(user, AuthProvider.LOCAL, AuthType.PASSWORD))
                 .thenReturn(Optional.empty());
+        when(authIdentityRepository.findByUserAndProviderAndType(user, AuthProvider.GOOGLE, AuthType.OAUTH))
+                .thenReturn(Optional.empty());
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> authService.refreshToken("old-refresh-token"));
 
         assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatusCode());
+        verify(authIdentityRepository).findByUserAndProviderAndType(user, AuthProvider.GOOGLE, AuthType.OAUTH);
         verify(tokenService, never()).markTokenUsed(any());
+        verify(tokenService, never()).createRefreshToken(any());
         verify(jwtService, never()).buildAccessToken(any(), anyString());
     }
 

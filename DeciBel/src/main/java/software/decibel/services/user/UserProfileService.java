@@ -76,14 +76,10 @@ public class UserProfileService {
 
         userRepository.save(user);
 
-        if (request.socialLinksDto() != null) {
-            SocialPlatform platform = request.socialLinksDto().platform();
-            String url = request.socialLinksDto().url();
-            SocialLinks socialLink = socialLinksRepository
-                    .findByUserAndPlatform(user, platform)
-                    .orElse(SocialLinks.builder().user(user).platform(platform).build());
-            socialLink.setUrl(url);
-            socialLinksRepository.save(socialLink);
+        if (request.socialLinks() != null) {
+            upsertSocialLink(user, SocialPlatform.INSTAGRAM, request.socialLinks().instagram());
+            upsertSocialLink(user, SocialPlatform.TWITTER, request.socialLinks().twitter());
+            upsertSocialLink(user, SocialPlatform.WEBSITE, request.socialLinks().website());
         }
         //load updated user
         User updatedUser = findUserById(userId);
@@ -173,5 +169,21 @@ public class UserProfileService {
     private User findUserById(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User with id " + userId + " not found"));
+    }
+
+    private void upsertSocialLink(User user, SocialPlatform platform, String url) {
+        // Safety check: Don't do anything if the URL is missing or blank
+        if (url == null || url.isBlank()) {
+            return;
+        }
+
+        // Find the existing link or create a new one
+        SocialLinks link = socialLinksRepository
+                .findByUserAndPlatform(user, platform)
+                .orElse(SocialLinks.builder().user(user).platform(platform).build());
+
+        // Update the URL and save
+        link.setUrl(url);
+        socialLinksRepository.save(link);
     }
 }
