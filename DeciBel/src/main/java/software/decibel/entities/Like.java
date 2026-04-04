@@ -19,7 +19,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "track_likes", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"user_id", "track_id"})
+    @UniqueConstraint(columnNames = {"user_id", "track_id"})
 })
 @Data
 @NoArgsConstructor

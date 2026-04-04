@@ -19,6 +19,8 @@ public interface TrackMapper {
     @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
     @Mapping(target = "isLiked", expression = "java(likedTrackIds.contains(track.getId()))")
     @Mapping(target = "isReposted", expression = "java(repostedTrackIds.contains(track.getId()))")
+    @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
+    @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
     TrackResponse toTrackResponse(Track track, Set<Long> likedTrackIds, Set<Long> repostedTrackIds);
 
     // MapStruct to handle single track response
@@ -26,6 +28,8 @@ public interface TrackMapper {
     @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
     @Mapping(target = "isLiked", source = "isLiked")
     @Mapping(target = "isReposted", source = "isReposted")
+    @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
+    @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
     TrackResponse toTrackResponseSingle(Track track, boolean isLiked, boolean isReposted);
 
     // This method perfectly handles your paginated views using the Sets passed from the Service
@@ -47,6 +51,8 @@ public interface TrackMapper {
     @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
     @Mapping(target = "isLiked", expression = "java(isLiked)")
     @Mapping(target = "isReposted", expression = "java(isReposted)")
+    @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
+    @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
     TrackResponse toTrackResponse(Track track, boolean isLiked, boolean isReposted);
 
     default TrackArtist mapArtist(User user) {
