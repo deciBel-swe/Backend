@@ -9,8 +9,10 @@ import software.decibel.dtos.track.*;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
+import software.decibel.enums.Visibility;
 
-@Mapper(componentModel = "spring") // Spring injects it as a @Component
+@Mapper(componentModel = "spring",
+        imports = {Visibility.class}) // Spring injects it as a @Component
 public interface TrackMapper {
 
     // ----------------- TrackResponse DTOs ---------------------
