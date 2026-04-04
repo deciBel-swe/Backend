@@ -79,8 +79,8 @@ public class TrackController {
     public ResponseEntity<TrackPublishResponse> publishTrack(@PathVariable Long trackId) {
         return ResponseEntity.status(HttpStatus.OK).body(trackService.publishTrack(trackId));
     }
-    // GET /tracks/{trackId} to get track data
 
+    // GET /tracks/{trackId} to get track data
     @GetMapping("/{trackId}")
     public ResponseEntity<TrackResponse> getTrack(@PathVariable Long trackId) {
         return ResponseEntity.ok(trackService.getTrackData(trackId));
