@@ -5,7 +5,10 @@ import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
 import software.decibel.entities.Repost;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
@@ -16,12 +19,16 @@ public interface RepostRepository extends JpaRepository<Repost, Long> {
 
     Optional<Repost> findByUserAndTrack(User user, Track track);
 
-  // keep query fixes type cast issue
-  @Query("SELECT l.track.id FROM Repost l WHERE l.user.id = :userId")
-  Set<Long> findTrackIdsByUserId(Long userId);
+    // keep query fixes type cast issue
+    @Query("SELECT l.track.id FROM Repost l WHERE l.user.id = :userId")
+    Set<Long> findTrackIdsByUserId(Long userId);
 
-  boolean existsByUserIdAndTrackId(Long userId, Long id);
+    boolean existsByUserIdAndTrackId(Long userId, Long id);
 
-  @Query("SELECT r.track FROM Repost r WHERE r.user.id = :userId")
-  Page<Track> findRepostedTracksByUserId(Long userId, Pageable pageable);
+    @Query("SELECT r.track FROM Repost r WHERE r.user.id = :userId")
+    Page<Track> findRepostedTracksByUserId(Long userId, Pageable pageable);
+
+    @Modifying
+    @Query("DELETE FROM Repost r WHERE r.track.id = :trackId")
+    void deleteAllByTrackId(@Param("trackId") Long trackId);
 }
