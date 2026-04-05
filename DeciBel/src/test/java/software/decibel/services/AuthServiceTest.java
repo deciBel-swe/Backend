@@ -15,6 +15,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -79,15 +80,23 @@ class AuthServiceTest {
     @Test
     void registerLocal_whenRequestIsValid_savesUserAndSendsEmail() {
         RegisterLocalRequest request = registerRequest();
+
         when(authIdentityRepository.existsByEmailIgnoreCase(request.email())).thenReturn(false);
         when(authIdentityRepository.existsByEmailIgnoreCaseAndProviderAndType(anyString(), any(), any()))
                 .thenReturn(false);
-        when(userRepository.findByUsername(request.username())).thenReturn(Optional.empty());
+
+        when(userRepository.findByUsername(anyString())).thenReturn(Optional.empty());
+
         when(passwordEncoder.encode(request.password())).thenReturn("hashed-password");
         when(userProfileUtility.buildLocation(request.city(), request.country()))
                 .thenReturn("Cairo, Egypt");
 
-        User savedUser = User.builder().id(7L).username(request.username()).build();
+        // 2. Set up the mock saved user
+        User savedUser = User.builder()
+                .id(7L)
+                .username("generatedusername") // Simulate what the DB would return
+                .displayName(request.displayName())
+                .build();
         when(userRepository.save(any(User.class))).thenReturn(savedUser);
 
         Token verificationToken = Token.builder().hash("hash").build();
@@ -98,8 +107,12 @@ class AuthServiceTest {
 
         MessageResponse response = authService.registerLocal(request);
 
+        // 3. Update the assertion to check the start of the message, since the username suffix might be random
         assertEquals("User Generated successfully", response.message());
-        verify(emailService).sendEmailVerificationEmail(eq("new@example.com"), contains("raw-token"));
+
+        // (Optional but recommended) Ensure the email passed to the service matches the request
+        verify(emailService).sendEmailVerificationEmail(eq(request.email()), contains("raw-token"));
+
         verify(userRepository).save(any(User.class));
         verify(authIdentityRepository).save(any(AuthIdentity.class));
     }
@@ -118,19 +131,41 @@ class AuthServiceTest {
     }
 
     @Test
-    void registerLocal_whenUsernameAlreadyExists_throwsConflict() {
-        RegisterLocalRequest request = registerRequest();
+    void registerLocal_whenBaseUsernameExists_generatesUniqueUsernameWithSuffix() {
+        RegisterLocalRequest request = registerRequest(); // Ensure this has displayName
+
         when(authIdentityRepository.existsByEmailIgnoreCase(request.email())).thenReturn(false);
         when(authIdentityRepository.existsByEmailIgnoreCaseAndProviderAndType(anyString(), any(), any()))
                 .thenReturn(false);
-        when(userRepository.findByUsername(request.username())).thenReturn(Optional.of(User.builder().build()));
+        when(userRepository.findByUsername(anyString()))
+                .thenReturn(Optional.of(User.builder().build()))
+                .thenReturn(Optional.empty());
 
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-                () -> authService.registerLocal(request));
+        when(passwordEncoder.encode(request.password())).thenReturn("hashed-password");
+        when(userProfileUtility.buildLocation(request.city(), request.country()))
+                .thenReturn("Cairo, Egypt");
 
-        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
-        verify(userRepository, never()).save(any(User.class));
-        verify(authIdentityRepository, never()).save(any(AuthIdentity.class));
+        User savedUser = User.builder()
+                .id(7L)
+                .username("generatedusername1234")
+                .displayName(request.displayName())
+                .build();
+        when(userRepository.save(any(User.class))).thenReturn(savedUser);
+
+        Token verificationToken = Token.builder().hash("hash").build();
+        when(tokenService.createEmailVerificationToken(any(User.class)))
+                .thenReturn(new IssuedToken("raw-token", verificationToken));
+        when(frontendLinkService.buildEmailVerificationLink("raw-token"))
+                .thenReturn("https://link.com/verify?token=raw-token");
+
+        MessageResponse response = authService.registerLocal(request);
+
+        assertEquals("User Generated successfully", response.message());
+
+        verify(userRepository, times(2)).findByUsername(anyString());
+
+        verify(userRepository).save(any(User.class));
+        verify(authIdentityRepository).save(any(AuthIdentity.class));
     }
 
     @Test
@@ -149,7 +184,7 @@ class AuthServiceTest {
         when(tokenService.createRefreshToken(user))
                 .thenReturn(new IssuedToken("refresh-token", mockToken));
 
-        // Mock JwtService - Ensures Role (ARTIST) is mapped!
+        // Mock JwtService 
         when(jwtService.buildAccessToken(user, identity.getEmail())).thenReturn("access-token");
 
         AuthLoginResult result = authService.loginLocal(request);
