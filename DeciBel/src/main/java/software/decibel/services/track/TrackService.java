@@ -1,13 +1,19 @@
 package software.decibel.services.track;
 
 import jakarta.transaction.Transactional;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -16,6 +22,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+
 import software.decibel.dtos.track.*;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
@@ -28,6 +35,9 @@ import software.decibel.exceptions.custom.TrackAlreadyPublishedException;
 import software.decibel.exceptions.custom.UnauthorizedActionException;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.TrackRepository;
+import software.decibel.repositories.LikeRepository;
+import software.decibel.repositories.RepostRepository;
+import software.decibel.repositories.CommentRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.JwtService;
 import software.decibel.services.TagService;
@@ -42,8 +52,15 @@ import tools.jackson.databind.ObjectMapper;
 @RequiredArgsConstructor
 public class TrackService {
 
+    @Lazy
+    @Autowired
+    private TrackService self; // Self-injection to call methods with @Transactional
+
     private final TrackRepository trackRepository;
     private final UserRepository userRepository;
+    private final LikeRepository likeRepository;
+    private final RepostRepository repostRepository;
+    private final CommentRepository commentRepository;
     private final UserService userService;
 
     // Injected newly separated services
@@ -63,14 +80,19 @@ public class TrackService {
         return trackMapper.toTrackStatusResponse(getTrackIfExistsById(trackId));
     }
 
-    @Transactional
     public void deleteTrack(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
-
         deleteTrackCover(trackId);
         deleteTrackAudio(trackId);
         deleteTrackWaveformData(trackId);
+        self.deleteTrackFromDatabase(trackId);
+    }
 
+    @Transactional
+    public void deleteTrackFromDatabase(Long trackId) {
+        Track track = getTrackIfExistsById(trackId);
+        likeRepository.deleteAllByTrackId(trackId);
+        repostRepository.deleteAllByTrackId(trackId);
+        commentRepository.deleteAllByTrackId(trackId);
         trackRepository.delete(track);
     }
 

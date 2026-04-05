@@ -94,6 +94,10 @@ public class UserProfileService {
         if (user.isPrivate() && !Objects.equals(user.getId(), currentUserId)) {
             throw new ResourceNotFoundException("User with username " + username + " not found");
         }
+        //check if the current user is blocked by this profile, if so, throw a 404
+        if (currentUserId != null && blockRepository.existsByBlockerAndBlocked(user, userRepository.getReferenceById(currentUserId))) {
+            throw new ResourceNotFoundException("User with username " + username + " not found");
+        }
         return getResponseWithFollowStatus(user, false);
     }
 

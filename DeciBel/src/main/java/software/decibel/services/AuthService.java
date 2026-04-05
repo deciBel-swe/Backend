@@ -66,14 +66,17 @@ public class AuthService {
                         request.email(), AuthProvider.LOCAL, AuthType.PASSWORD)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already exists");
         }
-
-        if (userRepository.findByUsername(request.username()).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already exists");
+        String baseUsername = request.displayName().toLowerCase().replaceAll("[^a-z0-9]", "");
+        String generatedUsername = baseUsername;
+        while (userRepository.findByUsername(generatedUsername).isPresent()) {
+            int randomSuffix = (int) (Math.random() * 9000) + 1000; // generates 1000 to 9999
+            generatedUsername = baseUsername + randomSuffix;
         }
 
         String hashedPassword = passwordEncoder.encode(request.password());
         User user = User.builder()
-                .username(request.username())
+                .username(generatedUsername)
+                .displayName(request.displayName())
                 .location(userProfileUtility.buildLocation(request.city(), request.country()))
                 .build();
         User savedUser = userRepository.save(user);

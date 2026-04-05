@@ -19,6 +19,7 @@ import software.decibel.repositories.RepostRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.services.JwtService;
 import software.decibel.services.user.UserService;
+import software.decibel.enums.Visibility;
 
 @Service
 @RequiredArgsConstructor
@@ -37,6 +38,9 @@ public class RepostService {
 
         if (repostRepository.existsByUserAndTrack(user, track)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Track already reposted");
+        }
+        if (track.getVisibility() == Visibility.PRIVATE) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot repost a private track");
         }
 
         repostRepository.save(Repost.builder()

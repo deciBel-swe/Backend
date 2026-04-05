@@ -40,6 +40,7 @@ public class UserMappingUtility {
                 user.getId(),
                 resolveEmail(user),
                 user.getUsername(),
+                user.getDisplayName(),
                 user.getTier(),
                 user.getFollowerCount(),
                 user.getFollowingCount(),

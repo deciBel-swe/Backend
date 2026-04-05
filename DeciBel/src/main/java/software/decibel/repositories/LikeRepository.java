@@ -5,7 +5,10 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
 import software.decibel.entities.Like;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
@@ -16,12 +19,16 @@ public interface LikeRepository extends JpaRepository<Like, Long> {
 
     Optional<Like> findByUserAndTrack(User user, Track track);
 
-  // fixes typecast issue keep query
-  @Query("SELECT l.track.id FROM Like l WHERE l.user.id = :userId")
-  List<Long> findTrackIdsByUserId(Long userId);
+    // fixes typecast issue keep query
+    @Query("SELECT l.track.id FROM Like l WHERE l.user.id = :userId")
+    List<Long> findTrackIdsByUserId(Long userId);
 
-  @Query("SELECT l.track FROM Like l WHERE l.user.id = :userId")
-  Page<Track> findLikedTracksByUserId(Long userId, Pageable pageable);
+    @Query("SELECT l.track FROM Like l WHERE l.user.id = :userId")
+    Page<Track> findLikedTracksByUserId(Long userId, Pageable pageable);
 
-  boolean existsByUserIdAndTrackId(Long userId, Long trackId);
+    @Modifying
+    @Query("DELETE FROM Like r WHERE r.track.id = :trackId")
+    void deleteAllByTrackId(@Param("trackId") Long trackId);
+
+    boolean existsByUserIdAndTrackId(Long userId, Long trackId);
 }

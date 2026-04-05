@@ -12,7 +12,7 @@ public record RegisterLocalRequest(
         @ValidEmail
         String email,
         @NotBlank
-        String username,
+        String displayName,
         @NotBlank
         String password,
         @NotNull

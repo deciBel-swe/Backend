@@ -44,6 +44,7 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/playlists/{playlistId}").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/tracks/{trackId}").permitAll()
                                 .requestMatchers(HttpMethod.POST, "/auth/refreshtoken").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/users/{userId}/tracks").permitAll()
                                 //needed for api docs
                                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                                 .anyRequest().authenticated())
