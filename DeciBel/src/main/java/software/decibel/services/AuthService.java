@@ -76,6 +76,7 @@ public class AuthService {
         String hashedPassword = passwordEncoder.encode(request.password());
         User user = User.builder()
                 .username(generatedUsername)
+                .displayName(request.displayName())
                 .location(userProfileUtility.buildLocation(request.city(), request.country()))
                 .build();
         User savedUser = userRepository.save(user);
