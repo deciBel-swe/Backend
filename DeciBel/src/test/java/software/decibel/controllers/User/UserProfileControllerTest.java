@@ -43,12 +43,12 @@ class UserProfileControllerTest {
     @Test
     void getUserProfileByUsername_returnsFollowStatus() throws Exception {
         String username = "testuser";
-        String displayname = "Test User";
+        String displayName = "Test User";
         UserProfile profile = new UserProfile(
                 2L,
                 "test@example.com",
                 username,
-                displayname, // displayName
+                displayName, // displayName
                 null, // AccountTier
                 10, // followerCount
                 5, // followingCount

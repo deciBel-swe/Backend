@@ -1,15 +1,20 @@
 package software.decibel.utils;
 
-import com.azure.storage.blob.BlobClient;
-import com.azure.storage.blob.BlobContainerClient;
-import com.azure.storage.blob.BlobContainerClientBuilder;
-import com.azure.storage.blob.models.BlobStorageException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.UUID;
+
+import org.apache.tika.Tika;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
+
+import com.azure.storage.blob.BlobClient;
+import com.azure.storage.blob.BlobContainerClient;
+import com.azure.storage.blob.BlobContainerClientBuilder;
+import com.azure.storage.blob.models.BlobHttpHeaders;
+import com.azure.storage.blob.models.BlobStorageException;
+
 import software.decibel.enums.FileType;
 import software.decibel.exceptions.custom.AzureFileStorageException;
 
@@ -21,6 +26,7 @@ public class FileUtilityAzure {
 
     // Client that connects to your specific container in Azure
     private final BlobContainerClient blobContainerClient;
+    private final Tika tika;
 
     // Constructor (get values from application.properties)
     public FileUtilityAzure(
@@ -33,6 +39,7 @@ public class FileUtilityAzure {
                         .connectionString(connectionString)
                         .containerName(containerName)
                         .buildClient();
+        this.tika = new Tika();
     }
 
     // Saves file to azure and returns the URL of the uploaded file
@@ -54,6 +61,10 @@ public class FileUtilityAzure {
 
             //  upload file's bytes, size, and true -> overwrite if file exists
             blobClient.upload(file.getInputStream(), file.getSize(), true);
+            // Determine and apply the correct Content-Type metadata
+            String contentType = tika.detect(file.getBytes());
+            BlobHttpHeaders headers = new BlobHttpHeaders().setContentType(contentType);
+            blobClient.setHttpHeaders(headers); // Set it in Azure
 
             // correct display of url
             return blobContainerClient.getBlobContainerUrl() + "/" + fileName;

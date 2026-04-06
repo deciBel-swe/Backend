@@ -133,9 +133,9 @@ public class AuthController {
                 && !"dev".equals(activeProfile);
         return ResponseCookie.from("refreshToken", refreshToken)
                 .httpOnly(true) // Prevent JavaScript access to mitigate XSS
-                .secure(isProduction)
+                .secure(isProduction) // Only send over HTTPS in production
                 .sameSite("Lax") // Protection against CSRF
-                .path("/auth") // Limit cookie scope to auth endpoints
+                .path("/api/auth") // Limit cookie scope to auth endpoints
                 .maxAge(maxAgeSeconds)
                 .build();
     }
