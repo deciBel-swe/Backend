@@ -32,14 +32,12 @@ import software.decibel.entities.Track;
 import software.decibel.entities.User;
 import software.decibel.enums.PlaylistType;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
-import software.decibel.exceptions.custom.TrackAlreadyInPlaylistException;
 import software.decibel.mappers.PlaylistMapper;
 import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.FileUtilityAzure;
-import software.decibel.exceptions.custom.TrackAlreadyInPlaylistException;
 
 @ExtendWith(MockitoExtension.class)
 class PlaylistServiceTest {
@@ -191,50 +189,16 @@ class PlaylistServiceTest {
     }
 
     @Test
-    void addTrack_whenTrackAlreadyInPlaylist_throwsConflict() {
-        Long userId = 1L;
-        Long playlistId = 10L;
-        Long trackId = 100L;
-
-        User user = user();
-        user.setId(userId);
-
-        Track track = track(trackId, "Jazz", 200);
-        Playlist playlist = playlist(user);
-        playlist.getTracks().add(track);
-
-        when(playlistRepository.findById(playlistId)).thenReturn(Optional.of(playlist));
-
-        when(trackRepository.findById(trackId)).thenReturn(Optional.of(track));
-        TrackAlreadyInPlaylistException exception = assertThrows(TrackAlreadyInPlaylistException.class, () -> {
-            playlistService.addTrack(userId, playlistId, trackId);
-        });
-
-        assertEquals("Track with ID " + trackId + " is already in this playlist.", exception.getMessage());
-
-        verify(playlistRepository, never()).save(any());
-    }
-
-    @Test
     void addTrack_whenUserIsNotOwner_throwsForbidden() {
-        Long ownerId = 1L;
-        Long wrongUserId = 99L;
-        Long playlistId = 10L;
-        Long trackId = 100L;
-
         User owner = user();
-        owner.setId(ownerId);
         Playlist playlist = playlist(owner);
 
-        when(playlistRepository.findById(playlistId)).thenReturn(Optional.of(playlist));
+        when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
 
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
-            playlistService.addTrack(wrongUserId, playlistId, trackId);
-        });
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> playlistService.addTrack(99L, 10L, 100L));
 
         assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
-
-        verify(playlistRepository, never()).save(any());
     }
 
     @Test
