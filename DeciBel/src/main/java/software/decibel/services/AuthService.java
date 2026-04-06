@@ -40,9 +40,9 @@ import software.decibel.utils.UserProfileUtility;
 public class AuthService {
 
     /**
-     * Refresh token lifetime in seconds (30 days).
+     * Refresh token lifetime in seconds (7 days).
      */
-    private static final long REFRESH_TOKEN_EXPIRES_IN_SECONDS = 30L * 24L * 60L * 60L;
+    private static final long REFRESH_TOKEN_EXPIRES_IN_SECONDS = 7L * 24L * 60L * 60L;
     private static final long COOLDOWN_SECONDS = 60L; // 1 minute cooldown for resending verification emails
 
     private final UserRepository userRepository;
@@ -168,13 +168,13 @@ public class AuthService {
                 user, AuthProvider.GOOGLE, AuthType.OAUTH))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User identity not found"));
 
-        // 1- Mark old token as used (Rotation)
+        //Mark old token as used (Rotation)
         tokenService.markTokenUsed(oldToken);
 
-        // 2- Issue NEW Refresh Token
+        //Issue NEW Refresh Token
         AuthRefreshTokenResult newRefreshTokenResult = issueRefreshToken(user);
 
-        // 3- Issue NEW Access Token
+        //Issue NEW Access Token
         String newAccessToken = jwtService.buildAccessToken(user, identity.getEmail());
 
         RefreshTokenResponse response = new RefreshTokenResponse(newAccessToken,

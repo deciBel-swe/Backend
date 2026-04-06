@@ -8,7 +8,7 @@ public record UserProfile(
         Long id,
         String email,
         String username,
-        String displayname,
+        String displayName,
         AccountTier tier,
         int followerCount,
         int followingCount,
