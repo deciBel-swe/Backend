@@ -64,6 +64,10 @@ public class Playlist {
 
     @Builder.Default
     private int trackCount = 0;
+    @Builder.Default
+    private int likeCount = 0;
+    @Builder.Default
+    private int repostCount = 0;
 
     @Builder.Default
     private int totalDurationSeconds = 0;
@@ -89,7 +93,7 @@ public class Playlist {
     // Slug history — soft deleted old slugs
     @OneToMany(mappedBy = "playlist", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
-    private List<PlaylistSlug> slugHistory = new ArrayList<>();
+    private List<PlaylistToken> slugHistory = new ArrayList<>();
 
     @CreationTimestamp
     private LocalDateTime createdAt;

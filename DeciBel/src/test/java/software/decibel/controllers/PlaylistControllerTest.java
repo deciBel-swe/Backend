@@ -57,7 +57,7 @@ class PlaylistControllerTest {
 
     @BeforeEach
     void setUp() {
-        PlaylistController controller = new PlaylistController(playlistService);
+        PlaylistController controller = new PlaylistController(playlistService, null, null); // Pass null for likeService and repostService since they're not used in these tests
 
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
