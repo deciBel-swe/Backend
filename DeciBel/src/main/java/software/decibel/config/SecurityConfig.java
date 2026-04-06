@@ -45,6 +45,12 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/tracks/{trackId}").permitAll()
                                 .requestMatchers(HttpMethod.POST, "/auth/refreshtoken").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{userId}/tracks").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/playlists/token/{token}").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/users/tracks/{trackId}/like").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/users/tracks/{trackId}/reposters").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/users/playlists/{playlistId}/like").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/users/playlists/{playlistId}/reposters").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/users/{username}/playlists").permitAll()
                                 //needed for api docs
                                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                                 .anyRequest().authenticated())

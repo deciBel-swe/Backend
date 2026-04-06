@@ -27,7 +27,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Like {
+public class TrackLike {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

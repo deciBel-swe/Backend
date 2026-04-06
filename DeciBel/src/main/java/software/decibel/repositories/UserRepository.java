@@ -19,7 +19,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
         WHERE u.id <> :userId
         AND (u.id IN (
             SELECT t.uploader.id FROM Track t
-            JOIN Like l ON l.track.id = t.id
+            JOIN TrackLike l ON l.track.id = t.id
             WHERE l.user.id = :userId
             AND t.genre IN :genres
         ) OR EXISTS (

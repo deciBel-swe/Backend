@@ -1,28 +1,42 @@
 package software.decibel.services.playlist;
 
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import software.decibel.dtos.playlist.CreatePlaylistRequest;
 import software.decibel.dtos.playlist.PatchPlaylistRequest;
 import software.decibel.dtos.playlist.PlaylistResponse;
+import software.decibel.dtos.playlist.PlaylistTokenResponse;
+import software.decibel.dtos.playlist.ReorderTracksRequest;
 import software.decibel.entities.Playlist;
-import software.decibel.entities.PlaylistSlug;
+import software.decibel.entities.PlaylistRepost;
+import software.decibel.entities.PlaylistToken;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
 import software.decibel.enums.FileType;
+import software.decibel.exceptions.custom.InvalidPlaylistOperationException;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
-import software.decibel.exceptions.custom.UnauthorizedActionException;
+import software.decibel.exceptions.custom.TrackAlreadyInPlaylistException;
 import software.decibel.mappers.PlaylistMapper;
+import software.decibel.repositories.PlaylistLikeRepository;
 import software.decibel.repositories.PlaylistRepository;
-import software.decibel.repositories.PlaylistSlugRepository;
+import software.decibel.repositories.PlaylistRepostRepository;
+import software.decibel.repositories.PlaylistTokenRepository;
 import software.decibel.repositories.TrackRepository;
+import software.decibel.repositories.UserRepository;
 import software.decibel.services.JwtService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.FileUtilityAzure;
@@ -30,20 +44,24 @@ import software.decibel.utils.SlugUtility;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PlaylistService {
 
     private final PlaylistRepository playlistRepository;
-    private final PlaylistSlugRepository playlistSlugRepository;
+    private final PlaylistTokenRepository playlistTokenRepository;
     private final TrackRepository trackRepository;
     private final FileUtilityAzure fileUtilityAzure;
     private final PlaylistMapper playlistMapper;
     private final UserService userService;
+    private final PlaylistLikeRepository playlistLikeRepository;
+    private final PlaylistRepostRepository playlistRepostRepository;
+    private final UserRepository userRepository;
 
     @Transactional
     public PlaylistResponse createPlaylist(Long userId, CreatePlaylistRequest request) {
         User user = userService.getUserIfExistsById(userId);
 
-        // 1. Handle Business Logic (Slugs & Files)
+        //Handle Business Logic (Slugs & Files)
         String slug = SlugUtility.generateUniqueSlug(
                 request.title(),
                 playlistRepository::existsBySlug);
@@ -53,18 +71,12 @@ public class PlaylistService {
             coverArtUrl = fileUtilityAzure.saveFile(request.coverArt(), FileType.TRACK_COVERS);
         }
 
-        // 2. Delegate object creation to Mapper
+        // Delegate object creation to Mapper
         Playlist playlist = playlistMapper.toEntity(request, user, slug, coverArtUrl);
 
         playlist = playlistRepository.save(playlist);
 
-        // 3. Save slug to history
-        playlistSlugRepository.save(PlaylistSlug.builder()
-                .slug(slug)
-                .playlist(playlist)
-                .build());
-
-        // 4. Map back to Response DTO
+        //Map back to Response DTO
         return playlistMapper.toResponse(playlist);
     }
 
@@ -76,25 +88,7 @@ public class PlaylistService {
         String newSlug = null;
         String newCoverArtUrl = null;
 
-        // 1. Handle Slug Business Logic if title changes
-        if (request.title() != null) {
-            playlistSlugRepository.findBySlugAndIsDeletedFalse(playlist.getSlug())
-                    .ifPresent(s -> {
-                        s.setDeleted(true);
-                        playlistSlugRepository.save(s);
-                    });
-
-            newSlug = SlugUtility.generateUniqueSlug(
-                    request.title(),
-                    playlistRepository::existsBySlug);
-
-            playlistSlugRepository.save(PlaylistSlug.builder()
-                    .slug(newSlug)
-                    .playlist(playlist)
-                    .build());
-        }
-
-        // 2. Handle File Business Logic if cover art changes
+        //  Handle File Business Logic if cover art changes
         if (request.coverArt() != null && !request.coverArt().isEmpty()) {
             if (playlist.getCoverArtUrl() != null) {
                 fileUtilityAzure.deleteFileByUrl(playlist.getCoverArtUrl());
@@ -102,16 +96,30 @@ public class PlaylistService {
             newCoverArtUrl = fileUtilityAzure.saveFile(request.coverArt(), FileType.TRACK_COVERS);
         }
 
-        // 3. Delegate the tedious field-by-field updates to the Mapper
+        //Delegate the tedious field-by-field updates to the Mapper
         playlistMapper.updateEntityFromPatch(request, playlist, newSlug, newCoverArtUrl);
 
         playlist = playlistRepository.save(playlist);
 
-        // 4. Map back to Response DTO
+        //Map back to Response DTO
         return playlistMapper.toResponse(playlist);
     }
 
     public PlaylistResponse getPlaylist(Long playlistId) {
+        Long currentUserId = null;
+        Playlist playlist = findPlaylistById(playlistId);
+        try {
+            // Attempt to get the current user ID. 
+            currentUserId = JwtService.getCurrentUserId();
+        } catch (Exception e) {
+            // User is not logged in, leave currentUserId as null
+        }
+        //privacy check
+        if (playlist.isPrivate()) {
+            if (currentUserId == null || !playlist.getUser().getId().equals(currentUserId)) {
+                throw new ResourceNotFoundException("Playlist with id " + playlistId + " not found");
+            }
+        }
         return playlistMapper.toResponse(findPlaylistById(playlistId));
     }
 
@@ -124,7 +132,8 @@ public class PlaylistService {
                 .orElseThrow(() -> new ResourceNotFoundException("Track with id " + trackId + " not found"));
 
         if (playlist.getTracks().stream().anyMatch(t -> t.getId().equals(trackId))) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Track already in playlist");
+            throw new TrackAlreadyInPlaylistException(
+                    "Track with ID " + trackId + " is already in this playlist.");
         }
 
         playlist.getTracks().add(track);
@@ -137,6 +146,26 @@ public class PlaylistService {
         }
 
         return playlistMapper.toResponse(playlistRepository.save(playlist));
+    }
+
+    @Transactional
+    public void unrepostPlaylist(Long userId, Long playlistId) {
+        //Ensure the playlist actually exists
+        Playlist playlist = findPlaylistById(playlistId); // Uses the method we made earlier
+
+        // Check if the user actually reposted it
+        PlaylistRepost repost = playlistRepostRepository.findByUserIdAndPlaylistId(userId, playlistId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                "You have not reposted playlist with id " + playlistId));
+
+        //Delete the repost record
+        playlistRepostRepository.delete(repost);
+
+        //Decrement the playlist's repost counter (preventing negative numbers)
+        if (playlist.getRepostCount() > 0) {
+            playlist.setRepostCount(playlist.getRepostCount() - 1);
+            playlistRepository.save(playlist);
+        }
     }
 
     @Transactional
@@ -169,18 +198,147 @@ public class PlaylistService {
 
     @Transactional
     public void deletePlaylist(Long playlistId) {
-        Playlist playlist = playlistRepository.findById(playlistId)
-                .orElseThrow(() -> new ResourceNotFoundException("Playlist with id " + playlistId + " not found"));
+        // Fetch the playlist 
+        Playlist playlist = getPlaylistIfExistsById(playlistId);
 
-        Long currentUserId = JwtService.getCurrentUserId();
+        // 2. Extract the file URL before we delete the database record
+        String coverArtUrl = playlist.getCoverArtUrl();
 
-        // Check if the playlist belongs to the current user.
-        // Note: adjust 'getUser()' or 'getOwner()' based on your Playlist entity structure.
-        if (!playlist.getUser().getId().equals(currentUserId)) {
-            throw new UnauthorizedActionException("You are not allowed to delete this playlist.");
+        // Perform all database deletions for related entities
+        playlistLikeRepository.deleteAllByPlaylistId(playlistId);
+        playlistRepostRepository.deleteAllByPlaylistId(playlistId);
+
+        // 4. Delete the playlist itself
+        playlistRepository.delete(playlist);
+
+        // 5. Instruct Spring to delete the files ONLY after the DB commit succeeds
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    // Only run if the database successfully deletes the records
+                    if (coverArtUrl != null) {
+                        // Call your Azure utility directly using the URL we saved in step 2
+                        fileUtilityAzure.deleteFileByUrl(coverArtUrl);
+                    }
+                } catch (Exception e) {
+                    // The database deletion succeeded, but file deletion failed.
+                    log.error("Database deletion succeeded, but failed to delete cover art for playlist {}", playlistId, e);
+                }
+            }
+        });
+    }
+
+    //get playlist by token
+    public PlaylistResponse getPlaylistByToken(String token) {
+        PlaylistToken playlistToken = playlistTokenRepository
+                .findByTokenAndIsDeletedFalse(token)
+                .orElseThrow(() -> new ResourceNotFoundException("Invalid or expired playlist token"));
+        return playlistMapper.toResponse(playlistToken.getPlaylist());
+    }
+
+    //generate token
+    @Transactional
+    public PlaylistTokenResponse generateToken(Long userId, Long playlistId) {
+        Playlist playlist = findPlaylistById(playlistId);
+        checkOwnership(playlist, userId);
+
+        // Soft delete existing token
+        playlistTokenRepository.findByPlaylistIdAndIsDeletedFalse(playlistId)
+                .ifPresent(t -> {
+                    t.setDeleted(true);
+                    playlistTokenRepository.save(t);
+                });
+
+        String token = UUID.randomUUID().toString();
+        playlistTokenRepository.save(PlaylistToken.builder()
+                .token(token)
+                .playlist(playlist)
+                .build());
+
+        return new PlaylistTokenResponse(token);
+    }
+
+// reorder tracks in playlist
+    @Transactional
+    public PlaylistResponse reorderTracks(Long userId, Long playlistId, ReorderTracksRequest request) {
+        Playlist playlist = findPlaylistById(playlistId);
+        checkOwnership(playlist, userId);
+
+        List<Long> newOrder = request.trackIds();
+
+        // Validate all provided IDs exist in playlist
+        List<Long> existingIds = playlist.getTracks().stream()
+                .map(Track::getId)
+                .collect(Collectors.toList());
+
+        if (!existingIds.containsAll(newOrder) || existingIds.size() != newOrder.size()) {
+            throw new InvalidPlaylistOperationException(
+                    "Provided track IDs must match exactly the tracks in the playlist");
         }
 
-        playlistRepository.delete(playlist);
+        // Reorder tracks
+        Map<Long, Track> trackMap = playlist.getTracks().stream()
+                .collect(Collectors.toMap(Track::getId, t -> t));
+
+        List<Track> reordered = newOrder.stream()
+                .map(trackMap::get)
+                .collect(Collectors.toList());
+
+        playlist.setTracks(reordered);
+        return playlistMapper.toResponse(playlistRepository.save(playlist));
+    }
+
+    // public playlists of any user
+    public Page<PlaylistResponse> getPublicPlaylistsByUsername(String username, Pageable pageable) {
+        User user = getUserByUsername(username);
+        return playlistRepository
+                .findByUserIdAndIsPrivateFalse(user.getId(), pageable)
+                .map(playlistMapper::toResponse);
+    }
+
+    // gets a specific public playlist of any user by playlist ID
+    public PlaylistResponse getPublicPlaylistByIdAndUsername(String username, Long playlistId) {
+        User user = getUserByUsername(username);
+        Playlist playlist = findPlaylistById(playlistId);
+
+        if (!playlist.getUser().getId().equals(user.getId())) {
+            throw new ResourceNotFoundException("Playlist with id " + playlistId + " not found");
+        }
+        if (playlist.isPrivate()) {
+            throw new ResourceNotFoundException("Playlist with id " + playlistId + " not found");
+        }
+        return playlistMapper.toResponse(playlist);
+    }
+
+    // all playlists (including private) of the current user
+    public Page<PlaylistResponse> getPlaylistsByUserId(Long userId, Pageable pageable) {
+        return playlistRepository
+                .findByUserId(userId, pageable)
+                .map(playlistMapper::toResponse);
+    }
+
+    // getting current user's specific playlist by ID (private or public)
+    public PlaylistResponse getOwnedPlaylistById(Long currentUserId, Long playlistId) {
+        Playlist playlist = findPlaylistById(playlistId);
+        checkOwnership(playlist, currentUserId);
+        return playlistMapper.toResponse(playlist);
+    }
+
+    // getting all user liked playlists
+    public Page<PlaylistResponse> getLikedPlaylistsByUsername(String username, Pageable pageable) {
+        User user = getUserByUsername(username);
+        return playlistLikeRepository
+                .findLikedPlaylistsByUserId(user.getId(), pageable)
+                .map(playlistMapper::toResponse);
+    }
+
+    //get all users who reposted a playlist
+    public Page<PlaylistResponse> getRepostedPlaylistsByUsername(String username, Pageable pageable) {
+        User user = getUserByUsername(username);
+        return playlistRepostRepository
+                .findRepostedPlaylistsByUserId(user.getId(), pageable)
+                .map(playlistMapper::toResponse);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -193,6 +351,27 @@ public class PlaylistService {
         if (!playlist.getUser().getId().equals(userId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not own this playlist");
         }
+    }
+
+    private User getUserByUsername(String username) {
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User '" + username + "' not found"));
+    }
+
+    @Transactional
+    public void deletePlaylistCover(Long playlistId) {
+        Playlist playlist = getPlaylistIfExistsById(playlistId);
+
+        if (playlist.getCoverArtUrl() != null) {
+            fileUtilityAzure.deleteFileByUrl(playlist.getCoverArtUrl());
+            playlist.setCoverArtUrl(null);
+            playlistRepository.save(playlist);
+        }
+    }
+
+    private Playlist getPlaylistIfExistsById(Long playlistId) {
+        return playlistRepository.findById(playlistId)
+                .orElseThrow(() -> new ResourceNotFoundException("Playlist with id " + playlistId + " not found"));
     }
 
 }

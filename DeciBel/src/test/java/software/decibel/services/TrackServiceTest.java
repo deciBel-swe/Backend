@@ -23,7 +23,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.MockitoAnnotations;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import software.decibel.dtos.track.TrackPatchRequest;
 import software.decibel.dtos.track.TrackStatusResponse;
@@ -33,10 +33,10 @@ import software.decibel.enums.TrackState;
 import software.decibel.enums.Visibility;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.TrackMapper;
-import software.decibel.repositories.LikeRepository;
-import software.decibel.repositories.RepostRepository;
 import software.decibel.repositories.CommentRepository;
+import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
+import software.decibel.repositories.TrackRepostRepository;
 import software.decibel.services.track.TrackService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.AudioUtility;
@@ -47,10 +47,10 @@ import tools.jackson.databind.ObjectMapper;
 class TrackServiceTest {
 
     @Mock
-    private LikeRepository likeRepository;
+    private TrackLikeRepository likeRepository;
 
     @Mock
-    private RepostRepository repostRepository;
+    private TrackRepostRepository repostRepository;
     @Mock
     private CommentRepository commentRepository;
     @Mock
@@ -80,14 +80,19 @@ class TrackServiceTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        ReflectionTestUtils.setField(trackService, "self", trackService);
         jwtMock = mockStatic(JwtService.class);
         jwtMock.when(JwtService::getCurrentUserId).thenReturn(mockUserId);
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.initSynchronization();
+        }
     }
 
     @AfterEach
     void tearDown() {
         jwtMock.close();
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.clear();
+        }
     }
 
     // getTrackIfExistsById

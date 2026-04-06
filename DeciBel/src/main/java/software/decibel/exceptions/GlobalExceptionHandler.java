@@ -1,7 +1,9 @@
 package software.decibel.exceptions;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -21,9 +23,11 @@ import software.decibel.exceptions.custom.CooldownActiveException;
 import software.decibel.exceptions.custom.DuplicateResourceException;
 import software.decibel.exceptions.custom.ExternalAuthConfigurationException;
 import software.decibel.exceptions.custom.InvalidGoogleTokenException;
+import software.decibel.exceptions.custom.InvalidPlaylistOperationException;
 import software.decibel.exceptions.custom.InvalidTimestampException;
 import software.decibel.exceptions.custom.ReplyToReplyNotAllowedException;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
+import software.decibel.exceptions.custom.TrackAlreadyInPlaylistException;
 import software.decibel.exceptions.custom.TrackAlreadyPublishedException;
 import software.decibel.exceptions.custom.UnauthorizedActionException;
 import software.decibel.exceptions.response.ApiErrorResponse;
@@ -157,6 +161,32 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(error);
     }
 
+    //called when trying to do invalid ordering on playlists
+    @ExceptionHandler(InvalidPlaylistOperationException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidPlaylistOperation(InvalidPlaylistOperationException ex) {
+
+        Map<String, Object> errorDetails = new HashMap<>();
+        errorDetails.put("timestamp", LocalDateTime.now());
+        errorDetails.put("status", HttpStatus.BAD_REQUEST.value()); // 400
+        errorDetails.put("error", "Bad Request");
+        errorDetails.put("message", ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDetails);
+    }
+
+    //Track already in playlist
+    @ExceptionHandler(TrackAlreadyInPlaylistException.class)
+    public ResponseEntity<Map<String, Object>> handleTrackAlreadyInPlaylist(TrackAlreadyInPlaylistException ex) {
+
+        Map<String, Object> errorDetails = new HashMap<>();
+        errorDetails.put("timestamp", LocalDateTime.now());
+        errorDetails.put("status", HttpStatus.CONFLICT.value()); // 409 Conflict
+        errorDetails.put("error", "Conflict");
+        errorDetails.put("message", ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorDetails);
+    }
+
     // Called when trying to publish an already published track
     @ExceptionHandler(TrackAlreadyPublishedException.class)
     public ResponseEntity<ApiErrorResponse> handleTrackAlreadyPublishedException(
@@ -205,7 +235,8 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(error);
-    } // ── 500 — Catch All Safety Net
+    }
+    // ── 500 — Catch All Safety Net
 
     @ExceptionHandler(ExternalAuthConfigurationException.class)
     public ResponseEntity<ApiErrorResponse> handleExternalAuthConfigurationException(
@@ -222,6 +253,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
     }
 
+    //Invalid Google token provided during authentication
     @ExceptionHandler(InvalidGoogleTokenException.class)
     public ResponseEntity<ApiErrorResponse> handleInvalidGoogleTokenException(
             InvalidGoogleTokenException ex, HttpServletRequest request) {

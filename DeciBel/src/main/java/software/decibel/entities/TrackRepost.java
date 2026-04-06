@@ -27,7 +27,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Repost {
+public class TrackRepost {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

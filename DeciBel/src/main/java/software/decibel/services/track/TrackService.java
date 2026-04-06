@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
@@ -35,8 +36,8 @@ import software.decibel.exceptions.custom.TrackAlreadyPublishedException;
 import software.decibel.exceptions.custom.UnauthorizedActionException;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.TrackRepository;
-import software.decibel.repositories.LikeRepository;
-import software.decibel.repositories.RepostRepository;
+import software.decibel.repositories.TrackLikeRepository;
+import software.decibel.repositories.TrackRepostRepository;
 import software.decibel.repositories.CommentRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.JwtService;
@@ -47,19 +48,18 @@ import software.decibel.services.user.UserService;
 import software.decibel.utils.*;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class TrackService {
-
-    @Lazy
-    @Autowired
-    private TrackService self; // Self-injection to call methods with @Transactional
 
     private final TrackRepository trackRepository;
     private final UserRepository userRepository;
-    private final LikeRepository likeRepository;
-    private final RepostRepository repostRepository;
+    private final TrackLikeRepository likeRepository;
+    private final TrackRepostRepository repostRepository;
     private final CommentRepository commentRepository;
     private final UserService userService;
 
@@ -80,20 +80,32 @@ public class TrackService {
         return trackMapper.toTrackStatusResponse(getTrackIfExistsById(trackId));
     }
 
-    public void deleteTrack(Long trackId) {
-        deleteTrackCover(trackId);
-        deleteTrackAudio(trackId);
-        deleteTrackWaveformData(trackId);
-        self.deleteTrackFromDatabase(trackId);
-    }
-
     @Transactional
-    public void deleteTrackFromDatabase(Long trackId) {
+    public void deleteTrack(Long trackId) {
+        // Fetch the track first (If it doesn't exist, this throws an error and stops immediately)
         Track track = getTrackIfExistsById(trackId);
+
+        // Perform all database deletions
         likeRepository.deleteAllByTrackId(trackId);
         repostRepository.deleteAllByTrackId(trackId);
         commentRepository.deleteAllByTrackId(trackId);
         trackRepository.delete(track);
+
+        //Instruct Spring to delete the files ONLY after the DB commit succeeds
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    // These only run if the database successfully deletes the records
+                    deleteTrackCover(trackId);
+                    deleteTrackAudio(trackId);
+                    deleteTrackWaveformData(trackId);
+                } catch (Exception e) {
+                    // The database deletion succeeded, but file deletion failed.
+                    log.error("Database deletion succeeded, but failed to delete files for track {}", trackId, e);
+                }
+            }
+        });
     }
 
     public TrackUploadResponse uploadTrack(TrackUploadRequest request) {

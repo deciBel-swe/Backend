@@ -10,27 +10,27 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "playlist_slugs")
+@Table(name = "playlist_reposts", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"user_id", "playlist_id"})
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class PlaylistSlug {
+public class PlaylistRepost {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
-    private String slug;
-
-    @Column(nullable = false)
-    private boolean isDeleted = false;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "playlist_id", nullable = false)
     private Playlist playlist;
 
     @CreationTimestamp
-    private LocalDateTime createdAt;
+    private LocalDateTime repostedAt;
 }

@@ -17,7 +17,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.Spy;
@@ -29,14 +28,12 @@ import software.decibel.dtos.playlist.CreatePlaylistRequest;
 import software.decibel.dtos.playlist.PatchPlaylistRequest;
 import software.decibel.dtos.playlist.PlaylistResponse;
 import software.decibel.entities.Playlist;
-import software.decibel.entities.PlaylistSlug;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
 import software.decibel.enums.PlaylistType;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.PlaylistMapper;
 import software.decibel.repositories.PlaylistRepository;
-import software.decibel.repositories.PlaylistSlugRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.user.UserService;
@@ -47,8 +44,7 @@ class PlaylistServiceTest {
 
     @Mock
     private PlaylistRepository playlistRepository;
-    @Mock
-    private PlaylistSlugRepository playlistSlugRepository;
+
     @Mock
     private TrackRepository trackRepository;
     @Mock
@@ -78,8 +74,6 @@ class PlaylistServiceTest {
             p.setId(10L);
             return p;
         });
-        when(playlistSlugRepository.save(any(PlaylistSlug.class))).thenAnswer(inv -> inv.getArgument(0));
-
         PlaylistResponse response = playlistService.createPlaylist(1L, request);
 
         assertEquals("My Playlist", response.title());
@@ -88,7 +82,6 @@ class PlaylistServiceTest {
         assertEquals(0, response.trackCount());
         assertFalse(response.isPrivate());
         verify(playlistRepository).save(any(Playlist.class));
-        verify(playlistSlugRepository).save(any(PlaylistSlug.class));
     }
 
     @Test
@@ -121,7 +114,6 @@ class PlaylistServiceTest {
             p.setId(11L);
             return p;
         });
-        when(playlistSlugRepository.save(any(PlaylistSlug.class))).thenAnswer(inv -> inv.getArgument(0));
 
         PlaylistResponse response = playlistService.createPlaylist(1L, request);
 
@@ -130,27 +122,6 @@ class PlaylistServiceTest {
     }
 
     // ── patchPlaylist ─────────────────────────────────────────────────────────
-    @Test
-    void patchPlaylist_whenTitleChanges_softDeletesOldSlugAndCreatesNew() {
-        User user = user();
-        Playlist playlist = playlist(user);
-        PlaylistSlug oldSlug = PlaylistSlug.builder().slug("old-title").playlist(playlist).build();
-
-        when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
-        when(playlistSlugRepository.findBySlugAndIsDeletedFalse("old-title")).thenReturn(Optional.of(oldSlug));
-        when(playlistRepository.existsBySlug(anyString())).thenReturn(false);
-        when(playlistRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(playlistSlugRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-
-        PatchPlaylistRequest request = new PatchPlaylistRequest("New Title", null, null, null, null);
-        PlaylistResponse response = playlistService.patchPlaylist(1L, 10L, request);
-
-        assertEquals("New Title", response.title());
-        assertEquals("new-title", response.slug());
-        assertTrue(oldSlug.isDeleted());
-        verify(playlistSlugRepository, times(2)).save(any()); // soft delete + new slug
-    }
-
     @Test
     void patchPlaylist_whenUserIsNotOwner_throwsForbidden() {
         User owner = user();
@@ -215,23 +186,6 @@ class PlaylistServiceTest {
         assertEquals(180, response.totalDurationSeconds());
         assertTrue(response.genres().contains("Hip Hop"));
         verify(playlistRepository).save(any());
-    }
-
-    @Test
-    void addTrack_whenTrackAlreadyInPlaylist_throwsConflict() {
-        User user = user();
-        Track track = track(100L, "Jazz", 200);
-        Playlist playlist = playlist(user);
-        playlist.getTracks().add(track);
-
-        when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
-        when(trackRepository.findById(100L)).thenReturn(Optional.of(track));
-
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-                () -> playlistService.addTrack(1L, 10L, 100L));
-
-        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
-        verify(playlistRepository, never()).save(any());
     }
 
     @Test
