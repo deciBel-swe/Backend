@@ -12,6 +12,8 @@ public record UpdateProfileRequest(
         String city,
         @Size(max = 100, message = "Country must be at most 100 characters")
         String country,
+        @Size(max = 100, message = "Display name must be at most 100 characters")
+        String displayName,
         @Valid
         @Size(max = 10, message = "Favorite genres must be at most 10 items")
         List<@Size(max = 20, message = "Each genre must not exceed 20 characters") String> favoriteGenres,

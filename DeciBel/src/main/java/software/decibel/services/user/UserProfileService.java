@@ -74,6 +74,9 @@ public class UserProfileService {
             user.setFavoriteGenres(request.favoriteGenres());
         }
 
+        if (request.displayName() != null) {
+            user.setDisplayName(request.displayName());
+        }
         userRepository.save(user);
 
         if (request.socialLinks() != null) {
