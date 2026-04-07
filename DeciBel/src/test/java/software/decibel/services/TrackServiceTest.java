@@ -29,10 +29,12 @@ import software.decibel.dtos.track.TrackPatchRequest;
 import software.decibel.dtos.track.TrackStatusResponse;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
+import software.decibel.entities.User;
 import software.decibel.enums.TrackState;
 import software.decibel.enums.Visibility;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.TrackMapper;
+import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.CommentRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
@@ -48,13 +50,17 @@ class TrackServiceTest {
 
     @Mock
     private TrackLikeRepository likeRepository;
-
     @Mock
     private TrackRepostRepository repostRepository;
     @Mock
     private CommentRepository commentRepository;
     @Mock
     private TrackRepository trackRepository;
+
+    // --> Added the missing BlockRepository
+    @Mock
+    private BlockRepository blockRepository;
+
     @Mock
     private UserService userService;
     @Mock
@@ -95,13 +101,24 @@ class TrackServiceTest {
         }
     }
 
+    // ── Helper ────────────────────────────────────────────────────────────────
+    private Track createTrack(Long id) {
+        User uploader = new User();
+        uploader.setId(mockUserId); // Owner is 1L (matches the mocked JWT user)
+
+        Track track = new Track();
+        track.setId(id);
+        track.setUploader(uploader);
+        track.setVisibility(Visibility.PUBLIC);
+        return track;
+    }
+
     // getTrackIfExistsById
     // -------------------------------
     @Test
     void shouldReturnTrack_whenTrackExists() {
         // Arrange
-        Track track = new Track();
-        track.setId(1L);
+        Track track = createTrack(1L);
         when(trackRepository.findById(1L)).thenReturn(Optional.of(track));
 
         // Act
@@ -125,8 +142,7 @@ class TrackServiceTest {
     @Test
     void shouldUpdateTrackState() {
         // Arrange
-        Track track = new Track();
-        track.setId(1L);
+        Track track = createTrack(1L);
 
         // Act
         trackService.updateTrackState(track, TrackState.PROCESSING);
@@ -148,8 +164,7 @@ class TrackServiceTest {
     @Test
     void shouldUpdateTrackStateWithRichStatus() {
         // Arrange
-        Track track = new Track();
-        track.setId(1L);
+        Track track = createTrack(1L);
 
         // Act
         trackService.updateTrackState(track, TrackState.UPLOADING, 50, "Step", "Error");
@@ -184,8 +199,7 @@ class TrackServiceTest {
     @Test
     void shouldSetStateUploading_whenCreatingTrack() {
         // Arrange
-        Track track = new Track();
-        track.setId(1L);
+        Track track = createTrack(1L);
         when(trackRepository.save(track)).thenReturn(track);
 
         // Act
@@ -202,7 +216,7 @@ class TrackServiceTest {
     @Test
     void shouldDeleteCover_whenCoverExists() {
         // Arrange
-        Track track = new Track();
+        Track track = createTrack(1L);
         track.setCoverUrl("cover-url");
         when(trackRepository.findById(1L)).thenReturn(Optional.of(track));
 
@@ -217,7 +231,7 @@ class TrackServiceTest {
     @Test
     void shouldNotDeleteCover_whenNoCover() {
         // Arrange
-        Track track = new Track();
+        Track track = createTrack(1L);
         track.setCoverUrl(null);
         when(trackRepository.findById(1L)).thenReturn(Optional.of(track));
 
@@ -242,7 +256,7 @@ class TrackServiceTest {
     @Test
     void shouldDeleteAudio_whenExists() {
         // Arrange
-        Track track = new Track();
+        Track track = createTrack(1L);
         track.setTrackUrl("audio-url");
         when(trackRepository.findById(1L)).thenReturn(Optional.of(track));
 
@@ -257,7 +271,7 @@ class TrackServiceTest {
     @Test
     void shouldNotDeleteAudio_whenNull() {
         // Arrange
-        Track track = new Track();
+        Track track = createTrack(1L);
         track.setTrackUrl(null);
         when(trackRepository.findById(1L)).thenReturn(Optional.of(track));
 
@@ -273,7 +287,7 @@ class TrackServiceTest {
     @Test
     void shouldDeleteWaveform_whenExists() {
         // Arrange
-        Track track = new Track();
+        Track track = createTrack(1L);
         track.setWaveformUrl("wave-url");
         when(trackRepository.findById(1L)).thenReturn(Optional.of(track));
 
@@ -290,7 +304,7 @@ class TrackServiceTest {
     @Test
     void shouldAddTagsToTrack() {
         // Arrange
-        Track track = new Track();
+        Track track = createTrack(1L);
 
         Tag tag = new Tag();
         tag.setTitle("Rock");
@@ -310,7 +324,7 @@ class TrackServiceTest {
     @Test
     void shouldUpdateBasicFields() {
         // Arrange
-        Track track = new Track();
+        Track track = createTrack(1L);
 
         TrackPatchRequest request = mock(TrackPatchRequest.class);
         when(request.title()).thenReturn("New Title");
@@ -337,7 +351,7 @@ class TrackServiceTest {
     @Test
     void shouldNotUpdate_whenFieldsAreNull() {
         // Arrange
-        Track track = new Track();
+        Track track = createTrack(1L);
         track.setTitle("Old");
 
         TrackPatchRequest request = mock(TrackPatchRequest.class);
@@ -370,8 +384,7 @@ class TrackServiceTest {
     @Test
     void shouldDeleteTrackCompletely() {
         // Arrange
-        Track track = new Track();
-        track.setId(1L);
+        Track track = createTrack(1L);
         when(trackRepository.findById(1L)).thenReturn(Optional.of(track));
 
         // Act

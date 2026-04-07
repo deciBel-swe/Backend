@@ -1,20 +1,30 @@
 package software.decibel.mappers;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Set;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.playlist.CreatePlaylistRequest;
 import software.decibel.dtos.playlist.PatchPlaylistRequest;
 import software.decibel.dtos.playlist.PlaylistResponse;
+import software.decibel.dtos.track.TrackPageResponse;
 import software.decibel.entities.Playlist;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
 
 @Component
+@RequiredArgsConstructor
 public class PlaylistMapper {
+
+    private final TrackMapper trackMapper;
 
     //create dto
     public Playlist toEntity(CreatePlaylistRequest request, User owner, String slug, String coverArtUrl) {
@@ -26,8 +36,8 @@ public class PlaylistMapper {
                 .user(owner)
                 .slug(slug)
                 .coverArtUrl(coverArtUrl)
-                .trackCount(0) // Default for new playlist
-                .totalDurationSeconds(0) // Default for new playlist
+                .trackCount(0)
+                .totalDurationSeconds(0)
                 .tracks(new ArrayList<>())
                 .genres(new ArrayList<>())
                 .build();
@@ -57,31 +67,62 @@ public class PlaylistMapper {
         }
     }
 
-    //  3. ENTITY 
-    public PlaylistResponse toResponse(Playlist playlist) {
-        // Safely extract track IDs from the playlist's tracks
-        List<Long> trackIds = new ArrayList<>();
-        if (playlist.getTracks() != null) {
-            trackIds = playlist.getTracks().stream()
-                    .map(Track::getId)
-                    .collect(Collectors.toList());
+    // 3. response dto 
+    public PlaylistResponse toResponse(Playlist playlist, Set<Long> likedTrackIds, Set<Long> repostedTrackIds, Pageable trackPageable) {
+
+        List<Track> allTracks = playlist.getTracks() != null ? playlist.getTracks() : new ArrayList<>();
+
+        // 1. Safely paginate the list of tracks in-memory
+        int start = (int) trackPageable.getOffset();
+        int end = Math.min((start + trackPageable.getPageSize()), allTracks.size());
+
+        List<Track> pagedTracks = new ArrayList<>();
+        if (start < allTracks.size()) {
+            pagedTracks = allTracks.subList(start, end);
+        }
+
+        // 2. Create the Spring Page object
+        Page<Track> trackPage = new PageImpl<>(pagedTracks, trackPageable, allTracks.size());
+
+        // 3. Map it using the method already inside your TrackMapper!
+        TrackPageResponse trackPageResponse = trackMapper.toPageResponse(trackPage, likedTrackIds, repostedTrackIds);
+
+        // Safely extract user variables
+        Long userId = null;
+        String username = null;
+        String displayName = null;
+        if (playlist.getUser() != null) {
+            userId = playlist.getUser().getId();
+            username = playlist.getUser().getUsername();
+            displayName = playlist.getUser().getDisplayName();
         }
 
         return new PlaylistResponse(
                 playlist.getId(),
                 playlist.getTitle(),
-                playlist.getSlug(),
-                playlist.getDescription(),
                 playlist.getType(),
+                playlist.isLiked(),
+                playlist.getDescription(),
                 playlist.isPrivate(),
                 playlist.getCoverArtUrl(),
-                playlist.getTrackCount(),
                 playlist.getTotalDurationSeconds(),
+                playlist.getTrackCount(),
+                userId,
+                username,
+                displayName,
                 playlist.getGenres(),
-                playlist.getUser() != null ? playlist.getUser().getId() : null,
-                trackIds,
                 playlist.getCreatedAt(),
-                playlist.isLiked()
+                trackPageResponse
         );
+    }
+
+    //Fallback method: Use this for Guest users (not logged in)
+    public PlaylistResponse toResponse(Playlist playlist, Set<Long> likedTrackIds, Set<Long> repostedTrackIds) {
+        // Defaults to Page 0, Size 20
+        return toResponse(playlist, likedTrackIds, repostedTrackIds, PageRequest.of(0, 20));
+    }
+
+    public PlaylistResponse toResponse(Playlist playlist) {
+        return toResponse(playlist, Collections.emptySet(), Collections.emptySet(), PageRequest.of(0, 20));
     }
 }

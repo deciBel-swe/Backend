@@ -1,10 +1,12 @@
 package software.decibel.repositories;
 
 import java.util.Optional;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+
 import software.decibel.entities.Block;
 import software.decibel.entities.User;
 
@@ -24,7 +26,8 @@ public interface BlockRepository extends JpaRepository<Block, Long> {
     Optional<Block> findByBlockerAndBlocked(User blocker, User blocked);
 
     /**
-     * Check if a block relationship exists between a blocker and a blocked user.
+     * Check if a block relationship exists between a blocker and a blocked
+     * user.
      *
      * @param blocker the user who performed the block
      * @param blocked the user who was blocked
@@ -35,11 +38,20 @@ public interface BlockRepository extends JpaRepository<Block, Long> {
     /**
      * Find all users blocked by a specific user.
      *
-     * @param blocker  the user who performed the blocks
+     * @param blocker the user who performed the blocks
      * @param pageable pagination information
      * @return a page of block relationships
      */
     Page<Block> findByBlocker(User blocker, Pageable pageable);
+
+    /**
+     * Check if a block relationship exists between two users by their IDs.
+     *
+     * @param blockerId the ID of the user who performed the block
+     * @param blockedId the ID of the user who was blocked
+     * @return true if the block exists, false otherwise
+     */
+    boolean existsByBlocker_IdAndBlocked_Id(Long blockerId, Long blockedId);
 
     /**
      * Remove a block relationship.

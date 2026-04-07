@@ -40,6 +40,7 @@ import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepostRepository;
 import software.decibel.repositories.CommentRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.repositories.BlockRepository;
 import software.decibel.services.JwtService;
 import software.decibel.services.TagService;
 import software.decibel.services.engagement.LikeService;
@@ -62,8 +63,8 @@ public class TrackService {
     private final TrackRepostRepository repostRepository;
     private final CommentRepository commentRepository;
     private final UserService userService;
+    private final BlockRepository blockRepository;
 
-    // Injected newly separated services
     private final LikeService likeService;
     private final RepostService repostService;
 
@@ -257,12 +258,6 @@ public class TrackService {
                 new TrackStatusResponse(state, t.getId(), progress, stepName, errorMessage));
     }
 
-    public Track getTrackIfExistsById(Long trackId) {
-        return trackRepository
-                .findById(trackId)
-                .orElseThrow(() -> new ResourceNotFoundException("Track with id " + trackId + " not found"));
-    }
-
     @Transactional
     public void deleteTrackCover(Long trackId) {
         Track track = getTrackIfExistsById(trackId);
@@ -345,6 +340,7 @@ public class TrackService {
     }
 
     private TrackPageResponse getAllTracksByUserId(Long userId, int page, int size) {
+
         Pageable pageable = PageRequest.of(page, size);
         Page<Track> result = trackRepository.findByUploaderId(userId, pageable);
 
@@ -430,4 +426,41 @@ public class TrackService {
 
         return trackMapper.toTrackResponseSingle(track, isLiked, isReposted);
     }
+
+    public Track getTrackIfExistsById(Long trackId) {
+        Long currentUserId = null;
+        try {
+            currentUserId = JwtService.getCurrentUserId();
+        } catch (Exception e) {
+
+        }
+        Track track = trackRepository.findById(trackId)
+                .orElseThrow(() -> new ResourceNotFoundException("Track with id " + trackId + " not found"));
+
+        if (isUserBlocked(currentUserId, track.getUploader().getId())) {
+            throw new ResourceNotFoundException("Track with id " + trackId + " not found");
+        }
+        checkTrackVisibility(track, currentUserId);
+        return track;
+    }
+
+    private void checkTrackVisibility(Track track, Long currentUserId) {
+        if (track.getVisibility() == Visibility.PRIVATE) {
+            // If the user isn't logged in, or isn't the owner, hide it
+            if (currentUserId == null || !track.getUploader().getId().equals(currentUserId)) {
+                throw new ResourceNotFoundException("Track with id " + track.getId() + " not found");
+            }
+        }
+    }
+
+    //used for block checking
+    private boolean isUserBlocked(Long currentUserId, Long targetUserId) {
+        if (currentUserId == null) {
+            return false; // Guests can't be blocked in the traditional sense, but you could choose to treat them as blocked
+        }
+        boolean hasBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(currentUserId, targetUserId);
+        boolean isBlockedBy = blockRepository.existsByBlocker_IdAndBlocked_Id(targetUserId, currentUserId);
+        return hasBlocked || isBlockedBy;
+    }
+
 }

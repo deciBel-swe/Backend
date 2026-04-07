@@ -61,7 +61,7 @@ public interface TrackMapper {
         if (user == null) {
             return null;
         }
-        return new TrackArtist(user.getId(), user.getUsername(), user.getAvatarUrl());
+        return new TrackArtist(user.getId(), user.getUsername(), user.getDisplayName(), user.getAvatarUrl());
     }
 
     // ----------------- TrackUpload DTOs ---------------------

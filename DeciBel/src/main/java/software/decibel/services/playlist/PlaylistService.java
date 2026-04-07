@@ -1,17 +1,17 @@
 package software.decibel.services.playlist;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import org.springframework.web.server.ResponseStatusException;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -28,14 +28,18 @@ import software.decibel.entities.Track;
 import software.decibel.entities.User;
 import software.decibel.enums.FileType;
 import software.decibel.exceptions.custom.InvalidPlaylistOperationException;
+import software.decibel.exceptions.custom.PlaylistAccessDeniedException;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.exceptions.custom.TrackAlreadyInPlaylistException;
 import software.decibel.mappers.PlaylistMapper;
+import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.PlaylistLikeRepository;
 import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.PlaylistRepostRepository;
 import software.decibel.repositories.PlaylistTokenRepository;
+import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
+import software.decibel.repositories.TrackRepostRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.JwtService;
 import software.decibel.services.user.UserService;
@@ -50,6 +54,9 @@ public class PlaylistService {
     private final PlaylistRepository playlistRepository;
     private final PlaylistTokenRepository playlistTokenRepository;
     private final TrackRepository trackRepository;
+    private final TrackLikeRepository trackLikeRepository;
+    private final TrackRepostRepository trackRepostRepository;
+    private final BlockRepository blockRepository;
     private final FileUtilityAzure fileUtilityAzure;
     private final PlaylistMapper playlistMapper;
     private final UserService userService;
@@ -105,22 +112,33 @@ public class PlaylistService {
         return playlistMapper.toResponse(playlist);
     }
 
-    public PlaylistResponse getPlaylist(Long playlistId) {
-        Long currentUserId = null;
+    public PlaylistResponse getPlaylist(Long playlistId, Pageable trackPageable) {
+        Long currentUserId = JwtService.getCurrentUserId();
         Playlist playlist = findPlaylistById(playlistId);
-        try {
-            // Attempt to get the current user ID. 
-            currentUserId = JwtService.getCurrentUserId();
-        } catch (Exception e) {
-            // User is not logged in, leave currentUserId as null
-        }
-        //privacy check
+
+        // Privacy Check: Is it private and viewed by someone other than the owner?
         if (playlist.isPrivate()) {
             if (currentUserId == null || !playlist.getUser().getId().equals(currentUserId)) {
                 throw new ResourceNotFoundException("Playlist with id " + playlistId + " not found");
             }
         }
-        return playlistMapper.toResponse(findPlaylistById(playlistId));
+
+        // Block Check: Did the playlist owner block the current user, or vice versa?
+        if (isUserBlocked(currentUserId, playlist.getUser().getId())) {
+            throw new ResourceNotFoundException("Playlist with id " + playlistId + " not found");
+        }
+
+        if (currentUserId == null) {
+            // Guest viewing playlist
+            return playlistMapper.toResponse(playlist, Collections.emptySet(), Collections.emptySet(), trackPageable);
+        }
+
+        // Fetch likes/reposts for logged-in user
+        Set<Long> likedTrackIds = trackLikeRepository.findTrackIdsByUserId(currentUserId);
+        Set<Long> repostedTrackIds = trackRepostRepository.findTrackIdsByUserId(currentUserId);
+
+        // Map and Paginate!
+        return playlistMapper.toResponse(playlist, likedTrackIds, repostedTrackIds, trackPageable);
     }
 
     @Transactional
@@ -292,23 +310,51 @@ public class PlaylistService {
     // public playlists of any user
     public Page<PlaylistResponse> getPublicPlaylistsByUsername(String username, Pageable pageable) {
         User user = getUserByUsername(username);
+        Long currentUserId = JwtService.getCurrentUserId();
+
+        // Block check
+        if (isUserBlocked(currentUserId, user.getId())) {
+            throw new ResourceNotFoundException("User '" + username + "' not found");
+        }
+
+        // Privacy check is handled by the repository: findByUserIdAndIsPrivateFalse
         return playlistRepository
                 .findByUserIdAndIsPrivateFalse(user.getId(), pageable)
                 .map(playlistMapper::toResponse);
     }
 
     // gets a specific public playlist of any user by playlist ID
-    public PlaylistResponse getPublicPlaylistByIdAndUsername(String username, Long playlistId) {
+    public PlaylistResponse getPublicPlaylistByIdAndUsername(String username, Long playlistId, Pageable trackPageable) {
         User user = getUserByUsername(username);
+        Long currentUserId = JwtService.getCurrentUserId();
+
+        // Block checking for the profile being viewed
+        if (isUserBlocked(currentUserId, user.getId())) {
+            throw new ResourceNotFoundException("User '" + username + "' not found");
+        }
+
         Playlist playlist = findPlaylistById(playlistId);
 
+        // Ownership Check
         if (!playlist.getUser().getId().equals(user.getId())) {
             throw new ResourceNotFoundException("Playlist with id " + playlistId + " not found");
         }
+
+        // Privacy Check
         if (playlist.isPrivate()) {
             throw new ResourceNotFoundException("Playlist with id " + playlistId + " not found");
         }
-        return playlistMapper.toResponse(playlist);
+
+        // Fetch likes and reposts for the CURRENT user
+        Set<Long> trackLikes = currentUserId != null
+                ? trackLikeRepository.findTrackIdsByUserId(currentUserId)
+                : Collections.emptySet();
+
+        Set<Long> trackReposts = currentUserId != null
+                ? trackRepostRepository.findTrackIdsByUserId(currentUserId)
+                : Collections.emptySet();
+
+        return playlistMapper.toResponse(playlist, trackLikes, trackReposts, trackPageable);
     }
 
     // all playlists (including private) of the current user
@@ -319,15 +365,27 @@ public class PlaylistService {
     }
 
     // getting current user's specific playlist by ID (private or public)
-    public PlaylistResponse getOwnedPlaylistById(Long currentUserId, Long playlistId) {
+    public PlaylistResponse getOwnedPlaylistById(Long currentUserId, Long playlistId, Pageable trackPageable) {
         Playlist playlist = findPlaylistById(playlistId);
-        checkOwnership(playlist, currentUserId);
-        return playlistMapper.toResponse(playlist);
+
+        // Since we already know the currentUserId (they own the playlist), we don't need JwtService here
+        Set<Long> trackLikes = trackLikeRepository.findTrackIdsByUserId(currentUserId);
+        Set<Long> trackReposts = trackRepostRepository.findTrackIdsByUserId(currentUserId);
+
+        // Pass all 4 arguments to the mapper!
+        return playlistMapper.toResponse(playlist, trackLikes, trackReposts, trackPageable);
     }
 
     // getting all user liked playlists
     public Page<PlaylistResponse> getLikedPlaylistsByUsername(String username, Pageable pageable) {
         User user = getUserByUsername(username);
+        Long currentUserId = JwtService.getCurrentUserId();
+
+        // Block check
+        if (isUserBlocked(currentUserId, user.getId())) {
+            throw new ResourceNotFoundException("User '" + username + "' not found");
+        }
+
         return playlistLikeRepository
                 .findLikedPlaylistsByUserId(user.getId(), pageable)
                 .map(playlistMapper::toResponse);
@@ -336,6 +394,13 @@ public class PlaylistService {
     //get all users who reposted a playlist
     public Page<PlaylistResponse> getRepostedPlaylistsByUsername(String username, Pageable pageable) {
         User user = getUserByUsername(username);
+        Long currentUserId = JwtService.getCurrentUserId();
+
+        // Block check
+        if (isUserBlocked(currentUserId, user.getId())) {
+            throw new ResourceNotFoundException("User '" + username + "' not found");
+        }
+
         return playlistRepostRepository
                 .findRepostedPlaylistsByUserId(user.getId(), pageable)
                 .map(playlistMapper::toResponse);
@@ -349,13 +414,25 @@ public class PlaylistService {
 
     private void checkOwnership(Playlist playlist, Long userId) {
         if (!playlist.getUser().getId().equals(userId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not own this playlist");
+            // Throw the custom exception
+            throw new PlaylistAccessDeniedException(
+                    "Access denied: You do not own this playlist."
+            );
         }
     }
 
     private User getUserByUsername(String username) {
         return userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User '" + username + "' not found"));
+    }
+
+    private boolean isUserBlocked(Long currentUserId, Long targetUserId) {
+        if (currentUserId == null) {
+            return false; // Guests can't be blocked in the traditional sense
+        }
+        boolean hasBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(currentUserId, targetUserId);
+        boolean isBlockedBy = blockRepository.existsByBlocker_IdAndBlocked_Id(targetUserId, currentUserId);
+        return hasBlocked || isBlockedBy;
     }
 
     @Transactional

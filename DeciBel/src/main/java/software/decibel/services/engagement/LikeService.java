@@ -1,9 +1,11 @@
 package software.decibel.services.engagement;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -29,6 +31,7 @@ import software.decibel.repositories.PlaylistLikeRepository;
 import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
+import software.decibel.repositories.TrackRepostRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.JwtService;
 import software.decibel.services.user.UserService;
@@ -40,6 +43,7 @@ public class LikeService {
 
     //  Dependencies
     private final TrackLikeRepository trackLikeRepository;
+    private final TrackRepostRepository trackRepostRepository;
     private final TrackRepository trackRepository;
     private final UserService userService;
     private final LikeMapper likeMapper;
@@ -136,12 +140,37 @@ public class LikeService {
         playlistRepository.save(playlist);
     }
 
-    public Page<PlaylistResponse> getLikedPlaylists(String username, Pageable pageable) {
+    public Page<PlaylistResponse> getLikedPlaylists(String username, Pageable playlistPageable) {
+        Long currentUserId = JwtService.getCurrentUserId();
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + username));
 
-        return playlistLikeRepository.findByUser(user, pageable)
-                .map(like -> playlistMapper.toResponse(like.getPlaylist()));
+        //check if user has been blocked 
+        if (currentUserId != null && !currentUserId.equals(user.getId())) {
+            boolean hasBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(currentUserId, user.getId());
+            boolean isBlockedBy = blockRepository.existsByBlocker_IdAndBlocked_Id(user.getId(), currentUserId);
+
+            if (hasBlocked || isBlockedBy) {
+                // Hide the fact that the user exists/has playlists by throwing a 404
+                throw new ResourceNotFoundException("User not found: " + username);
+            }
+        }
+
+        Page<Playlist> likedPlaylists = playlistLikeRepository.findLikedPlaylistsByUserId(user.getId(), playlistPageable);
+
+        Pageable trackPageable = PageRequest.of(0, 15);
+
+        Set<Long> trackLikes = currentUserId != null
+                ? trackLikeRepository.findTrackIdsByUserId(currentUserId)
+                : Collections.emptySet();
+
+        Set<Long> trackReposts = currentUserId != null
+                ? trackRepostRepository.findTrackIdsByUserId(currentUserId)
+                : Collections.emptySet();
+
+        return likedPlaylists.map(playlist
+                -> playlistMapper.toResponse(playlist, trackLikes, trackReposts, trackPageable)
+        );
     }
 
     private User findUser(Long userId) {

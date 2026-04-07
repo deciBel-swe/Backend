@@ -1,5 +1,6 @@
 package software.decibel.services;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -41,6 +43,7 @@ import software.decibel.repositories.PlaylistLikeRepository;
 import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
+import software.decibel.repositories.TrackRepostRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.engagement.LikeService;
 import software.decibel.services.user.UserService;
@@ -73,7 +76,8 @@ class LikeServiceTest {
     private PlaylistMapper playlistMapper;
     @Mock
     private UserMappingUtility userMappingUtility;
-
+    @Mock
+    private TrackRepostRepository trackRepostRepository;
     @InjectMocks
     private LikeService likeService;
 
@@ -189,19 +193,36 @@ class LikeServiceTest {
         User user = new User();
         user.setId(1L);
         user.setUsername("testuser");
+
         Playlist playlist = new Playlist();
         playlist.setId(10L);
-        PlaylistLike like = PlaylistLike.builder().user(user).playlist(playlist).build();
+
         Pageable pageable = PageRequest.of(0, 10);
 
+        PlaylistResponse dummyResponse = new PlaylistResponse(
+                10L, "My Playlist", null, true, "desc", false, null, 0, 0,
+                1L, "testuser", "Test User", null, null, null
+        );
+
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));
-        when(playlistLikeRepository.findByUser(user, pageable)).thenReturn(new PageImpl<>(List.of(like)));
-        // Note: adjust the mock response to match your actual PlaylistResponse record fields if needed
-        when(playlistMapper.toResponse(any(Playlist.class))).thenReturn(null);
 
-        Page<PlaylistResponse> result = likeService.getLikedPlaylists("testuser", pageable);
+        when(playlistLikeRepository.findLikedPlaylistsByUserId(eq(1L), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(playlist)));
 
-        assertNotNull(result);
-        assertEquals(1, result.getTotalElements());
+        when(trackLikeRepository.findTrackIdsByUserId(1L)).thenReturn(Collections.emptySet());
+        when(trackRepostRepository.findTrackIdsByUserId(1L)).thenReturn(Collections.emptySet());
+
+        when(playlistMapper.toResponse(any(), any(), any(), any())).thenReturn(dummyResponse);
+
+        try (MockedStatic<JwtService> mockedJwt = mockStatic(JwtService.class)) {
+            mockedJwt.when(JwtService::getCurrentUserId).thenReturn(1L);
+
+            Page<PlaylistResponse> result = likeService.getLikedPlaylists("testuser", pageable);
+
+            // 4. ASSERTIONS
+            assertNotNull(result);
+            assertEquals(1, result.getTotalElements());
+            assertEquals(10L, result.getContent().get(0).id());
+        }
     }
 }

@@ -1,7 +1,7 @@
 package software.decibel.repositories;
 
-import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -22,7 +22,7 @@ public interface TrackLikeRepository extends JpaRepository<TrackLike, Long> {
 
     // fixes typecast issue keep query
     @Query("SELECT l.track.id FROM TrackLike l WHERE l.user.id = :userId")
-    List<Long> findTrackIdsByUserId(Long userId);
+    Set<Long> findTrackIdsByUserId(Long userId);
 
     @Query("SELECT l.track FROM TrackLike l WHERE l.user.id = :userId")
     Page<Track> findLikedTracksByUserId(Long userId, Pageable pageable);

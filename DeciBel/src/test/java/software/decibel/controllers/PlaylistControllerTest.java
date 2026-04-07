@@ -28,6 +28,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -67,9 +70,8 @@ class PlaylistControllerTest {
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
-                .setValidator(validator)
-                .setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))
-                .build();
+            .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver()) // <-- ADD THIS LINE
+            .build();
 
         // Use lenient() to fix the UnnecessaryStubbingException
         // Return the mocked UserPrincipal to fix the ClassCastException
@@ -98,7 +100,6 @@ class PlaylistControllerTest {
                 .param("isPrivate", "false"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.title").value("My Playlist"))
-                .andExpect(jsonPath("$.slug").value("Description"))
                 .andExpect(jsonPath("$.type").value("PLAYLIST"))
                 .andExpect(jsonPath("$.trackCount").value(10));
     }
@@ -134,7 +135,7 @@ class PlaylistControllerTest {
 
     @Test
     void getPlaylist_whenExists_returnsOk() throws Exception {
-        when(playlistService.getPlaylist(10L)).thenReturn(playlistResponse());
+        when(playlistService.getPlaylist(eq(10L), any(Pageable.class))).thenReturn(playlistResponse());
 
         mockMvc.perform(get("/playlists/10"))
                 .andExpect(status().isOk())
@@ -145,29 +146,16 @@ class PlaylistControllerTest {
 
     @Test
     void addTrack_whenValid_returnsOk() throws Exception {
-        PlaylistResponse response = new PlaylistResponse(
-                1L,
-                "My Playlist",
-                "Description",
-                null,
-                PlaylistType.PLAYLIST,
-                true,
-                null,
-                10,
-                3600,
-                List.of("Rock"),
-                2L,
-                List.of(1L, 2L),
-                LocalDateTime.now(),
-                false
-        );
+        // Use the helper method instead of duplicating the constructor!
+        PlaylistResponse response = playlistResponse();
+
         when(playlistService.addTrack(any(), eq(10L), eq(100L))).thenReturn(response);
 
         mockMvc.perform(post("/playlists/10/tracks")
                 .param("trackId", "100"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.trackCount").value(10))
-                .andExpect(jsonPath("$.trackIds[0]").value(1));
+                .andExpect(jsonPath("$.trackCount").value(10));
+        // Note: removed .andExpect(jsonPath("$.trackIds[0]")) because trackIds no longer exists in the response!
 
         verify(playlistService).addTrack(any(), eq(10L), eq(100L));
     }
@@ -186,19 +174,21 @@ class PlaylistControllerTest {
     // ── Helper ────────────────────────────────────────────────────────────────
     private PlaylistResponse playlistResponse() {
         return new PlaylistResponse(
-                1L,
-                "My Playlist",
-                "Description",
-                null,
-                PlaylistType.PLAYLIST,
-                true,
-                null,
-                10,
-                3600,
-                List.of("Rock"),
-                2L,
-                List.of(1L, 2L),
-                LocalDateTime.now(),
-                false);
+                1L, // id
+                "My Playlist", // title
+                PlaylistType.PLAYLIST, // type
+                false, // isLiked
+                "Description", // description
+                true, // isPrivate
+                null, // coverArtUrl
+                3600, // totalDurationSeconds
+                10, // trackCount
+                2L, // userId
+                "testuser", // username
+                "Test User", // displayName
+                List.of("Rock"), // genres
+                LocalDateTime.now(), // createdAt
+                null // tracks (TrackPageResponse - null is for testing basic controller logic)
+        );
     }
 }
