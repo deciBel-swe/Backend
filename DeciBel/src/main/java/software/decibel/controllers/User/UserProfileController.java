@@ -1,9 +1,10 @@
 package software.decibel.controllers.User;
 
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -14,6 +15,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import software.decibel.dtos.auth.UserPrincipal;
 import software.decibel.dtos.user.UpdateProfileRequest;
 import software.decibel.dtos.user.UpdateProfileResponse;
 import software.decibel.dtos.user.UpdateUserImagesRequest;
@@ -25,11 +30,7 @@ import software.decibel.repositories.UserRepository;
 import software.decibel.services.JwtService;
 import software.decibel.services.user.UserProfileService;
 import software.decibel.services.user.UserProfileTokenService;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import software.decibel.dtos.auth.UserPrincipal;
 import software.decibel.services.user.UserSuggestionService;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/users")
