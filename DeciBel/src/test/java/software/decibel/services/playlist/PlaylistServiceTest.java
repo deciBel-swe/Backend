@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
@@ -19,9 +20,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import software.decibel.dtos.playlist.CreatePlaylistRequest;
@@ -33,6 +35,7 @@ import software.decibel.entities.User;
 import software.decibel.enums.PlaylistType;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.PlaylistMapper;
+import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.UserRepository;
@@ -55,29 +58,42 @@ class PlaylistServiceTest {
     @Mock
     private UserService userService;
 
-    @Spy
-    private PlaylistMapper playlistMapper = new PlaylistMapper();
+    @Mock
+    private TrackMapper trackMapper;
+
+    private PlaylistMapper playlistMapper;
 
     @InjectMocks
     private PlaylistService playlistService;
+
+    @BeforeEach
+    void setUp() {
+        // 1. Manually create the real mapper, passing in the mocked TrackMapper
+        playlistMapper = new PlaylistMapper(trackMapper);
+
+        // 2. Force Mockito/Spring to put this real mapper into your service
+        ReflectionTestUtils.setField(playlistService, "playlistMapper", playlistMapper);
+    }
 
     // ── createPlaylist ────────────────────────────────────────────────────────
     @Test
     void createPlaylist_whenRequestIsValid_returnsPlaylistResponse() {
         User user = user();
         when(userService.getUserIfExistsById(anyLong())).thenReturn(user);
+
         CreatePlaylistRequest request = new CreatePlaylistRequest(
                 "My Playlist", "desc", PlaylistType.PLAYLIST, false, null);
+
         when(playlistRepository.existsBySlug(anyString())).thenReturn(false);
         when(playlistRepository.save(any(Playlist.class))).thenAnswer(inv -> {
             Playlist p = inv.getArgument(0);
             p.setId(10L);
             return p;
         });
+
         PlaylistResponse response = playlistService.createPlaylist(1L, request);
 
         assertEquals("My Playlist", response.title());
-        assertEquals("my-playlist", response.slug());
         assertEquals(PlaylistType.PLAYLIST, response.type());
         assertEquals(0, response.trackCount());
         assertFalse(response.isPrivate());
@@ -154,10 +170,9 @@ class PlaylistServiceTest {
         Playlist playlist = playlist(user);
         when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
 
-        PlaylistResponse response = playlistService.getPlaylist(10L);
+        PlaylistResponse response = playlistService.getPlaylist(10L, PageRequest.of(0, 20));
 
         assertEquals(10L, response.id());
-        assertEquals("old-title", response.slug());
         assertEquals(1L, response.userId());
     }
 
@@ -165,8 +180,9 @@ class PlaylistServiceTest {
     void getPlaylist_whenNotFound_throwsNotFoundException() {
         when(playlistRepository.findById(99L)).thenReturn(Optional.empty());
 
+        // ADDED PageRequest.of(0, 20) to match the new method signature!
         assertThrows(ResourceNotFoundException.class,
-                () -> playlistService.getPlaylist(99L));
+                () -> playlistService.getPlaylist(99L, PageRequest.of(0, 20)));
     }
 
     // ── addTrack ──────────────────────────────────────────────────────────────

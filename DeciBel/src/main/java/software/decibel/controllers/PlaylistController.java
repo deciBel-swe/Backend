@@ -2,6 +2,7 @@ package software.decibel.controllers;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -59,8 +60,11 @@ public class PlaylistController {
 
     // GET /playlists/{playlistId} — get a playlist
     @GetMapping("/{playlistId}")
-    public ResponseEntity<PlaylistResponse> getPlaylist(@PathVariable Long playlistId) {
-        return ResponseEntity.ok(playlistService.getPlaylist(playlistId));
+    public ResponseEntity<PlaylistResponse> getPlaylist(
+            @PathVariable Long playlistId,
+            @PageableDefault(size = 20) Pageable trackPageable) {
+
+        return ResponseEntity.ok(playlistService.getPlaylist(playlistId, trackPageable));
     }
 
     // POST /playlists/{playlistId}/tracks — add a track to a playlist

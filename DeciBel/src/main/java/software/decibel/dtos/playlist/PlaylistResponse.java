@@ -3,22 +3,24 @@ package software.decibel.dtos.playlist;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import software.decibel.dtos.track.TrackPageResponse;
 import software.decibel.enums.PlaylistType;
 
 public record PlaylistResponse(
         Long id,
         String title,
-        String slug,
-        String description,
         PlaylistType type,
+        boolean isLiked,
+        String description,
         boolean isPrivate,
         String coverArtUrl,
-        int trackCount,
         int totalDurationSeconds,
-        List<String> genres,
+        int trackCount,
         Long userId,
-        List<Long> trackIds,
+        String username,
+        String displayName,
+        List<String> genres,
         LocalDateTime createdAt,
-        boolean isLiked) {
+        TrackPageResponse tracks) {
 
 }

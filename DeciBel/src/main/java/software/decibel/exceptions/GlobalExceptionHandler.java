@@ -25,6 +25,7 @@ import software.decibel.exceptions.custom.ExternalAuthConfigurationException;
 import software.decibel.exceptions.custom.InvalidGoogleTokenException;
 import software.decibel.exceptions.custom.InvalidPlaylistOperationException;
 import software.decibel.exceptions.custom.InvalidTimestampException;
+import software.decibel.exceptions.custom.PlaylistAccessDeniedException;
 import software.decibel.exceptions.custom.ReplyToReplyNotAllowedException;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.exceptions.custom.TrackAlreadyInPlaylistException;
@@ -185,6 +186,22 @@ public class GlobalExceptionHandler {
         errorDetails.put("message", ex.getMessage());
 
         return ResponseEntity.status(HttpStatus.CONFLICT).body(errorDetails);
+    }
+
+    // Called when trying to access a playlist that the user doesn't have permission to view
+    @ExceptionHandler(PlaylistAccessDeniedException.class)
+    public ResponseEntity<ApiErrorResponse> handlePlaylistAccessDenied(PlaylistAccessDeniedException ex, HttpServletRequest request) {
+
+        ApiErrorResponse error
+                = ApiErrorResponse.builder()
+                        .timestamp(LocalDateTime.now())
+                        .status(HttpStatus.FORBIDDEN.value())
+                        .error("Forbidden")
+                        .message(ex.getMessage())
+                        .path(request.getRequestURI())
+                        .build();
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
     }
 
     // Called when trying to publish an already published track

@@ -2,6 +2,7 @@ package software.decibel.controllers.User;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -29,49 +30,52 @@ public class UserPlaylistController {
     @GetMapping("/{username}/playlists")
     public ResponseEntity<Page<PlaylistResponse>> getUserPlaylists(
             @PathVariable String username,
-            Pageable pageable) {
-        return ResponseEntity.ok(playlistService.getPublicPlaylistsByUsername(username, pageable));
+            Pageable playlistPageable) { // Standard pageable for the playlists
+        return ResponseEntity.ok(playlistService.getPublicPlaylistsByUsername(username, playlistPageable));
     }
 
     // GET /users/{username}/playlists/{playlistId} — a specific playlist belonging to another user
     @GetMapping("/{username}/playlists/{playlistId}")
     public ResponseEntity<PlaylistResponse> getUserPlaylist(
             @PathVariable String username,
-            @PathVariable Long playlistId) {
-        return ResponseEntity.ok(playlistService.getPublicPlaylistByIdAndUsername(username, playlistId));
+            @PathVariable Long playlistId,
+            @PageableDefault(size = 20) Pageable trackPageable) {
+        return ResponseEntity.ok(playlistService.getPublicPlaylistByIdAndUsername(username, playlistId, trackPageable));
     }
 
     // GET /users/{username}/liked-playlists — playlists liked by another user
     @GetMapping("/{username}/liked-playlists")
     public ResponseEntity<Page<PlaylistResponse>> getLikedPlaylistsByUsername(
             @PathVariable String username,
-            Pageable pageable) {
-        return ResponseEntity.ok(playlistService.getLikedPlaylistsByUsername(username, pageable));
+            Pageable playlistPageable) {
+        return ResponseEntity.ok(playlistService.getLikedPlaylistsByUsername(username, playlistPageable));
     }
 
     // GET /users/{username}/reposted-playlists — playlists reposted by another user
     @GetMapping("/{username}/reposted-playlists")
     public ResponseEntity<Page<PlaylistResponse>> getRepostedPlaylistsByUsername(
             @PathVariable String username,
-            Pageable pageable) {
-        return ResponseEntity.ok(playlistService.getRepostedPlaylistsByUsername(username, pageable));
+            Pageable playlistPageable) {
+        return ResponseEntity.ok(playlistService.getRepostedPlaylistsByUsername(username, playlistPageable));
     }
 
     // GET /users/me/playlists — all playlists (public + private) of the current user
     @GetMapping("/me/playlists")
-    public ResponseEntity<Page<PlaylistResponse>> getCurrentUserPlaylists(Pageable pageable) {
+    public ResponseEntity<Page<PlaylistResponse>> getCurrentUserPlaylists(Pageable playlistPageable) {
         Long currentUserId = JwtService.getCurrentUserId();
-        return ResponseEntity.ok(playlistService.getPlaylistsByUserId(currentUserId, pageable));
+        return ResponseEntity.ok(playlistService.getPlaylistsByUserId(currentUserId, playlistPageable));
     }
 
     // GET /users/me/playlists/{playlistId} — a specific playlist owned by the current user
     @GetMapping("/me/playlists/{playlistId}")
-    public ResponseEntity<PlaylistResponse> getCurrentUserPlaylist(@PathVariable Long playlistId) {
+    public ResponseEntity<PlaylistResponse> getCurrentUserPlaylist(
+            @PathVariable Long playlistId,
+            @PageableDefault(size = 20) Pageable trackPageable) { // ADDED Track Pageable!
         Long currentUserId = JwtService.getCurrentUserId();
-        return ResponseEntity.ok(playlistService.getOwnedPlaylistById(currentUserId, playlistId));
+        return ResponseEntity.ok(playlistService.getOwnedPlaylistById(currentUserId, playlistId, trackPageable));
     }
-    // GET /playlists/{playlistId}/likes — all users who liked a playlist
 
+    // GET /playlists/{playlistId}/like — all users who liked a playlist
     @GetMapping("/playlists/{playlistId}/like")
     public ResponseEntity<Page<UserProfile>> getPlaylistLikers(
             @PathVariable Long playlistId,

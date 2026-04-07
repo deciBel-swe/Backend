@@ -1,10 +1,17 @@
 package software.decibel.controllers;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import lombok.RequiredArgsConstructor;
+import software.decibel.dtos.engagement.FollowResponseDto;
 import software.decibel.dtos.user.UserFollowDto;
 import software.decibel.services.FollowService;
 import software.decibel.services.JwtService;
@@ -19,15 +26,15 @@ public class FollowController {
 
     // POST: Follow a user
     @PostMapping("/{userId}/follow")
-    public ResponseEntity<Void> followUser(@PathVariable Long userId) {
+    public ResponseEntity<FollowResponseDto> followUser(@PathVariable Long userId) {
         Long currentUserId = JwtService.getCurrentUserId();
         followService.followUser(currentUserId, userId);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(new FollowResponseDto("User followed successfully", true));
     }
 
     // DELETE: Unfollow a user
     @DeleteMapping("/{userId}/follow")
-    public ResponseEntity<Void> unfollowUser(@PathVariable Long userId) {
+    public ResponseEntity<FollowResponseDto> unfollowUser(@PathVariable Long userId) {
         Long currentUserId = JwtService.getCurrentUserId();
         followService.unfollowUser(currentUserId, userId);
         return ResponseEntity.noContent().build();

@@ -51,6 +51,11 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/users/playlists/{playlistId}/like").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/playlists/{playlistId}/reposters").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{username}/playlists").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/users/{username}/tracks").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/users/{username}/followers").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/users/{username}/following").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/tracks/{trackId}/comments").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/comments/{commentId}/replies").permitAll()
                                 //needed for api docs
                                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                                 .anyRequest().authenticated())
