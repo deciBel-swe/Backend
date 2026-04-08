@@ -34,7 +34,7 @@ public class GoogleTokenVerificationService {
             RestClient.Builder restClientBuilder,
             @Value("${spring.security.oauth2.client.registration.google-web.client-id:}") String googleClientId,
             @Value("${spring.security.oauth2.client.registration.google-web.client-secret:}") String googleClientSecret,
-            @Value("${app.google.redirect-uri:}") String googleRedirectUri
+            @Value("${spring.security.oauth2.client.registration.google-web.redirect-uri:}") String googleRedirectUri
     ) {
         this.restClient = restClientBuilder.baseUrl(GOOGLE_TOKEN_INFO_BASE_URL).build();
         this.googleClientId = googleClientId;

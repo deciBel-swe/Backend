@@ -15,7 +15,8 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -28,15 +29,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
-import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import software.decibel.dtos.auth.UserPrincipal;
+import software.decibel.dtos.playlist.OwnerDto;
 import software.decibel.dtos.playlist.PlaylistResponse;
 import software.decibel.enums.PlaylistType;
 import software.decibel.services.playlist.PlaylistService;
@@ -70,8 +69,8 @@ class PlaylistControllerTest {
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
-            .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver()) // <-- ADD THIS LINE
-            .build();
+                .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver()) // <-- ADD THIS LINE
+                .build();
 
         // Use lenient() to fix the UnnecessaryStubbingException
         // Return the mocked UserPrincipal to fix the ClassCastException
@@ -141,7 +140,7 @@ class PlaylistControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.title").value("My Playlist"))
-                .andExpect(jsonPath("$.userId").value(2));
+                .andExpect(jsonPath("$.owner.userId").value(2));
     }
 
     @Test
@@ -183,9 +182,7 @@ class PlaylistControllerTest {
                 null, // coverArtUrl
                 3600, // totalDurationSeconds
                 10, // trackCount
-                2L, // userId
-                "testuser", // username
-                "Test User", // displayName
+                new OwnerDto(2L, "testuser", "Test User", null), // owner (Wrapped in OwnerDto)
                 List.of("Rock"), // genres
                 LocalDateTime.now(), // createdAt
                 null // tracks (TrackPageResponse - null is for testing basic controller logic)

@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 
 import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.playlist.CreatePlaylistRequest;
+import software.decibel.dtos.playlist.OwnerDto;
 import software.decibel.dtos.playlist.PatchPlaylistRequest;
 import software.decibel.dtos.playlist.PlaylistResponse;
 import software.decibel.dtos.track.TrackPageResponse;
@@ -91,11 +92,15 @@ public class PlaylistMapper {
         Long userId = null;
         String username = null;
         String displayName = null;
+        String avatarUrl = null;
         if (playlist.getUser() != null) {
             userId = playlist.getUser().getId();
             username = playlist.getUser().getUsername();
             displayName = playlist.getUser().getDisplayName();
+            avatarUrl = playlist.getUser().getAvatarUrl();
         }
+
+        OwnerDto ownerDto = new OwnerDto(userId, username, displayName, avatarUrl);
 
         return new PlaylistResponse(
                 playlist.getId(),
@@ -107,9 +112,7 @@ public class PlaylistMapper {
                 playlist.getCoverArtUrl(),
                 playlist.getTotalDurationSeconds(),
                 playlist.getTrackCount(),
-                userId,
-                username,
-                displayName,
+                ownerDto,
                 playlist.getGenres(),
                 playlist.getCreatedAt(),
                 trackPageResponse

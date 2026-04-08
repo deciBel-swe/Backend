@@ -37,7 +37,7 @@ public class FollowController {
     public ResponseEntity<FollowResponseDto> unfollowUser(@PathVariable Long userId) {
         Long currentUserId = JwtService.getCurrentUserId();
         followService.unfollowUser(currentUserId, userId);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(new FollowResponseDto("User unfollowed successfully", false));
     }
 
     // GET: Get list of followers for a user

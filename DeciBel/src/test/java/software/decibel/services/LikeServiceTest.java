@@ -1,5 +1,6 @@
 package software.decibel.services;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -34,6 +35,7 @@ import software.decibel.entities.PlaylistLike;
 import software.decibel.entities.Track;
 import software.decibel.entities.TrackLike;
 import software.decibel.entities.User;
+import software.decibel.enums.PlaylistType;
 import software.decibel.mappers.LikeMapper;
 import software.decibel.mappers.PlaylistMapper;
 import software.decibel.mappers.UserMapper;
@@ -200,8 +202,19 @@ class LikeServiceTest {
         Pageable pageable = PageRequest.of(0, 10);
 
         PlaylistResponse dummyResponse = new PlaylistResponse(
-                10L, "My Playlist", null, true, "desc", false, null, 0, 0,
-                1L, "testuser", "Test User", null, null, null
+                10L,
+                "Test Playlist",
+                PlaylistType.PLAYLIST,
+                false, // isLiked (boolean)
+                "A playlist for testing", // description (String)
+                false, // isPrivate (boolean)
+                "http://example.com/cover.jpg", // coverArtUrl (String)
+                300, // totalDurationSeconds (int)
+                5, // trackCount (int)
+                null, // owner (OwnerDto) - will be set in the mapper
+                Collections.emptyList(), // genres (List<String>)
+                LocalDateTime.now(), // createdAt (LocalDateTime)
+                null // tracks (TrackPageResponse)
         );
 
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));

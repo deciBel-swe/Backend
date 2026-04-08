@@ -16,9 +16,7 @@ public record PlaylistResponse(
         String coverArtUrl,
         int totalDurationSeconds,
         int trackCount,
-        Long userId,
-        String username,
-        String displayName,
+        OwnerDto owner,
         List<String> genres,
         LocalDateTime createdAt,
         TrackPageResponse tracks) {

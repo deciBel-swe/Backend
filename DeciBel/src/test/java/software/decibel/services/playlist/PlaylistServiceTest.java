@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,7 +16,6 @@ import static org.mockito.ArgumentMatchers.anyString;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
-
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -187,7 +185,7 @@ class PlaylistServiceTest {
             PlaylistResponse response = playlistService.getPlaylist(10L, PageRequest.of(0, 20));
 
             assertEquals(10L, response.id());
-            assertEquals(1L, response.userId());
+            assertEquals(1L, response.owner().userId());
         }
     }
 
