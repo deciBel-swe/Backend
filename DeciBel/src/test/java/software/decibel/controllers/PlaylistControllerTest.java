@@ -140,7 +140,7 @@ class PlaylistControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.title").value("My Playlist"))
-                .andExpect(jsonPath("$.userId").value(2));
+                .andExpect(jsonPath("$.owner.userId").value(2));
     }
 
     @Test

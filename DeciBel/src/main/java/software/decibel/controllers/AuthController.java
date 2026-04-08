@@ -35,7 +35,7 @@ public class AuthController {
     private final AuthService authService;
 
     private String activeProfile;
-    @Value("${app.google.redirect-uri}")
+    @Value("${spring.security.oauth2.client.registration.google-web.redirect-uri}")
     private String googleRedirectUri;
     @Value("${spring.security.oauth2.client.registration.google-web.client-id}")
     private String googleClientId;
