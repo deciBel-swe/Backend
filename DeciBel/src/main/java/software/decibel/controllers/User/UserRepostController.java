@@ -33,8 +33,8 @@ public class UserRepostController {
                 .body(userRepostService.getRepostedTracks(page, size));
     }
 
-    // GET /users/repost/{username} — mixed track+playlist reposts chronological
-    @GetMapping("/repost/{username}")
+    // GET /users/repost-history/{username} — mixed track+playlist reposts chronological
+    @GetMapping("/repost-history/{username}")
     public ResponseEntity<Page<RepostItemResponse>> getUserReposts(
             @PathVariable String username,
             Pageable pageable) {

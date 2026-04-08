@@ -36,6 +36,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(
                         auth -> auth.requestMatchers("/auth/**").permitAll()
                                 .requestMatchers("/ws/**").permitAll()
+                                .requestMatchers("/oauth/**").permitAll()
+                                .requestMatchers("/login/**").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/*/followers").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/*/following").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{userId}").permitAll()
@@ -56,6 +58,8 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/users/{username}/following").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/tracks/{trackId}/comments").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/comments/{commentId}/replies").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/users/{username}/liked-tracks").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/users/{username}/reposted-tracks").permitAll()
                                 //needed for api docs
                                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                                 .anyRequest().authenticated())
