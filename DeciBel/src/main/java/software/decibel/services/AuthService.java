@@ -40,9 +40,9 @@ import software.decibel.utils.UserProfileUtility;
 public class AuthService {
 
     /**
-     * Refresh token lifetime in seconds (7 days).
+     * Refresh token lifetime in seconds (14 days).
      */
-    private static final long REFRESH_TOKEN_EXPIRES_IN_SECONDS = 7L * 24L * 60L * 60L;
+    private static final long REFRESH_TOKEN_EXPIRES_IN_SECONDS = 14L * 24L * 60L * 60L;
     private static final long COOLDOWN_SECONDS = 60L; // 1 minute cooldown for resending verification emails
 
     private final UserRepository userRepository;
