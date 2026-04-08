@@ -22,7 +22,7 @@ import software.decibel.entities.User;
 @Service
 public class JwtService {
 
-    public static final long ACCESS_TOKEN_EXPIRES_IN_SECONDS = 15L * 60L;
+    public static final long ACCESS_TOKEN_EXPIRES_IN_SECONDS = 5L * 60L;
     public static final long REFRESH_TOKEN_EXPIRES_IN_SECONDS = 14L * 24L * 60L * 60L;
 
     private final String activeProfile;
