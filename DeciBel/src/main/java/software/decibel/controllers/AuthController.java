@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.view.RedirectView;
 
 import jakarta.validation.Valid;
+import lombok.extern.slf4j.Slf4j;
 import software.decibel.dtos.auth.AuthLoginResult;
 import software.decibel.dtos.auth.AuthTokenRotationResult;
 import software.decibel.dtos.auth.GoogleOauthRequest;
@@ -28,6 +29,7 @@ import software.decibel.services.AuthService;
 
 @RestController
 @RequestMapping("/auth")
+@Slf4j
 public class AuthController {
 
     private final AuthService authService;
@@ -105,6 +107,7 @@ public class AuthController {
     public ResponseEntity<RefreshTokenResponse> refreshToken(@CookieValue(name = "refreshToken") String refreshToken) {
         AuthTokenRotationResult result = authService.refreshToken(refreshToken);
         ResponseCookie refreshCookie = buildRefreshCookie(result.refreshToken(), result.refreshTokenExpiresIn());
+        log.debug("Rotated refresh token for userId={}, newRefreshTokenExpiresIn={}", result.refreshTokenExpiresIn());
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                 .body(result.response());
@@ -131,6 +134,7 @@ public class AuthController {
     private ResponseCookie buildRefreshCookie(String refreshToken, long maxAgeSeconds) {
         boolean isProduction = !"default".equals(activeProfile) && !"local".equals(activeProfile)
                 && !"dev".equals(activeProfile);
+        log.debug("Building refresh cookie with isProduction={}, maxAgeSeconds={}", isProduction, maxAgeSeconds);
         return ResponseCookie.from("refreshToken", refreshToken)
                 .httpOnly(true) // Prevent JavaScript access to mitigate XSS
                 .secure(isProduction) // Only send over HTTPS in production
