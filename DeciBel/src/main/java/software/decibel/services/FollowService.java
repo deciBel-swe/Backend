@@ -86,8 +86,8 @@ public class FollowService {
                     User follower = follow.getFollower();
                     UserFollowDto dto = userMapper.toUserFollowDto(follower);
                     // Check if current user is following the follower
-                    dto.setFollowing(currentUser != null && followRepository.existsByFollowerAndFollowing(currentUser, follower));
-                    return dto;
+                    boolean isFollowing = currentUser != null && followRepository.existsByFollowerAndFollowing(currentUser, follower);
+                    return dto.toBuilder().isFollowing(isFollowing).build();
                 });
     }
 
@@ -103,8 +103,8 @@ public class FollowService {
                     User following = follow.getFollowing();
                     UserFollowDto dto = userMapper.toUserFollowDto(following);
                     // Check if current user is following the user in the list
-                    dto.setFollowing(currentUser != null && followRepository.existsByFollowerAndFollowing(currentUser, following));
-                    return dto;
+                    boolean isFollowing = currentUser != null && followRepository.existsByFollowerAndFollowing(currentUser, following);
+                    return dto.toBuilder().isFollowing(isFollowing).build();
                 });
     }
 }

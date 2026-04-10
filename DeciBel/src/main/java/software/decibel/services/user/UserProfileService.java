@@ -1,5 +1,7 @@
 package software.decibel.services.user;
 
+import java.util.Objects;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -14,12 +16,15 @@ import software.decibel.entities.UserProfileToken;
 import software.decibel.enums.FileType;
 import software.decibel.enums.SocialPlatform;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
+import software.decibel.repositories.BlockRepository;
+import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.SocialLinksRepository;
+import software.decibel.repositories.UserProfileTokenRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.JwtService;
 import software.decibel.utils.FileUtilityAzure;
 import software.decibel.utils.LocationUtility;
 import software.decibel.utils.UserMappingUtility;
-import software.decibel.repositories.UserProfileTokenRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -31,19 +36,21 @@ public class UserProfileService {
     private final LocationUtility locationUtility;
     private final UserMappingUtility userMappingUtility;
     private final UserProfileTokenRepository userProfileTokenRepository;
+    private final FollowRepository followRepository;
+    private final BlockRepository blockRepository;
 
     // Public profile — no auth required
     @Transactional(readOnly = true)
     public UpdateProfileResponse getUserPublicProfile(Long userId) {
         User user = findUserById(userId);
-        return userMappingUtility.toUpdateProfileResponse(user, false, false);
+        return getResponseWithFollowStatus(user, false);
     }
 
     // Private profile — authenticated, includes privacy settings and email verified
     @Transactional(readOnly = true)
     public UpdateProfileResponse getMyProfile(Long userId) {
         User user = findUserById(userId);
-        return userMappingUtility.toUpdateProfileResponse(user, true, userMappingUtility.isEmailVerified(user));
+        return getResponseWithFollowStatus(user, true);
     }
 
     // Update profile — authenticated, partial update
@@ -67,27 +74,34 @@ public class UserProfileService {
             user.setFavoriteGenres(request.favoriteGenres());
         }
 
+        if (request.displayName() != null) {
+            user.setDisplayName(request.displayName());
+        }
         userRepository.save(user);
 
-        if (request.socialLinksDto() != null) {
-            SocialPlatform platform = request.socialLinksDto().platform();
-            String url = request.socialLinksDto().url();
-            SocialLinks socialLink = socialLinksRepository
-                    .findByUserAndPlatform(user, platform)
-                    .orElse(SocialLinks.builder().user(user).platform(platform).build());
-            socialLink.setUrl(url);
-            socialLinksRepository.save(socialLink);
+        if (request.socialLinks() != null) {
+            upsertSocialLink(user, SocialPlatform.INSTAGRAM, request.socialLinks().instagram());
+            upsertSocialLink(user, SocialPlatform.TWITTER, request.socialLinks().twitter());
+            upsertSocialLink(user, SocialPlatform.WEBSITE, request.socialLinks().website());
         }
         //load updated user
         User updatedUser = findUserById(userId);
-        return userMappingUtility.toUpdateProfileResponse(updatedUser, true, userMappingUtility.isEmailVerified(updatedUser));
+        return getResponseWithFollowStatus(updatedUser, true);
     }
 
     @Transactional(readOnly = true)
-    public UpdateProfileResponse getUserPublicProfileByUsername(String username) {
+    public UpdateProfileResponse getUserPublicProfileByUsername(String username, Long currentUserId) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User with username " + username + " not found"));
-        return userMappingUtility.toUpdateProfileResponse(user, false, false);
+        //If the profile is private AND the current user is not the owner, throw a 404
+        if (user.isPrivate() && !Objects.equals(user.getId(), currentUserId)) {
+            throw new ResourceNotFoundException("User with username " + username + " not found");
+        }
+        //check if the current user is blocked by this profile, if so, throw a 404
+        if (currentUserId != null && blockRepository.existsByBlockerAndBlocked(user, userRepository.getReferenceById(currentUserId))) {
+            throw new ResourceNotFoundException("User with username " + username + " not found");
+        }
+        return getResponseWithFollowStatus(user, false);
     }
 
     // Update profile/cover images — authenticated
@@ -136,11 +150,47 @@ public class UserProfileService {
                 .findByTokenAndIsDeletedFalse(token)
                 .orElseThrow(() -> new ResourceNotFoundException("Invalid or expired profile token"));
 
-        return userMappingUtility.toUpdateProfileResponse(profileToken.getUser(), false, false);
+        return getResponseWithFollowStatus(profileToken.getUser(), false);
+    }
+
+    private UpdateProfileResponse getResponseWithFollowStatus(User profileUser, boolean includePrivacy) {
+        boolean isFollowed = false;
+        boolean isFollowing = false;
+        boolean isBlocked = false;
+
+        try {
+            Long currentUserId = JwtService.getCurrentUserId();
+            if (currentUserId != null && !currentUserId.equals(profileUser.getId())) {
+                User currentUser = userRepository.getReferenceById(currentUserId);
+                isFollowed = followRepository.existsByFollowerAndFollowing(currentUser, profileUser);
+                isFollowing = followRepository.existsByFollowerAndFollowing(profileUser, currentUser);
+                isBlocked = blockRepository.existsByBlockerAndBlocked(currentUser, profileUser);
+            }
+        } catch (Exception ignored) {
+            // No authenticated user or other security context issue
+        }
+
+        return userMappingUtility.toUpdateProfileResponse(profileUser, includePrivacy, isFollowed, isFollowing, isBlocked);
     }
 
     private User findUserById(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User with id " + userId + " not found"));
+    }
+
+    private void upsertSocialLink(User user, SocialPlatform platform, String url) {
+        // Safety check: Don't do anything if the URL is missing or blank
+        if (url == null || url.isBlank()) {
+            return;
+        }
+
+        // Find the existing link or create a new one
+        SocialLinks link = socialLinksRepository
+                .findByUserAndPlatform(user, platform)
+                .orElse(SocialLinks.builder().user(user).platform(platform).build());
+
+        // Update the URL and save
+        link.setUrl(url);
+        socialLinksRepository.save(link);
     }
 }

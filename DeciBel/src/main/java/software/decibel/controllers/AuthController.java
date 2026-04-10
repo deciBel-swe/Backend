@@ -14,13 +14,12 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.view.RedirectView;
 
 import jakarta.validation.Valid;
+import lombok.extern.slf4j.Slf4j;
 import software.decibel.dtos.auth.AuthLoginResult;
-import software.decibel.dtos.auth.AuthRefreshTokenResult;
 import software.decibel.dtos.auth.AuthTokenRotationResult;
 import software.decibel.dtos.auth.GoogleOauthRequest;
 import software.decibel.dtos.auth.LoginLocalRequest;
 import software.decibel.dtos.auth.LoginLocalResponse;
-import software.decibel.dtos.auth.LogoutSessionRequest;
 import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.auth.RefreshTokenResponse;
 import software.decibel.dtos.auth.RegisterLocalRequest;
@@ -30,14 +29,15 @@ import software.decibel.services.AuthService;
 
 @RestController
 @RequestMapping("/auth")
+@Slf4j
 public class AuthController {
 
     private final AuthService authService;
 
     private String activeProfile;
-    @Value("${app.google.redirect-uri}")
+    @Value("${spring.security.oauth2.client.registration.google-web.redirect-uri}")
     private String googleRedirectUri;
-    @Value("${spring.security.oauth2.client.registration.google.client-id}")
+    @Value("${spring.security.oauth2.client.registration.google-web.client-id}")
     private String googleClientId;
 
     public AuthController(AuthService authService,
@@ -62,33 +62,35 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<MessageResponse> logout(@Valid @RequestBody LogoutSessionRequest request) {
-        MessageResponse response = authService.logout(request);
+    public ResponseEntity<MessageResponse> logout(@CookieValue(name = "refreshToken", required = false) String refreshToken) {
+        // If the cookie is missing, we can't invalidate the session, 
+        // but we should still clear the cookie just in case.
+        if (refreshToken != null && !refreshToken.isBlank()) {
+            authService.logout(refreshToken);
+        }
+
         ResponseCookie refreshCookie = buildRefreshCookie("", 0);
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
-                .body(response);
+                .body(new MessageResponse("Logged out successfully"));
     }
 
     @PostMapping("/logout-all")
-    public ResponseEntity<MessageResponse> logoutAll(@Valid @RequestBody LogoutSessionRequest request) {
-        MessageResponse response = authService.logoutAll(request);
+    public ResponseEntity<MessageResponse> logoutAll(@CookieValue(name = "refreshToken", required = false) String refreshToken) {
+        if (refreshToken != null && !refreshToken.isBlank()) {
+            authService.logoutAll(refreshToken);
+        }
+
         ResponseCookie refreshCookie = buildRefreshCookie("", 0);
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
-                .body(response);
+                .body(new MessageResponse("Logged out from all sessions successfully"));
     }
 
     @PostMapping("/verify-email")
     public ResponseEntity<MessageResponse> verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
-        AuthRefreshTokenResult result = authService.verifyEmail(request);
-        // TODO: Still need to discuss Token issuing strategy for email verification
-        // flow. For now, reusing refresh token mechanism to set cookie and frontend can
-        // discard it immediately after reading the verification success message.
-        ResponseCookie refreshCookie = buildRefreshCookie(result.refreshToken(), result.refreshTokenExpiresIn());
-        return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
-                .body(new MessageResponse("Email verified"));
+        MessageResponse response = authService.verifyEmail(request);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/oauth/google")
@@ -105,6 +107,7 @@ public class AuthController {
     public ResponseEntity<RefreshTokenResponse> refreshToken(@CookieValue(name = "refreshToken") String refreshToken) {
         AuthTokenRotationResult result = authService.refreshToken(refreshToken);
         ResponseCookie refreshCookie = buildRefreshCookie(result.refreshToken(), result.refreshTokenExpiresIn());
+        log.debug("Rotated refresh token for userId={}, newRefreshTokenExpiresIn={}", result.refreshTokenExpiresIn());
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                 .body(result.response());
@@ -131,11 +134,12 @@ public class AuthController {
     private ResponseCookie buildRefreshCookie(String refreshToken, long maxAgeSeconds) {
         boolean isProduction = !"default".equals(activeProfile) && !"local".equals(activeProfile)
                 && !"dev".equals(activeProfile);
+        log.debug("Building refresh cookie with isProduction={}, maxAgeSeconds={}", isProduction, maxAgeSeconds);
         return ResponseCookie.from("refreshToken", refreshToken)
                 .httpOnly(true) // Prevent JavaScript access to mitigate XSS
-                .secure(isProduction)
+                .secure(isProduction) // Only send over HTTPS in production
                 .sameSite("Lax") // Protection against CSRF
-                .path("/auth") // Limit cookie scope to auth endpoints
+                .path("/api/auth") // Limit cookie scope to auth endpoints
                 .maxAge(maxAgeSeconds)
                 .build();
     }

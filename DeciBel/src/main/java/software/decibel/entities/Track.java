@@ -57,7 +57,15 @@ public class Track {
   private String trackUrl;
   private String coverUrl;
   private String waveformUrl;
-  
+
+  // ---- publishing ----
+
+  @Column(unique = true)
+  private String slug;
+
+  private boolean published = false;
+  private LocalDateTime publishedAt;
+
   // --- Relationships ---
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "uploader_id", nullable = false)
@@ -75,5 +83,8 @@ public class Track {
   @OneToMany(mappedBy = "track", cascade = CascadeType.ALL, orphanRemoval = true)
   private List<TrackToken> tokens;
 
-
+  // track can have many comments
+  // purpose is to delete comments if track is deleted
+  @OneToMany(mappedBy = "track", cascade = CascadeType.ALL, orphanRemoval = true)
+  private List<Comment> comments;
 }

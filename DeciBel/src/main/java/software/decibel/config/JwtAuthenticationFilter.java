@@ -29,6 +29,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final UserRepository userRepository;
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+        String path = request.getServletPath();
+        // Tell the filter to skip any route starting with /auth/
+        return path.startsWith("/auth/");
+    }
+
+    @Override
     protected void doFilterInternal(
             @NonNull HttpServletRequest request,
             @NonNull HttpServletResponse response,
@@ -49,7 +56,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (jwtService.isTokenValid(jwt)) {
 
                 userId = jwtService.extractSubject(jwt);
-
 
                 if (userId != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                     Long id = Long.parseLong(userId);

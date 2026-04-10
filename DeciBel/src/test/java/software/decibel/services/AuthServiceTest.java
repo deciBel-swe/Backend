@@ -15,6 +15,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -24,13 +25,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
 
 import software.decibel.dtos.auth.AuthLoginResult;
-import software.decibel.dtos.auth.AuthRefreshTokenResult;
 import software.decibel.dtos.auth.AuthTokenRotationResult;
 import software.decibel.dtos.auth.DeviceInfo;
 import software.decibel.dtos.auth.GoogleOauthRequest;
 import software.decibel.dtos.auth.IssuedToken;
 import software.decibel.dtos.auth.LoginLocalRequest;
-import software.decibel.dtos.auth.LogoutSessionRequest;
 import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.auth.RegisterLocalRequest;
 import software.decibel.dtos.auth.VerifyEmailRequest;
@@ -69,6 +68,8 @@ class AuthServiceTest {
     private JwtService jwtService;
     @Mock
     private GoogleTokenVerificationService googleTokenVerificationService;
+    @Mock
+    private CaptchaService captchaService;
 
     @Mock
     private UserProfileUtility userProfileUtility;
@@ -79,15 +80,23 @@ class AuthServiceTest {
     @Test
     void registerLocal_whenRequestIsValid_savesUserAndSendsEmail() {
         RegisterLocalRequest request = registerRequest();
+
         when(authIdentityRepository.existsByEmailIgnoreCase(request.email())).thenReturn(false);
         when(authIdentityRepository.existsByEmailIgnoreCaseAndProviderAndType(anyString(), any(), any()))
                 .thenReturn(false);
-        when(userRepository.findByUsername(request.username())).thenReturn(Optional.empty());
+
+        when(userRepository.findByUsername(anyString())).thenReturn(Optional.empty());
+
         when(passwordEncoder.encode(request.password())).thenReturn("hashed-password");
         when(userProfileUtility.buildLocation(request.city(), request.country()))
                 .thenReturn("Cairo, Egypt");
 
-        User savedUser = User.builder().id(7L).username(request.username()).build();
+        // 2. Set up the mock saved user
+        User savedUser = User.builder()
+                .id(7L)
+                .username("generatedusername") // Simulate what the DB would return
+                .displayName(request.displayName())
+                .build();
         when(userRepository.save(any(User.class))).thenReturn(savedUser);
 
         Token verificationToken = Token.builder().hash("hash").build();
@@ -98,8 +107,12 @@ class AuthServiceTest {
 
         MessageResponse response = authService.registerLocal(request);
 
+        // 3. Update the assertion to check the start of the message, since the username suffix might be random
         assertEquals("User Generated successfully", response.message());
-        verify(emailService).sendEmailVerificationEmail(eq("new@example.com"), contains("raw-token"));
+
+        // (Optional but recommended) Ensure the email passed to the service matches the request
+        verify(emailService).sendEmailVerificationEmail(eq(request.email()), contains("raw-token"));
+
         verify(userRepository).save(any(User.class));
         verify(authIdentityRepository).save(any(AuthIdentity.class));
     }
@@ -118,19 +131,41 @@ class AuthServiceTest {
     }
 
     @Test
-    void registerLocal_whenUsernameAlreadyExists_throwsConflict() {
-        RegisterLocalRequest request = registerRequest();
+    void registerLocal_whenBaseUsernameExists_generatesUniqueUsernameWithSuffix() {
+        RegisterLocalRequest request = registerRequest(); // Ensure this has displayName
+
         when(authIdentityRepository.existsByEmailIgnoreCase(request.email())).thenReturn(false);
         when(authIdentityRepository.existsByEmailIgnoreCaseAndProviderAndType(anyString(), any(), any()))
                 .thenReturn(false);
-        when(userRepository.findByUsername(request.username())).thenReturn(Optional.of(User.builder().build()));
+        when(userRepository.findByUsername(anyString()))
+                .thenReturn(Optional.of(User.builder().build()))
+                .thenReturn(Optional.empty());
 
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-                () -> authService.registerLocal(request));
+        when(passwordEncoder.encode(request.password())).thenReturn("hashed-password");
+        when(userProfileUtility.buildLocation(request.city(), request.country()))
+                .thenReturn("Cairo, Egypt");
 
-        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
-        verify(userRepository, never()).save(any(User.class));
-        verify(authIdentityRepository, never()).save(any(AuthIdentity.class));
+        User savedUser = User.builder()
+                .id(7L)
+                .username("generatedusername1234")
+                .displayName(request.displayName())
+                .build();
+        when(userRepository.save(any(User.class))).thenReturn(savedUser);
+
+        Token verificationToken = Token.builder().hash("hash").build();
+        when(tokenService.createEmailVerificationToken(any(User.class)))
+                .thenReturn(new IssuedToken("raw-token", verificationToken));
+        when(frontendLinkService.buildEmailVerificationLink("raw-token"))
+                .thenReturn("https://link.com/verify?token=raw-token");
+
+        MessageResponse response = authService.registerLocal(request);
+
+        assertEquals("User Generated successfully", response.message());
+
+        verify(userRepository, times(2)).findByUsername(anyString());
+
+        verify(userRepository).save(any(User.class));
+        verify(authIdentityRepository).save(any(AuthIdentity.class));
     }
 
     @Test
@@ -149,7 +184,7 @@ class AuthServiceTest {
         when(tokenService.createRefreshToken(user))
                 .thenReturn(new IssuedToken("refresh-token", mockToken));
 
-        // Mock JwtService - Ensures Role (ARTIST) is mapped!
+        // Mock JwtService 
         when(jwtService.buildAccessToken(user, identity.getEmail())).thenReturn("access-token");
 
         AuthLoginResult result = authService.loginLocal(request);
@@ -218,53 +253,48 @@ class AuthServiceTest {
                 .thenReturn(verificationToken);
         when(authIdentityRepository.findByUserAndProviderAndType(any(), any(), any()))
                 .thenReturn(Optional.of(identity));
+        MessageResponse response = authService.verifyEmail(request);
 
-        Token mockToken = Token.builder().hash("hash").build();
-        when(tokenService.createRefreshToken(user))
-                .thenReturn(new IssuedToken("refresh-token", mockToken));
-
-        authService.verifyEmail(request);
-
+        assertEquals("Email verified", response.message());
         assertTrue(identity.isEmailVerified());
         verify(userRepository, never()).save(any(User.class));
         verify(tokenService).markTokenUsed(verificationToken);
+        verify(tokenService, never()).createRefreshToken(any());
         verify(sessionService, never()).createSession(any(), any(), any());
     }
 
     @Test
-    void verifyEmail_whenLocalIdentityDoesNotExist_stillMarksTokenAndIssuesRefreshToken() {
+    void verifyEmail_whenLocalIdentityDoesNotExist_stillMarksTokenAndReturnsSuccess() {
         VerifyEmailRequest request = new VerifyEmailRequest("raw-token");
         User user = User.builder().id(9L).username("verified-user").build();
         Token verificationToken = Token.builder().user(user).build();
-        Token refreshToken = Token.builder().hash("hash").build();
 
         when(tokenService.findValidUnusedToken(eq("raw-token"), eq(TokenType.EMAIL_VERIFICATION), anyString()))
                 .thenReturn(verificationToken);
         when(authIdentityRepository.findByUserAndProviderAndType(
                 user, AuthProvider.LOCAL, AuthType.PASSWORD))
                 .thenReturn(Optional.empty());
-        when(tokenService.createRefreshToken(user))
-                .thenReturn(new IssuedToken("refresh-token", refreshToken));
 
-        AuthRefreshTokenResult result = authService.verifyEmail(request);
+        MessageResponse response = authService.verifyEmail(request);
 
-        assertEquals("refresh-token", result.refreshToken());
+        assertEquals("Email verified", response.message());
         verify(authIdentityRepository, never()).save(any(AuthIdentity.class));
         verify(tokenService).markTokenUsed(verificationToken);
+        verify(tokenService, never()).createRefreshToken(any());
     }
 
     @Test
     void logout_whenRefreshTokenIsValid_deletesSessionAndToken() {
-        LogoutSessionRequest request = new LogoutSessionRequest("refresh-token");
+        String refreshTokenValue = "refresh-token";
         Token refreshToken = Token.builder().hash("hash").build();
 
         when(tokenService.findValidUnusedToken(
-                "refresh-token",
+                refreshTokenValue,
                 software.decibel.enums.TokenType.REFRESH_TOKEN,
                 "Invalid refresh token"))
                 .thenReturn(refreshToken);
 
-        MessageResponse response = authService.logout(request);
+        MessageResponse response = authService.logout(refreshTokenValue);
 
         assertEquals("Logged out successfully", response.message());
         verify(sessionService).deleteSessionByRefreshToken(refreshToken);
@@ -273,18 +303,18 @@ class AuthServiceTest {
 
     @Test
     void logout_whenRefreshTokenIsInvalid_propagatesExceptionAndDoesNotDeleteAnything() {
-        LogoutSessionRequest request = new LogoutSessionRequest("refresh-token");
+        String refreshTokenValue = "refresh-token";
         ResponseStatusException exception = new ResponseStatusException(HttpStatus.BAD_REQUEST,
                 "Invalid refresh token");
 
         when(tokenService.findValidUnusedToken(
-                "refresh-token",
+                refreshTokenValue,
                 TokenType.REFRESH_TOKEN,
                 "Invalid refresh token"))
                 .thenThrow(exception);
 
         ResponseStatusException thrown = assertThrows(ResponseStatusException.class,
-                () -> authService.logout(request));
+                () -> authService.logout(refreshTokenValue));
 
         assertEquals(HttpStatus.BAD_REQUEST, thrown.getStatusCode());
         verify(sessionService, never()).deleteSessionByRefreshToken(any());
@@ -293,17 +323,17 @@ class AuthServiceTest {
 
     @Test
     void logoutAll_whenRefreshTokenIsValid_deletesAllUserSessionsAndRefreshTokens() {
-        LogoutSessionRequest request = new LogoutSessionRequest("refresh-token");
+        String refreshTokenValue = "refresh-token";
         User user = User.builder().id(21L).username("listener").build();
         Token refreshToken = Token.builder().hash("hash").user(user).build();
 
         when(tokenService.findValidUnusedToken(
-                "refresh-token",
+                refreshTokenValue,
                 software.decibel.enums.TokenType.REFRESH_TOKEN,
                 "Invalid refresh token"))
                 .thenReturn(refreshToken);
 
-        MessageResponse response = authService.logoutAll(request);
+        MessageResponse response = authService.logoutAll(refreshTokenValue);
 
         assertEquals("Logged out of all sessions", response.message());
         verify(sessionService).deleteAllSessionsForUser(user);
@@ -312,18 +342,18 @@ class AuthServiceTest {
 
     @Test
     void logoutAll_whenRefreshTokenIsInvalid_propagatesExceptionAndDoesNotDeleteAnything() {
-        LogoutSessionRequest request = new LogoutSessionRequest("refresh-token");
+        String refreshTokenValue = "refresh-token";
         ResponseStatusException exception = new ResponseStatusException(HttpStatus.BAD_REQUEST,
                 "Invalid refresh token");
 
         when(tokenService.findValidUnusedToken(
-                "refresh-token",
+                refreshTokenValue,
                 TokenType.REFRESH_TOKEN,
                 "Invalid refresh token"))
                 .thenThrow(exception);
 
         ResponseStatusException thrown = assertThrows(ResponseStatusException.class,
-                () -> authService.logoutAll(request));
+                () -> authService.logoutAll(refreshTokenValue));
 
         assertEquals(HttpStatus.BAD_REQUEST, thrown.getStatusCode());
         verify(sessionService, never()).deleteAllSessionsForUser(any());
@@ -354,6 +384,39 @@ class AuthServiceTest {
     }
 
     @Test
+    void refreshToken_whenLocalIdentityMissingAndGoogleIdentityExists_usesGoogleFallback() {
+        User user = verifiedUser();
+        Token oldToken = Token.builder().user(user).hash("old-hash").build();
+        Token newToken = Token.builder().user(user).hash("new-hash").build();
+        AuthIdentity googleIdentity = AuthIdentity.builder()
+                .user(user)
+                .email("google@example.com")
+                .emailVerified(true)
+                .provider(AuthProvider.GOOGLE)
+                .type(AuthType.OAUTH)
+                .build();
+
+        when(tokenService.findValidUnusedToken("old-refresh-token", TokenType.REFRESH_TOKEN,
+                "Invalid refresh token"))
+                .thenReturn(oldToken);
+        when(authIdentityRepository.findByUserAndProviderAndType(user, AuthProvider.LOCAL, AuthType.PASSWORD))
+                .thenReturn(Optional.empty());
+        when(authIdentityRepository.findByUserAndProviderAndType(user, AuthProvider.GOOGLE, AuthType.OAUTH))
+                .thenReturn(Optional.of(googleIdentity));
+        when(tokenService.createRefreshToken(user))
+                .thenReturn(new IssuedToken("new-refresh-token", newToken));
+        when(jwtService.buildAccessToken(user, googleIdentity.getEmail())).thenReturn("google-access-token");
+
+        AuthTokenRotationResult result = authService.refreshToken("old-refresh-token");
+
+        assertEquals("google-access-token", result.response().accessToken());
+        assertEquals("new-refresh-token", result.refreshToken());
+        verify(authIdentityRepository).findByUserAndProviderAndType(user, AuthProvider.LOCAL, AuthType.PASSWORD);
+        verify(authIdentityRepository).findByUserAndProviderAndType(user, AuthProvider.GOOGLE, AuthType.OAUTH);
+        verify(tokenService).markTokenUsed(oldToken);
+    }
+
+    @Test
     void refreshToken_whenUserIdentityDoesNotExist_throwsUnauthorized() {
         User user = verifiedUser();
         Token oldToken = Token.builder().user(user).hash("old-hash").build();
@@ -363,12 +426,16 @@ class AuthServiceTest {
                 .thenReturn(oldToken);
         when(authIdentityRepository.findByUserAndProviderAndType(user, AuthProvider.LOCAL, AuthType.PASSWORD))
                 .thenReturn(Optional.empty());
+        when(authIdentityRepository.findByUserAndProviderAndType(user, AuthProvider.GOOGLE, AuthType.OAUTH))
+                .thenReturn(Optional.empty());
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> authService.refreshToken("old-refresh-token"));
 
         assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatusCode());
+        verify(authIdentityRepository).findByUserAndProviderAndType(user, AuthProvider.GOOGLE, AuthType.OAUTH);
         verify(tokenService, never()).markTokenUsed(any());
+        verify(tokenService, never()).createRefreshToken(any());
         verify(jwtService, never()).buildAccessToken(any(), anyString());
     }
 

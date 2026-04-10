@@ -1,77 +1,119 @@
 package software.decibel.mappers;
 
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.mapstruct.*;
+import org.springframework.data.domain.Page;
 import software.decibel.dtos.track.*;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
+import software.decibel.enums.Visibility;
 
-@Mapper(componentModel = "spring") // Spring injects it as a @Component
+@Mapper(componentModel = "spring",
+        imports = {Visibility.class}) // Spring injects it as a @Component
 public interface TrackMapper {
 
-  // ----------------- TrackResponse DTOs ---------------------
+    // ----------------- TrackResponse DTOs ---------------------
+    // MapStruct handles this fully - no default needed
+    @Mapping(target = "artist", expression = "java(mapArtist(track.getUploader()))")
+    @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
+    @Mapping(target = "isLiked", expression = "java(likedTrackIds.contains(track.getId()))")
+    @Mapping(target = "isReposted", expression = "java(repostedTrackIds.contains(track.getId()))")
+    @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
+    @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
+    TrackResponse toTrackResponse(Track track, Set<Long> likedTrackIds, Set<Long> repostedTrackIds);
 
-  @Mapping(target = "artist", expression = "java(mapArtist(track.getUploader()))")
-  @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
-  TrackResponse toTrackResponse(Track track);
+    // MapStruct to handle single track response
+    @Mapping(target = "artist", expression = "java(mapArtist(track.getUploader()))")
+    @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
+    @Mapping(target = "isLiked", source = "isLiked")
+    @Mapping(target = "isReposted", source = "isReposted")
+    @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
+    @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
+    TrackResponse toTrackResponseSingle(Track track, boolean isLiked, boolean isReposted);
 
-  default TrackArtist mapArtist(User user) {
-    if (user == null) return null;
-    return new TrackArtist(user.getId(), user.getUsername(), user.getAvatarUrl());
-  }
+    // This method perfectly handles your paginated views using the Sets passed from the Service
+    default TrackPageResponse toPageResponse(
+            Page<Track> page, Set<Long> likedTrackIds, Set<Long> repostedTrackIds) {
+        return new TrackPageResponse(
+                page.getContent().stream()
+                        .map(track -> toTrackResponse(track, likedTrackIds, repostedTrackIds))
+                        .toList(),
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages(),
+                page.isLast());
+    }
 
-  // ----------------- TrackUpload DTOs ---------------------
+    // For one track only (used when you fetch a single track and already know the booleans)
+    @Mapping(target = "artist", expression = "java(mapArtist(track.getUploader()))")
+    @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
+    @Mapping(target = "isLiked", expression = "java(isLiked)")
+    @Mapping(target = "isReposted", expression = "java(isReposted)")
+    @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
+    @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
+    TrackResponse toTrackResponse(Track track, boolean isLiked, boolean isReposted);
 
-  // Track -> TrackUploadResponse DTO
-  TrackUploadResponse toTrackUploadResponse(Track track);
+    default TrackArtist mapArtist(User user) {
+        if (user == null) {
+            return null;
+        }
+        return new TrackArtist(user.getId(), user.getUsername(), user.getDisplayName(), user.getAvatarUrl());
+    }
 
-  // TrackUploadRequest DTO → Track
-  // some fields are ignored (will be handled in future iterations), and other fields (trackUrl,
-  // coverUrl, durationSeconds) will be computed after mapping
-  @Mapping(target = "trackUrl", ignore = true)
-  @Mapping(target = "coverUrl", ignore = true)
-  @Mapping(target = "waveformUrl", ignore = true)
-  @Mapping(target = "durationSeconds", ignore = true)
-  @Mapping(target = "tags", ignore = true)
-  @Mapping(target = "id", ignore = true)
-  @Mapping(
-      target = "visibility",
-      expression =
-          "java(dto.isPrivate() ? software.decibel.enums.Visibility.PRIVATE : software.decibel.enums.Visibility.PUBLIC)")
-  @Mapping(target = "uploader", source = "uploader")
-  Track toEntity(TrackUploadRequest dto, User uploader);
+    // ----------------- TrackUpload DTOs ---------------------
+    // Track -> TrackUploadResponse DTO
+    TrackUploadResponse toTrackUploadResponse(Track track);
 
-  // ----------------- TrackStatus DTOs ---------------------
+    // TrackUploadRequest DTO → Track
+    @Mapping(target = "trackUrl", ignore = true)
+    @Mapping(target = "coverUrl", ignore = true)
+    @Mapping(target = "waveformUrl", ignore = true)
+    @Mapping(target = "durationSeconds", ignore = true)
+    @Mapping(target = "tags", ignore = true)
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "slug", ignore = true)
+    @Mapping(target = "published", ignore = true)
+    @Mapping(target = "publishedAt", ignore = true)
+    @Mapping(
+            target = "visibility",
+            expression
+            = "java(dto.isPrivate() ? software.decibel.enums.Visibility.PRIVATE : software.decibel.enums.Visibility.PUBLIC)")
+    @Mapping(target = "uploader", source = "uploader")
+    Track toEntity(TrackUploadRequest dto, User uploader);
 
-  // Track -> TrackStatusResponse DTO
-  @Mapping(source = "id", target = "trackId")
-  @Mapping(source = "state", target = "trackState")
-  TrackStatusResponse toTrackStatusResponse(Track track);
+    // ----------------- TrackStatus DTOs ---------------------
+    // Track -> TrackStatusResponse DTO
+    @Mapping(source = "id", target = "trackId")
+    @Mapping(source = "state", target = "trackState")
+    TrackStatusResponse toTrackStatusResponse(Track track);
 
-  
+    // --------------- TrackPatch DTOs ---------------------
+    // Track -> TrackPatchResponse DTO
+    @Mapping(
+            target = "isPrivate",
+            expression = "java(track.getVisibility() == software.decibel.enums.Visibility.PRIVATE)")
+    @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
+    TrackPatchResponse toTrackPatchResponse(Track track);
 
-  // --------------- TrackPatch DTOs ---------------------
-  // None from request -> entity (to avoid overwriting)
+    default List<String> mapTags(List<Tag> tags) {
+        if (tags == null) {
+            return List.of();
+        }
+        return tags.stream().map(Tag::getTitle).collect(Collectors.toList());
+    }
 
-  // Track -> TrackPatchResponse DTO
-  @Mapping(
-      target = "isPrivate",
-      expression = "java(track.getVisibility() == software.decibel.enums.Visibility.PRIVATE)")
-  @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
-  TrackPatchResponse toTrackPatchResponse(Track track);
+    // --------------- TrackWaveFormUrl DTOs ---------------------
+    // Request -> track
+    @Mapping(target = "trackId", source = "id")
+    @Mapping(target = "duration", source = "durationSeconds")
+    TrackWaveFormUrlResponse toTrackWaveFormUrlResponse(Track track);
 
-  default List<String> mapTags(List<Tag> tags) {
-    if (tags == null) return List.of();
-    return tags.stream().map(Tag::getTitle).collect(Collectors.toList());
-
-
-  }
-
-  // --------------- TrackWaveFormUrl DTOs ---------------------
-  // Request -> track
-  @Mapping(target = "trackId", source = "id")
-  @Mapping(target = "duration", source = "durationSeconds")
-  TrackWaveFormUrlResponse toTrackWaveFormUrlResponse(Track track);
+    // --------------- TrackPublish DTOs ---------------------
+    // track -> response
+    @Mapping(target = "publishedAt", source = "publishedAt")
+    TrackPublishResponse toTrackPublishResponse(Track track);
 }

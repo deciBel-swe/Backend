@@ -1,0 +1,215 @@
+package software.decibel.services.engagement;
+
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import lombok.RequiredArgsConstructor;
+import software.decibel.dtos.playlist.PlaylistResponse;
+import software.decibel.dtos.track.LikeResponse;
+import software.decibel.dtos.user.UserProfile;
+import software.decibel.entities.Playlist;
+import software.decibel.entities.PlaylistLike;
+import software.decibel.entities.Track;
+import software.decibel.entities.TrackLike;
+import software.decibel.entities.User;
+import software.decibel.exceptions.custom.ResourceNotFoundException;
+import software.decibel.mappers.LikeMapper;
+import software.decibel.mappers.PlaylistMapper;
+import software.decibel.mappers.UserMapper;
+import software.decibel.repositories.BlockRepository;
+import software.decibel.repositories.FollowRepository;
+import software.decibel.repositories.PlaylistLikeRepository;
+import software.decibel.repositories.PlaylistRepository;
+import software.decibel.repositories.TrackLikeRepository;
+import software.decibel.repositories.TrackRepository;
+import software.decibel.repositories.TrackRepostRepository;
+import software.decibel.repositories.UserRepository;
+import software.decibel.services.JwtService;
+import software.decibel.services.user.UserService;
+import software.decibel.utils.UserMappingUtility;
+
+@Service
+@RequiredArgsConstructor
+public class LikeService {
+
+    //  Dependencies
+    private final TrackLikeRepository trackLikeRepository;
+    private final TrackRepostRepository trackRepostRepository;
+    private final TrackRepository trackRepository;
+    private final UserService userService;
+    private final LikeMapper likeMapper;
+    private final UserMapper userMapper;
+    private final FollowRepository followRepository;
+    private final BlockRepository blockRepository;
+
+    private final PlaylistLikeRepository playlistLikeRepository;
+    private final PlaylistRepository playlistRepository;
+    private final UserRepository userRepository;
+    private final PlaylistMapper playlistMapper;
+    private final UserMappingUtility userMappingUtility;
+
+    // track like methods
+    @Transactional
+    public LikeResponse likeTrack(Long trackId) {
+        Long userId = JwtService.getCurrentUserId();
+        User user = userService.getUserIfExistsById(userId);
+        Track track = getTrackIfExistsById(trackId);
+
+        if (trackLikeRepository.existsByUserAndTrack(user, track)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Track already liked");
+        }
+
+        trackLikeRepository.save(TrackLike.builder()
+                .user(user)
+                .track(track)
+                .build());
+
+        track.setLikeCount(track.getLikeCount() + 1);
+        trackRepository.save(track);
+
+        return likeMapper.toLikeResponse(true);
+    }
+
+    @Transactional
+    public LikeResponse unlikeTrack(Long trackId) {
+        Long userId = JwtService.getCurrentUserId();
+        User user = userService.getUserIfExistsById(userId);
+        Track track = getTrackIfExistsById(trackId);
+
+        TrackLike like = trackLikeRepository.findByUserAndTrack(user, track)
+                .orElseThrow(() -> new ResourceNotFoundException("Like not found for track with id " + trackId));
+
+        trackLikeRepository.delete(like);
+
+        if (track.getLikeCount() > 0) {
+            track.setLikeCount(track.getLikeCount() - 1);
+            trackRepository.save(track);
+        }
+
+        return likeMapper.toLikeResponse(false);
+    }
+
+    public Set<Long> getLikedTrackIds(Long userId) {
+        return new HashSet<>(trackLikeRepository.findTrackIdsByUserId(userId));
+    }
+
+    private Track getTrackIfExistsById(Long trackId) {
+        return trackRepository.findById(trackId)
+                .orElseThrow(() -> new ResourceNotFoundException("Track with id " + trackId + " not found"));
+    }
+
+    // playlist like methods
+    @Transactional
+    public LikeResponse likePlaylist(Long userId, Long playlistId) {
+        User user = findUser(userId);
+        Playlist playlist = findPlaylist(playlistId);
+
+        if (playlistLikeRepository.existsByUserAndPlaylist(user, playlist)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Playlist already liked");
+        }
+
+        playlistLikeRepository.save(PlaylistLike.builder()
+                .user(user)
+                .playlist(playlist)
+                .build());
+
+        playlist.setLikeCount(playlist.getLikeCount() + 1);
+        playlistRepository.save(playlist);
+        return likeMapper.toLikeResponse(true);
+    }
+
+    @Transactional
+    public void unlikePlaylist(Long userId, Long playlistId) {
+        User user = findUser(userId);
+        Playlist playlist = findPlaylist(playlistId);
+
+        PlaylistLike like = playlistLikeRepository.findByUserAndPlaylist(user, playlist)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Playlist not liked"));
+
+        playlistLikeRepository.delete(like);
+        playlist.setLikeCount(Math.max(0, playlist.getLikeCount() - 1));
+        playlistRepository.save(playlist);
+    }
+
+    public Page<PlaylistResponse> getLikedPlaylists(String username, Pageable playlistPageable) {
+        Long currentUserId = JwtService.getCurrentUserId();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + username));
+
+        //check if user has been blocked 
+        if (currentUserId != null && !currentUserId.equals(user.getId())) {
+            boolean hasBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(currentUserId, user.getId());
+            boolean isBlockedBy = blockRepository.existsByBlocker_IdAndBlocked_Id(user.getId(), currentUserId);
+
+            if (hasBlocked || isBlockedBy) {
+                // Hide the fact that the user exists/has playlists by throwing a 404
+                throw new ResourceNotFoundException("User not found: " + username);
+            }
+        }
+
+        Page<Playlist> likedPlaylists = playlistLikeRepository.findLikedPlaylistsByUserId(user.getId(), playlistPageable);
+
+        Pageable trackPageable = PageRequest.of(0, 15);
+
+        Set<Long> trackLikes = currentUserId != null
+                ? trackLikeRepository.findTrackIdsByUserId(currentUserId)
+                : Collections.emptySet();
+
+        Set<Long> trackReposts = currentUserId != null
+                ? trackRepostRepository.findTrackIdsByUserId(currentUserId)
+                : Collections.emptySet();
+
+        return likedPlaylists.map(playlist
+                -> playlistMapper.toResponse(playlist, trackLikes, trackReposts, trackPageable)
+        );
+    }
+
+    private User findUser(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User with id " + userId + " not found"));
+    }
+
+    private Playlist findPlaylist(Long playlistId) {
+        return playlistRepository.findById(playlistId)
+                .orElseThrow(() -> new ResourceNotFoundException("Playlist with id " + playlistId + " not found"));
+    }
+
+    // used to get the users who liked a track, for the GET /tracks/{trackId}/likes endpoint
+    public Page<UserProfile> getTrackLikers(Long trackId, Pageable pageable) {
+        trackRepository.findById(trackId)
+                .orElseThrow(() -> new ResourceNotFoundException("Track with id " + trackId + " not found"));
+        User currentViewer = resolveCurrentViewer();
+        return trackLikeRepository
+                .findUsersByTrackId(trackId, pageable)
+                .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, blockRepository));
+    }
+
+    // used to get the users who liked a playlist, for the GET /playlists/{playlistId}/likes endpoint
+    public Page<UserProfile> getPlaylistLikers(Long playlistId, Pageable pageable) {
+        playlistRepository.findById(playlistId)
+                .orElseThrow(() -> new ResourceNotFoundException("Playlist with id " + playlistId + " not found"));
+        User currentViewer = resolveCurrentViewer();
+        return playlistLikeRepository
+                .findUsersByPlaylistId(playlistId, pageable)
+                .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, blockRepository));
+    }
+
+    // Resolves the currently authenticated user, or null for anonymous requests
+    private User resolveCurrentViewer() {
+        try {
+            Long currentUserId = JwtService.getCurrentUserId();
+            return userRepository.findById(currentUserId).orElse(null);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+}

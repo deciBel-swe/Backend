@@ -8,6 +8,7 @@ import java.util.function.Function;
 import javax.crypto.SecretKey;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -22,8 +23,8 @@ import software.decibel.entities.User;
 @Service
 public class JwtService {
 
-    public static final long ACCESS_TOKEN_EXPIRES_IN_SECONDS = 30L * 60L;
-    public static final long REFRESH_TOKEN_EXPIRES_IN_SECONDS = 30L * 24L * 60L * 60L;
+    public static final long ACCESS_TOKEN_EXPIRES_IN_SECONDS = 5L * 60L;
+    public static final long REFRESH_TOKEN_EXPIRES_IN_SECONDS = 14L * 24L * 60L * 60L;
 
     private final String activeProfile;
     private SecretKey jwtSigningKey;
@@ -34,8 +35,14 @@ public class JwtService {
     }
 
     public static Long getCurrentUserId() {
-        UserPrincipal principal
-                = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+        // 1. The Shield: If the user is a guest, return null BEFORE it crashes
+        if (auth == null || auth.getPrincipal().equals("anonymousUser")) {
+            return null;
+        }
+        UserPrincipal principal = (UserPrincipal) auth.getPrincipal();
         return principal.getId();
     }
 

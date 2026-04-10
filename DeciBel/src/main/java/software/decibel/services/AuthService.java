@@ -1,5 +1,7 @@
 package software.decibel.services;
 
+import java.time.LocalDateTime;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -15,7 +17,6 @@ import software.decibel.dtos.auth.GoogleOauthRequest;
 import software.decibel.dtos.auth.IssuedToken;
 import software.decibel.dtos.auth.LoginLocalRequest;
 import software.decibel.dtos.auth.LoginLocalResponse;
-import software.decibel.dtos.auth.LogoutSessionRequest;
 import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.auth.RefreshTokenResponse;
 import software.decibel.dtos.auth.RegisterLocalRequest;
@@ -28,7 +29,9 @@ import software.decibel.entities.User;
 import software.decibel.enums.AuthProvider;
 import software.decibel.enums.AuthType;
 import software.decibel.enums.TokenType;
+import software.decibel.exceptions.custom.CooldownActiveException;
 import software.decibel.repositories.AuthIdentityRepository;
+import software.decibel.repositories.TokenRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.utils.UserProfileUtility;
 
@@ -37,12 +40,14 @@ import software.decibel.utils.UserProfileUtility;
 public class AuthService {
 
     /**
-     * Refresh token lifetime in seconds (30 days).
+     * Refresh token lifetime in seconds (14 days).
      */
-    private static final long REFRESH_TOKEN_EXPIRES_IN_SECONDS = 30L * 24L * 60L * 60L;
+    private static final long REFRESH_TOKEN_EXPIRES_IN_SECONDS = 14L * 24L * 60L * 60L;
+    private static final long COOLDOWN_SECONDS = 60L; // 1 minute cooldown for resending verification emails
 
     private final UserRepository userRepository;
     private final AuthIdentityRepository authIdentityRepository;
+    private final TokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final TokenService tokenService;
     private final SessionService sessionService;
@@ -51,22 +56,27 @@ public class AuthService {
     private final JwtService jwtService;
     private final GoogleTokenVerificationService googleTokenVerificationService;
     private final UserProfileUtility userProfileUtility;
+    private final CaptchaService captchaService;
 
     @Transactional
     public MessageResponse registerLocal(RegisterLocalRequest request) {
+        captchaService.validateCaptcha(request.captchaToken());
         if (authIdentityRepository.existsByEmailIgnoreCase(request.email())
                 || authIdentityRepository.existsByEmailIgnoreCaseAndProviderAndType(
                         request.email(), AuthProvider.LOCAL, AuthType.PASSWORD)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already exists");
         }
-
-        if (userRepository.findByUsername(request.username()).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already exists");
+        String baseUsername = request.displayName().toLowerCase().replaceAll("[^a-z0-9]", "");
+        String generatedUsername = baseUsername;
+        while (userRepository.findByUsername(generatedUsername).isPresent()) {
+            int randomSuffix = (int) (Math.random() * 9000) + 1000; // generates 1000 to 9999
+            generatedUsername = baseUsername + randomSuffix;
         }
 
         String hashedPassword = passwordEncoder.encode(request.password());
         User user = User.builder()
-                .username(request.username())
+                .username(generatedUsername)
+                .displayName(request.displayName())
                 .location(userProfileUtility.buildLocation(request.city(), request.country()))
                 .build();
         User savedUser = userRepository.save(user);
@@ -107,11 +117,12 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthRefreshTokenResult verifyEmail(VerifyEmailRequest request) {
+    public MessageResponse verifyEmail(VerifyEmailRequest request) {
+        //Fetch token and TokenService automatically throw 400 if expired or invalid
         Token verificationToken = tokenService.findValidUnusedToken(
                 request.token(),
                 TokenType.EMAIL_VERIFICATION,
-                "Invalid verification token");
+                "Invalid or expired verification token");
 
         User user = verificationToken.getUser();
 
@@ -123,9 +134,7 @@ public class AuthService {
 
         tokenService.markTokenUsed(verificationToken);
 
-        // The current API contract for /auth/verify-email accepts only the token,
-        // but this flow still issues a refresh token after successful verification.
-        return issueRefreshToken(user);
+        return new MessageResponse("Email verified");
     }
 
     @Transactional
@@ -155,15 +164,17 @@ public class AuthService {
         User user = oldToken.getUser();
         AuthIdentity identity = authIdentityRepository
                 .findByUserAndProviderAndType(user, AuthProvider.LOCAL, AuthType.PASSWORD)
+                .or(() -> authIdentityRepository.findByUserAndProviderAndType(
+                user, AuthProvider.GOOGLE, AuthType.OAUTH))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User identity not found"));
 
-        // 1- Mark old token as used (Rotation)
+        //Mark old token as used (Rotation)
         tokenService.markTokenUsed(oldToken);
 
-        // 2- Issue NEW Refresh Token
+        //Issue NEW Refresh Token
         AuthRefreshTokenResult newRefreshTokenResult = issueRefreshToken(user);
 
-        // 3- Issue NEW Access Token
+        //Issue NEW Access Token
         String newAccessToken = jwtService.buildAccessToken(user, identity.getEmail());
 
         RefreshTokenResponse response = new RefreshTokenResponse(newAccessToken,
@@ -176,9 +187,9 @@ public class AuthService {
     }
 
     @Transactional
-    public MessageResponse logout(LogoutSessionRequest request) {
+    public MessageResponse logout(String refreshTokenValue) {
         Token refreshToken = tokenService.findValidUnusedToken(
-                request.refreshToken(),
+                refreshTokenValue,
                 TokenType.REFRESH_TOKEN,
                 "Invalid refresh token");
 
@@ -189,9 +200,9 @@ public class AuthService {
     }
 
     @Transactional
-    public MessageResponse logoutAll(LogoutSessionRequest request) {
+    public MessageResponse logoutAll(String refreshTokenValue) {
         Token refreshToken = tokenService.findValidUnusedToken(
-                request.refreshToken(),
+                refreshTokenValue,
                 TokenType.REFRESH_TOKEN,
                 "Invalid refresh token");
 
@@ -210,20 +221,26 @@ public class AuthService {
                 .orElse(null);
 
         // Return silently if email not found — prevent email enumeration
-        if (identity == null) {
-            return new MessageResponse("If an unverified account exists with that email, a verification link has been sent.");
-        }
-
-        // Only resend if not yet verified
-        if (identity.isEmailVerified()) {
+        if (identity == null || identity.isEmailVerified()) {
             return new MessageResponse("If an unverified account exists with that email, a verification link has been sent.");
         }
 
         User user = identity.getUser();
+        LocalDateTime now = LocalDateTime.now();
+
+        //find the most recent email verification token for the user
+        tokenRepository.findFirstByUserAndTokenTypeOrderByCreatedAtDesc(user, TokenType.EMAIL_VERIFICATION)
+                .ifPresent(lastToken -> {
+                    LocalDateTime cooldownWindow = lastToken.getCreatedAt().plusSeconds(COOLDOWN_SECONDS);
+
+                    if (now.isBefore(cooldownWindow)) {
+                        long secondsLeft = java.time.Duration.between(now, cooldownWindow).toSeconds();
+                        throw new CooldownActiveException("Please wait " + secondsLeft + " seconds before requesting another link.");
+                    }
+                });
 
         // Delete any existing unused verification tokens before issuing a new one
         tokenService.deleteTokensForUserAndType(user, TokenType.EMAIL_VERIFICATION);
-        tokenService.deleteExpiredTokens();
 
         IssuedToken issuedToken = tokenService.createEmailVerificationToken(user);
         String verificationLink = frontendLinkService.buildEmailVerificationLink(issuedToken.rawToken());
