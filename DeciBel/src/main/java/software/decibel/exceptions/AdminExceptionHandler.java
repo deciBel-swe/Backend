@@ -26,4 +26,9 @@ public class AdminExceptionHandler {
     public ResponseEntity<String> handleBadRequest() {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Bad Request");
     }
+
+    @ExceptionHandler(software.decibel.exceptions.custom.ResourceNotFoundException.class)
+    public ResponseEntity<String> handleNotFound(software.decibel.exceptions.custom.ResourceNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
+    }
 }
