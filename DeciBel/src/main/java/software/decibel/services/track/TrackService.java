@@ -1,20 +1,14 @@
 package software.decibel.services.track;
 
 import jakarta.transaction.Transactional;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import org.springframework.beans.factory.annotation.Autowired;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -22,8 +16,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
-
 import software.decibel.dtos.track.*;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
@@ -35,12 +30,12 @@ import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.exceptions.custom.TrackAlreadyPublishedException;
 import software.decibel.exceptions.custom.UnauthorizedActionException;
 import software.decibel.mappers.TrackMapper;
-import software.decibel.repositories.TrackRepository;
-import software.decibel.repositories.TrackLikeRepository;
-import software.decibel.repositories.TrackRepostRepository;
-import software.decibel.repositories.CommentRepository;
-import software.decibel.repositories.UserRepository;
 import software.decibel.repositories.BlockRepository;
+import software.decibel.repositories.CommentRepository;
+import software.decibel.repositories.TrackLikeRepository;
+import software.decibel.repositories.TrackRepository;
+import software.decibel.repositories.TrackRepostRepository;
+import software.decibel.repositories.UserRepository;
 import software.decibel.services.JwtService;
 import software.decibel.services.TagService;
 import software.decibel.services.engagement.LikeService;
@@ -49,8 +44,6 @@ import software.decibel.services.user.UserService;
 import software.decibel.utils.*;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 @RequiredArgsConstructor
@@ -340,6 +333,8 @@ public class TrackService {
     }
 
     private TrackPageResponse getAllTracksByUserId(Long userId, int page, int size) {
+
+    userService.getUserIfExistsById(userId);
 
         Pageable pageable = PageRequest.of(page, size);
         Page<Track> result = trackRepository.findByUploaderId(userId, pageable);

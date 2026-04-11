@@ -23,4 +23,12 @@ public class StationController {
       @RequestParam(defaultValue = "20") int size) {
     return ResponseEntity.ok(stationService.getGenreStation(genre, page, size));
   }
+
+  @GetMapping("/artist")
+  public ResponseEntity<StationPageResponse> getArtistStation(
+      @RequestParam Long artistId,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "20") int size) {
+    return ResponseEntity.ok(stationService.getArtistStation(artistId, page, size));
+  }
 }
