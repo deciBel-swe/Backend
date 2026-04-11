@@ -131,4 +131,63 @@ public interface TrackRepository extends JpaRepository<Track, Long> {
 """)
   Page<Track> findArtistStation(
       @Param("artistId") Long artistId, @Param("userId") Long userId, Pageable pageable);
+
+  // Likes Station – Discover Tracks based on tags of user's liked tracks
+  //
+  // Filtering:
+  // - Derive tags from tracks the current user has liked
+  // - Return tracks that share any of those tags
+  // - Only include tracks that are:
+  //     Public
+  //     Published
+  //     FINISHED
+  // - Exclude tracks that are:
+  //     Uploaded by the current user
+  //     Already liked by the user
+  //     Already reposted by the user
+  //     From users blocked by the current user
+  //     From users who have blocked the current user
+  //
+  // Ordering (priority-based):
+  // 1. Highest play count first
+  // 2. Then higher play-through rate
+  // 3. Then higher like count
+  // 4. Then higher repost count
+  // 5. Then higher comment count
+  @Query(
+"""
+    SELECT t FROM Track t
+    JOIN t.tags tag
+    WHERE tag.tagId IN (
+        SELECT lt.tagId FROM Track lt2
+        JOIN lt2.tags lt
+        WHERE lt2.id IN (
+            SELECT tl.track.id FROM TrackLike tl WHERE tl.user.id = :userId
+        )
+    )
+    AND t.visibility = 'PUBLIC'
+    AND t.published = true
+    AND t.state = 'FINISHED'
+    AND t.uploader.id != :userId
+    AND t.id NOT IN (
+        SELECT tl.track.id FROM TrackLike tl WHERE tl.user.id = :userId
+    )
+    AND t.id NOT IN (
+        SELECT tr.track.id FROM TrackRepost tr WHERE tr.user.id = :userId
+    )
+    AND t.uploader.id NOT IN (
+        SELECT b.blocked.id FROM Block b WHERE b.blocker.id = :userId
+    )
+    AND t.uploader.id NOT IN (
+        SELECT b.blocker.id FROM Block b WHERE b.blocked.id = :userId
+    )
+    GROUP BY t
+    ORDER BY
+        t.playCount DESC,
+        t.playThroughRate DESC,
+        t.likeCount DESC,
+        t.repostCount DESC,
+        t.commentCount DESC
+""")
+  Page<Track> findLikesStation(@Param("userId") Long userId, Pageable pageable);
 }

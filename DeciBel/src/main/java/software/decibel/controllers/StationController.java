@@ -31,4 +31,10 @@ public class StationController {
       @RequestParam(defaultValue = "20") int size) {
     return ResponseEntity.ok(stationService.getArtistStation(artistId, page, size));
   }
+
+  @GetMapping("/likes")
+  public ResponseEntity<StationPageResponse> getLikesStation(
+      @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+    return ResponseEntity.ok(stationService.getLikesStation(page, size));
+  }
 }
