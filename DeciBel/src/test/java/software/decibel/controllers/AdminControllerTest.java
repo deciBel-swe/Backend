@@ -14,16 +14,26 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import software.decibel.dtos.admin.AdminUserResponse;
 import software.decibel.dtos.admin.LoginAdminRequest;
 import software.decibel.dtos.admin.LoginAdminResponse;
+import software.decibel.dtos.admin.ReportResponse;
+import software.decibel.dtos.admin.UpdateReportStatusRequest;
 import software.decibel.dtos.auth.DeviceInfo;
+import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.enums.DeviceType;
+import software.decibel.enums.ReportStatus;
 import software.decibel.exceptions.AdminExceptionHandler;
 import software.decibel.exceptions.custom.InvalidAdminCredentialsException;
 import software.decibel.services.AdminAuthService;
+import software.decibel.services.AdminModerationService;
+
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -35,12 +45,15 @@ class AdminControllerTest {
     @Mock
     private AdminAuthService adminAuthService;
 
+    @Mock
+    private AdminModerationService adminModerationService;
+
     private MockMvc mockMvc;
     private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
-        AdminController controller = new AdminController(adminAuthService);
+        AdminController controller = new AdminController(adminAuthService, adminModerationService);
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
 
@@ -140,9 +153,49 @@ class AdminControllerTest {
 
     @Test
     void login_whenWrongHttpMethod_returnsMethodNotAllowed() throws Exception {
-        // Checking security against brute-forcing headers or REST calls
         mockMvc.perform(get("/admin/login")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isMethodNotAllowed());
+    }
+
+    @Test
+    void listReports_returnsOkAndJson() throws Exception {
+        ReportResponse report = ReportResponse.builder()
+                .id(1L)
+                .reporterId(100L)
+                .status(ReportStatus.OPEN)
+                .build();
+        when(adminModerationService.getAllReports(anyInt(), anyInt())).thenReturn(List.of(report));
+
+        mockMvc.perform(get("/admin/reports")
+                        .param("page", "0")
+                        .param("size", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(1))
+                .andExpect(jsonPath("$[0].status").value("OPEN"));
+    }
+
+    @Test
+    void updateReportStatus_whenValidRequest_returnsOk() throws Exception {
+        UpdateReportStatusRequest request = new UpdateReportStatusRequest(ReportStatus.RESOLVED);
+        when(adminModerationService.updateReportStatus(eq(1L), any())).thenReturn(new MessageResponse("Success"));
+
+        mockMvc.perform(patch("/admin/reports/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Success"));
+    }
+
+    @Test
+    void updateReportStatus_whenInvalidRequest_returnsBadRequest() throws Exception {
+        // status is @NotNull, so null should fail
+        UpdateReportStatusRequest request = new UpdateReportStatusRequest(null);
+
+        mockMvc.perform(patch("/admin/reports/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Bad Request"));
     }
 }
