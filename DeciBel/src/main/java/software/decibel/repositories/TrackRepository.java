@@ -22,4 +22,7 @@ public interface TrackRepository extends JpaRepository<Track, Long> {
     List<String> findGenresOfLikedTracksByUserId(Long userId);
 
     boolean existsBySlug(String slug);
+    
+    @Query("SELECT t FROM Track t WHERE t.visibility = 'PUBLIC' AND t.published = true ORDER BY (t.likeCount + t.repostCount) DESC")
+    Page<Track> findAllTrending(Pageable pageable);
 }

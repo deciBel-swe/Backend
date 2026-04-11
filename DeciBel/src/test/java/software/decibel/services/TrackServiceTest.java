@@ -3,9 +3,11 @@ package software.decibel.services;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.AfterEach;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,9 +24,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.MockitoAnnotations;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import software.decibel.dtos.track.TrackPageResponse;
 import software.decibel.dtos.track.TrackPatchRequest;
 import software.decibel.dtos.track.TrackStatusResponse;
 import software.decibel.entities.Tag;
@@ -39,6 +44,8 @@ import software.decibel.repositories.CommentRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
+import software.decibel.services.engagement.LikeService;
+import software.decibel.services.engagement.RepostService;
 import software.decibel.services.track.TrackService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.AudioUtility;
@@ -77,6 +84,12 @@ class TrackServiceTest {
     private ObjectMapper objectMapper;
     @Mock
     private SimpMessagingTemplate messagingTemplate;
+
+    @Mock
+    private LikeService likeService;
+
+    @Mock
+    private RepostService repostService;
 
     @InjectMocks
     private TrackService trackService;
@@ -379,6 +392,21 @@ class TrackServiceTest {
 
         // Act & Assert
         assertThrows(ResourceNotFoundException.class, () -> trackService.deleteTrackAudio(1L));
+    }
+
+    @Test
+    void shouldReturnTrendingTracks() {
+        Track track = createTrack(1L);
+        Page<Track> page = new PageImpl<>(List.of(track));
+        when(trackRepository.findAllTrending(any())).thenReturn(page);
+        when(likeService.getLikedTrackIds(any())).thenReturn(Set.of());
+        when(repostService.getRepostedTrackIds(any())).thenReturn(Set.of());
+        when(trackMapper.toPageResponse(any(), any(), any())).thenReturn(new TrackPageResponse(List.of(), 0, 10, 1, 1, true));
+
+        TrackPageResponse result = trackService.getTrendingTracks(0, 10);
+
+        assertNotNull(result);
+        verify(trackRepository).findAllTrending(any());
     }
 
     @Test

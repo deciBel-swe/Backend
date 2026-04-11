@@ -362,7 +362,6 @@ public class TrackService {
         return trackMapper.toPageResponse(result, likedTrackIds, repostedTrackIds);
     }
 
-    @Transactional
     public TrackPublishResponse publishTrack(Long trackId) {
         Track track = getTrackIfExistsById(trackId);
 
@@ -381,6 +380,17 @@ public class TrackService {
         track.setPublishedAt(LocalDateTime.now());
 
         return trackMapper.toTrackPublishResponse(trackRepository.save(track));
+    }
+
+    public TrackPageResponse getTrendingTracks(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Track> trendingTracks = trackRepository.findAllTrending(pageable);
+
+        Long currentUserId = JwtService.getCurrentUserId();
+        Set<Long> likedTrackIds = (currentUserId != null) ? likeService.getLikedTrackIds(currentUserId) : Set.of();
+        Set<Long> repostedTrackIds = (currentUserId != null) ? repostService.getRepostedTrackIds(currentUserId) : Set.of();
+
+        return trackMapper.toPageResponse(trendingTracks, likedTrackIds, repostedTrackIds);
     }
 
     public TrackResponse getTrackData(Long trackId) {
