@@ -362,6 +362,7 @@ public class TrackService {
         return trackMapper.toPageResponse(result, likedTrackIds, repostedTrackIds);
     }
 
+    @Transactional
     public TrackPublishResponse publishTrack(Long trackId) {
         Track track = getTrackIfExistsById(trackId);
 
