@@ -47,6 +47,10 @@ public class CommentService {
       throw new InvalidTimestampException(request.timestampSeconds(), track.getDurationSeconds());
     }
 
+    // update comment count
+    track.setCommentCount(track.getCommentCount() + 1);
+    trackRepository.save(track);
+
     Comment comment = commentMapper.toEntity(request, user, track);
     return commentMapper.toCommentResponse(commentRepository.save(comment));
   }
@@ -76,8 +80,16 @@ public class CommentService {
       throw new ReplyToReplyNotAllowedException();
     }
 
+  
+
     Comment reply =
         commentMapper.toReplyEntity(request, user, parentComment.getTrack(), parentComment);
+
+    // update comment count (replies are considered comments on a track)
+    Track track = reply.getTrack();
+    track.setCommentCount(track.getCommentCount() + 1);
+    trackRepository.save(track);
+
     return commentMapper.toReplyResponse(commentRepository.save(reply));
   }
 
@@ -94,6 +106,8 @@ public class CommentService {
 
     PageRequest pageable = PageRequest.of(page, size, Sort.by("createdAt").ascending());
     Page<Comment> result = commentRepository.findByParentCommentId(commentId, pageable);
+
+    
 
     return commentMapper.toReplyPageResponse(result);
   }
