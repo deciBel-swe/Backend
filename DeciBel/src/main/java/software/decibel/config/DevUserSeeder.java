@@ -3,6 +3,7 @@ package software.decibel.config;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -20,6 +21,7 @@ import software.decibel.repositories.UserRepository;
  * The seeded user is pre-verified to skip the registration flow.
  */
 @Component
+@Order(1)
 @RequiredArgsConstructor
 @Slf4j
 public class DevUserSeeder implements CommandLineRunner {
