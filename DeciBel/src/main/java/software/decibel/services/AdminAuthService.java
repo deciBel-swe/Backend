@@ -23,15 +23,15 @@ public class AdminAuthService {
 
     public LoginAdminResponse login(LoginAdminRequest request) {
         // Find by email according to OpenAPI Spec
-        Admin admin = adminRepository.findByEmail(request.getEmail())
+        Admin admin = adminRepository.findByEmail(request.email())
                 .orElseThrow(() -> new InvalidAdminCredentialsException("Invalid email or password."));
 
-        if (!passwordEncoder.matches(request.getPassword(), admin.getPassword())) {
+        if (!passwordEncoder.matches(request.password(), admin.getPassword())) {
             throw new InvalidAdminCredentialsException("Invalid email or password.");
         }
 
         // Optionally record the latest device info
-        String newDeviceInfo = request.getDeviceInfo().deviceType().name() + "|" + request.getDeviceInfo().deviceName();
+        String newDeviceInfo = request.deviceInfo().deviceType().name() + "|" + request.deviceInfo().deviceName();
         if (admin.getDeviceInfo() == null || !admin.getDeviceInfo().equals(newDeviceInfo)) {
             admin.setDeviceInfo(newDeviceInfo);
             adminRepository.save(admin);
