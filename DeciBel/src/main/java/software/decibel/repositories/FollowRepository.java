@@ -19,6 +19,9 @@ public interface FollowRepository extends JpaRepository<Follow, Long> {
     // Finds a specific follow relationship
     Optional<Follow> findByFollowerAndFollowing(User follower, User following);
 
+    // Checks if a follow relationship exists using just the User IDs
+    boolean existsByFollowerIdAndFollowingId(Long followerId, Long followingId);
+
     // Retrieves followers of a user
     Page<Follow> findByFollowing(User following, Pageable pageable);
 
