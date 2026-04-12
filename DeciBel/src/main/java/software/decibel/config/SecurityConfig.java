@@ -63,6 +63,7 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/comments/{commentId}/replies").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{username}/liked-tracks").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{username}/reposted-tracks").permitAll()
+                                .requestMatchers("/webhook/**").permitAll()
                                 //needed for api docs
                                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                                 .anyRequest().authenticated())
