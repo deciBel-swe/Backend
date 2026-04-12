@@ -89,6 +89,8 @@ public class TrackService {
         likeRepository.deleteAllByTrackId(trackId);
         repostRepository.deleteAllByTrackId(trackId);
         commentRepository.deleteAllByTrackId(trackId);
+        User user = track.getUploader();
+        user.setTrackCount(user.getTrackCount() - 1);
         trackRepository.delete(track);
 
         //Instruct Spring to delete the files ONLY after the DB commit succeeds
@@ -97,28 +99,35 @@ public class TrackService {
             public void afterCommit() {
                 try {
                     // These only run if the database successfully deletes the records
-                    if (coverUrl != null) fileUtilityAzure.deleteFileByUrl(coverUrl);
-                    if (audioUrl != null) fileUtilityAzure.deleteFileByUrl(audioUrl);
-                    if (waveformUrl != null) fileUtilityAzure.deleteFileByUrl(waveformUrl);
+                    if (coverUrl != null) {
+                        fileUtilityAzure.deleteFileByUrl(coverUrl);
+                    }
+                    if (audioUrl != null) {
+                        fileUtilityAzure.deleteFileByUrl(audioUrl);
+                    }
+                    if (waveformUrl != null) {
+                        fileUtilityAzure.deleteFileByUrl(waveformUrl);
+                    }
                 } catch (Exception e) {
                     // The database deletion succeeded, but file deletion failed.
                     log.error("Database deletion succeeded, but failed to delete files for track {}", trackId, e);
                 }
             }
         });
+
     }
 
     /**
-     * Admin-privileged track deletion.
-     * Fetches the track directly from the repository, bypassing the ownership,
-     * block, and visibility checks in getTrackIfExistsById() which rely on a
-     * UserPrincipal in the security context (not present for admin requests).
+     * Admin-privileged track deletion. Fetches the track directly from the
+     * repository, bypassing the ownership, block, and visibility checks in
+     * getTrackIfExistsById() which rely on a UserPrincipal in the security
+     * context (not present for admin requests).
      */
     @Transactional
     public void adminDeleteTrack(Long trackId) {
         Track track = trackRepository.findById(trackId)
                 .orElseThrow(() -> new software.decibel.exceptions.custom.ResourceNotFoundException(
-                        "Track with id " + trackId + " not found"));
+                "Track with id " + trackId + " not found"));
 
         // Capture URLs before deletion
         final String audioUrl = track.getTrackUrl();
@@ -134,16 +143,21 @@ public class TrackService {
             @Override
             public void afterCommit() {
                 try {
-                    if (coverUrl != null) fileUtilityAzure.deleteFileByUrl(coverUrl);
-                    if (audioUrl != null) fileUtilityAzure.deleteFileByUrl(audioUrl);
-                    if (waveformUrl != null) fileUtilityAzure.deleteFileByUrl(waveformUrl);
+                    if (coverUrl != null) {
+                        fileUtilityAzure.deleteFileByUrl(coverUrl);
+                    }
+                    if (audioUrl != null) {
+                        fileUtilityAzure.deleteFileByUrl(audioUrl);
+                    }
+                    if (waveformUrl != null) {
+                        fileUtilityAzure.deleteFileByUrl(waveformUrl);
+                    }
                 } catch (Exception e) {
                     log.error("Admin delete: DB succeeded but file deletion failed for track {}", trackId, e);
                 }
             }
         });
     }
-
 
     public TrackUploadResponse uploadTrack(TrackUploadRequest request) {
 
@@ -384,7 +398,7 @@ public class TrackService {
 
     private TrackPageResponse getAllTracksByUserId(Long userId, int page, int size) {
 
-    userService.getUserIfExistsById(userId);
+        userService.getUserIfExistsById(userId);
 
         Pageable pageable = PageRequest.of(page, size);
         Page<Track> result = trackRepository.findByUploaderId(userId, pageable);

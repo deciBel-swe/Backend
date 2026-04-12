@@ -21,6 +21,8 @@ import software.decibel.entities.PlaylistLike;
 import software.decibel.entities.Track;
 import software.decibel.entities.TrackLike;
 import software.decibel.entities.User;
+import software.decibel.enums.NotificationType;
+import software.decibel.enums.ResourceType;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.LikeMapper;
 import software.decibel.mappers.PlaylistMapper;
@@ -34,6 +36,7 @@ import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.JwtService;
+import software.decibel.services.notification.InAppNotificationService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.UserMappingUtility;
 
@@ -46,6 +49,7 @@ public class LikeService {
     private final TrackRepostRepository trackRepostRepository;
     private final TrackRepository trackRepository;
     private final UserService userService;
+    private final InAppNotificationService inAppNotificationService;
     private final LikeMapper likeMapper;
     private final UserMapper userMapper;
     private final FollowRepository followRepository;
@@ -75,6 +79,15 @@ public class LikeService {
 
         track.setLikeCount(track.getLikeCount() + 1);
         trackRepository.save(track);
+        if (track.getUploader() != null) {
+            inAppNotificationService.createNotification(
+                    track.getUploader().getId(), // Recipient (Track Owner)
+                    userId, // Actor (User who liked)
+                    NotificationType.LIKE,
+                    ResourceType.TRACK,
+                    track.getId() // Resource ID
+            );
+        }
 
         return likeMapper.toLikeResponse(true);
     }
@@ -124,6 +137,16 @@ public class LikeService {
 
         playlist.setLikeCount(playlist.getLikeCount() + 1);
         playlistRepository.save(playlist);
+        // Notify the owner of the playlist that someone liked it
+        if (playlist.getUser() != null) {
+            inAppNotificationService.createNotification(
+                    playlist.getUser().getId(), // Recipient (Playlist Owner)
+                    userId, // Actor (User who liked)
+                    NotificationType.LIKE,
+                    ResourceType.PLAYLIST,
+                    playlist.getId() // Resource ID
+            );
+        }
         return likeMapper.toLikeResponse(true);
     }
 
