@@ -190,4 +190,7 @@ public interface TrackRepository extends JpaRepository<Track, Long> {
         t.commentCount DESC
 """)
   Page<Track> findLikesStation(@Param("userId") Long userId, Pageable pageable);
+    
+    @Query("SELECT t FROM Track t WHERE t.visibility = 'PUBLIC' AND t.published = true ORDER BY (t.likeCount + t.repostCount) DESC")
+    Page<Track> findAllTrending(Pageable pageable);
 }

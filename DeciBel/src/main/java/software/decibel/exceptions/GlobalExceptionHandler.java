@@ -16,6 +16,28 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import software.decibel.exceptions.custom.*;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.server.ResponseStatusException;
+
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
+import software.decibel.exceptions.custom.AudioDurationReadingException;
+import software.decibel.exceptions.custom.AzureFileStorageException;
+import software.decibel.exceptions.custom.CooldownActiveException;
+import software.decibel.exceptions.custom.DuplicateResourceException;
+import software.decibel.exceptions.custom.ExternalAuthConfigurationException;
+import software.decibel.exceptions.custom.InvalidGoogleTokenException;
+import software.decibel.exceptions.custom.InvalidPlaylistOperationException;
+import software.decibel.exceptions.custom.InvalidTimestampException;
+import software.decibel.exceptions.custom.PlaylistAccessDeniedException;
+import software.decibel.exceptions.custom.ReplyToReplyNotAllowedException;
+import software.decibel.exceptions.custom.ResourceNotFoundException;
+import software.decibel.exceptions.custom.TrackAlreadyInPlaylistException;
+import software.decibel.exceptions.custom.TrackAlreadyPublishedException;
+import software.decibel.exceptions.custom.UnauthorizedActionException;
 import software.decibel.exceptions.response.ApiErrorResponse;
 
 @RestControllerAdvice
@@ -61,6 +83,73 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.badRequest().body(error);
+    }
+
+    // ── 400 — Malformed JSON request body
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiErrorResponse> handleMessageNotReadable(
+            HttpMessageNotReadableException ex, HttpServletRequest request) {
+
+        ApiErrorResponse error = ApiErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error("Bad Request")
+                .message("Malformed JSON request body.")
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.badRequest().body(error);
+    }
+
+    // ── 400 — Type Mismatch (ex: string for long id)
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiErrorResponse> handleTypeMismatch(
+            MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+
+        String message = String.format("The parameter '%s' should be of type '%s'.", 
+                ex.getName(), ex.getRequiredType().getSimpleName());
+
+        ApiErrorResponse error = ApiErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error("Invalid Argument")
+                .message(message)
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.badRequest().body(error);
+    }
+
+    // ── 400 — Missing Required Parameter
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiErrorResponse> handleMissingParameter(
+            MissingServletRequestParameterException ex, HttpServletRequest request) {
+
+        ApiErrorResponse error = ApiErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error("Missing Parameter")
+                .message(ex.getMessage())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.badRequest().body(error);
+    }
+
+    // ── 400 — Unsupported Media Type
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiErrorResponse> handleMediaTypeNotSupported(
+            HttpMediaTypeNotSupportedException ex, HttpServletRequest request) {
+
+        ApiErrorResponse error = ApiErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.UNSUPPORTED_MEDIA_TYPE.value())
+                .error("Unsupported Media Type")
+                .message(ex.getMessage())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(error);
     }
 
     // ── 400 — Database Constraint Violation
@@ -306,6 +395,31 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+
+    // ── 4xx/5xx — ResponseStatusException (thrown manually in services)
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ApiErrorResponse> handleResponseStatusException(
+            ResponseStatusException ex, HttpServletRequest request) {
+
+        int statusValue = ex.getStatusCode().value();
+
+        // Log client errors as WARN, server errors as ERROR
+        if (ex.getStatusCode().is4xxClientError()) {
+            log.warn("Client error at {}: {} - {}", request.getRequestURI(), statusValue, ex.getReason());
+        } else {
+            log.error("Server error at {}: {} - {}", request.getRequestURI(), statusValue, ex.getReason(), ex);
+        }
+
+        ApiErrorResponse error = ApiErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(statusValue)
+                .error(ex.getStatusCode().toString())
+                .message(ex.getReason())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.status(ex.getStatusCode()).body(error);
     }
 
     // ── 500 — Catch All Safety Net
