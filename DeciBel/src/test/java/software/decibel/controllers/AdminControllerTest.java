@@ -75,11 +75,7 @@ class AdminControllerTest {
 
         when(adminAuthService.login(any(LoginAdminRequest.class))).thenReturn(response);
 
-        LoginAdminRequest request = LoginAdminRequest.builder()
-                .email("admin@test.com")
-                .password("password")
-                .deviceInfo(new DeviceInfo(DeviceType.DESKTOP, "fp", "name"))
-                .build();
+        LoginAdminRequest request = new LoginAdminRequest("admin@test.com", "password", new DeviceInfo(DeviceType.DESKTOP, "fp", "name"));
 
         mockMvc.perform(post("/admin/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -92,33 +88,28 @@ class AdminControllerTest {
 
     @Test
     void login_whenMissingDeviceInfo_returnsBadRequestText() throws Exception {
-        LoginAdminRequest request = LoginAdminRequest.builder()
-                .email("admin@test.com")
-                .password("password")
-                .build();
+        LoginAdminRequest request = new LoginAdminRequest("admin@test.com", "password", null);
 
         mockMvc.perform(post("/admin/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string("Bad Request"));
+                .andExpect(jsonPath("$.error").value("Validation Failed"))
+                .andExpect(jsonPath("$.message").value("One or more fields are invalid."));
         
         verifyNoInteractions(adminAuthService);
     }
 
     @Test
     void login_whenMissingEmailOrPassword_returnsBadRequestText() throws Exception {
-        LoginAdminRequest request = LoginAdminRequest.builder()
-                .email("  ") // Blank email -> @NotBlank constraint failure
-                .password("") // Empty password -> @NotBlank constraint failure
-                .deviceInfo(new DeviceInfo(DeviceType.DESKTOP, "fp", "name"))
-                .build();
+        LoginAdminRequest request = new LoginAdminRequest("  ", "", new DeviceInfo(DeviceType.DESKTOP, "fp", "name"));
 
         mockMvc.perform(post("/admin/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string("Bad Request"));
+                .andExpect(jsonPath("$.error").value("Validation Failed"))
+                .andExpect(jsonPath("$.message").value("One or more fields are invalid."));
         
         verifyNoInteractions(adminAuthService);
     }
@@ -128,7 +119,8 @@ class AdminControllerTest {
         mockMvc.perform(post("/admin/login")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string("Bad Request"));
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.message").value("Malformed JSON request body."));
 
         verifyNoInteractions(adminAuthService);
     }
@@ -138,17 +130,14 @@ class AdminControllerTest {
         when(adminAuthService.login(any(LoginAdminRequest.class)))
                 .thenThrow(new InvalidAdminCredentialsException("Invalid"));
 
-        LoginAdminRequest request = LoginAdminRequest.builder()
-                .email("admin@test.com")
-                .password("wrong")
-                .deviceInfo(new DeviceInfo(DeviceType.DESKTOP, "fp", "name"))
-                .build();
+        LoginAdminRequest request = new LoginAdminRequest("admin@test.com", "wrong", new DeviceInfo(DeviceType.DESKTOP, "fp", "name"));
 
         mockMvc.perform(post("/admin/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized())
-                .andExpect(content().json("{}"));
+                .andExpect(jsonPath("$.error").value("Unauthorized"))
+                .andExpect(jsonPath("$.message").value("Invalid email or password."));
     }
 
     @Test
@@ -196,6 +185,7 @@ class AdminControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string("Bad Request"));
+                .andExpect(jsonPath("$.error").value("Validation Failed"))
+                .andExpect(jsonPath("$.message").value("One or more fields are invalid."));
     }
 }

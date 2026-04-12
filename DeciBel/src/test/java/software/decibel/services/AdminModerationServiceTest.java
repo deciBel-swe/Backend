@@ -59,14 +59,15 @@ class AdminModerationServiceTest {
         Page<Report> page = new PageImpl<>(List.of(report));
         when(reportRepository.findAll(any(PageRequest.class))).thenReturn(page);
         
-        ReportResponse response = new ReportResponse();
-        response.setId(1L);
+        ReportResponse response = ReportResponse.builder()
+                .id(1L)
+                .build();
         when(reportMapper.toReportResponseList(any())).thenReturn(List.of(response));
 
         List<ReportResponse> result = adminModerationService.getAllReports(0, 10);
 
         assertEquals(1, result.size());
-        assertEquals(1L, result.get(0).getId());
+        assertEquals(1L, result.get(0).id());
         verify(reportRepository).findAll(PageRequest.of(0, 10, Sort.by("createdAt").descending()));
     }
 

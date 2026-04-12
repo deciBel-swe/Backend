@@ -49,11 +49,7 @@ class AdminAuthServiceTest {
                 .deviceInfo(null) // Initially null to test population logic
                 .build();
 
-        request = LoginAdminRequest.builder()
-                .email("admin@test.com")
-                .password("raw_pass")
-                .deviceInfo(new DeviceInfo(DeviceType.DESKTOP, "fp", "Windows"))
-                .build();
+        request = new LoginAdminRequest("admin@test.com", "raw_pass", new DeviceInfo(DeviceType.DESKTOP, "fp", "Windows"));
     }
 
     @Test
@@ -65,7 +61,7 @@ class AdminAuthServiceTest {
         LoginAdminResponse response = adminAuthService.login(request);
 
         assertNotNull(response);
-        assertEquals("token123", response.getAccessToken());
+        assertEquals("token123", response.accessToken());
         
         // Verify device info was saved (since it was initially null)
         verify(adminRepository, times(1)).save(admin);
@@ -84,7 +80,7 @@ class AdminAuthServiceTest {
         LoginAdminResponse response = adminAuthService.login(request);
 
         assertNotNull(response);
-        assertEquals("token123", response.getAccessToken());
+        assertEquals("token123", response.accessToken());
         
         // Ensure no redundant saves occur destroying DB IO thresholds
         verify(adminRepository, never()).save(admin);
@@ -102,7 +98,7 @@ class AdminAuthServiceTest {
         LoginAdminResponse response = adminAuthService.login(request);
 
         assertNotNull(response);
-        assertEquals("token123", response.getAccessToken());
+        assertEquals("token123", response.accessToken());
         
         // Ensure it detects the change and pushes update
         verify(adminRepository, times(1)).save(admin);
