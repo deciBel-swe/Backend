@@ -1,10 +1,11 @@
 package software.decibel.exceptions;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import software.decibel.exceptions.custom.*;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -41,6 +43,26 @@ import software.decibel.exceptions.response.ApiErrorResponse;
 @RestControllerAdvice
 @Slf4j // provides log.error(), log.warn(), etc.
 public class GlobalExceptionHandler {
+
+  // -- 204 -- Not an error
+
+  // for when no content returned
+  // because no results for this station
+  @ExceptionHandler(NoStationResultsException.class)
+  public ResponseEntity<ApiErrorResponse> handleNoStationResultsException(
+      NoStationResultsException ex, HttpServletRequest request) {
+
+    ApiErrorResponse error =
+        ApiErrorResponse.builder()
+            .timestamp(LocalDateTime.now())
+            .status(HttpStatus.NO_CONTENT.value())
+            .error("No Results")
+            .message(ex.getMessage())
+            .path(request.getRequestURI())
+            .build();
+
+    return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+  }
 
     // ── 400 — DTO Validation (@Valid failed)
     @ExceptionHandler(MethodArgumentNotValidException.class)

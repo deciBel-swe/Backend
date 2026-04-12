@@ -40,6 +40,7 @@ public class Track {
   private int likeCount = 0;
   private int repostCount = 0;
   private int playCount = 0;
+  private int commentCount = 0;
   private double playThroughRate = 0.0;
 
   @Enumerated(EnumType.STRING)
