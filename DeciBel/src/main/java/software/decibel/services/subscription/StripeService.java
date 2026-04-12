@@ -121,7 +121,7 @@ public class StripeService {
             com.stripe.model.Subscription stripeSub
                     = com.stripe.model.Subscription.retrieve(stripeSubscriptionId);
 
-            // Map Stripe status to local enum — fixed typo "trialling" -> "trialing"
+            // Map Stripe status to local enum 
             String stripeStatus = stripeSub.getStatus();
             if ("active".equals(stripeStatus) || "trialing".equals(stripeStatus)) {
                 localSubscription.setStatus(SubscriptionStatus.ACTIVE);

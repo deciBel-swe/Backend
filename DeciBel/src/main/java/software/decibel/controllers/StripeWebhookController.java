@@ -39,7 +39,7 @@ public class StripeWebhookController {
 
         Event event;
 
-        // 1. Verify webhook signature
+        //Verify webhook signature
         try {
             event = Webhook.constructEvent(payload, sigHeader, endpointSecret);
         } catch (SignatureVerificationException e) {
@@ -76,7 +76,7 @@ public class StripeWebhookController {
             subscriptionId = dataObject.get("id").getAsString();
         }
 
-        // 5. Handle events using the safely extracted strings
+        //Handle events using the safely extracted strings
         try {
             switch (event.getType()) {
 

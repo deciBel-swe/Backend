@@ -16,7 +16,7 @@ public class StripeConfig {
     @PostConstruct
     public void initStripe() {
         // takes the key from application.properties 
-        // and gives it to the Stripe library!
+        // and gives it to the Stripe library
         Stripe.apiKey = stripeApiKey;
     }
 }
