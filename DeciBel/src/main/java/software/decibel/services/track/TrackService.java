@@ -86,6 +86,11 @@ public class TrackService {
         // Fetch the track first (If it doesn't exist, this throws an error and stops immediately)
         Track track = getTrackIfExistsById(trackId);
 
+        // Capture URLs before deletion
+        final String audioUrl = track.getTrackUrl();
+        final String coverUrl = track.getCoverUrl();
+        final String waveformUrl = track.getWaveformUrl();
+
         // Perform all database deletions
         likeRepository.deleteAllByTrackId(trackId);
         repostRepository.deleteAllByTrackId(trackId);
@@ -98,9 +103,9 @@ public class TrackService {
             public void afterCommit() {
                 try {
                     // These only run if the database successfully deletes the records
-                    deleteTrackCover(trackId);
-                    deleteTrackAudio(trackId);
-                    deleteTrackWaveformData(trackId);
+                    if (coverUrl != null) fileUtilityAzure.deleteFileByUrl(coverUrl);
+                    if (audioUrl != null) fileUtilityAzure.deleteFileByUrl(audioUrl);
+                    if (waveformUrl != null) fileUtilityAzure.deleteFileByUrl(waveformUrl);
                 } catch (Exception e) {
                     // The database deletion succeeded, but file deletion failed.
                     log.error("Database deletion succeeded, but failed to delete files for track {}", trackId, e);
@@ -108,6 +113,43 @@ public class TrackService {
             }
         });
     }
+
+    /**
+     * Admin-privileged track deletion.
+     * Fetches the track directly from the repository, bypassing the ownership,
+     * block, and visibility checks in getTrackIfExistsById() which rely on a
+     * UserPrincipal in the security context (not present for admin requests).
+     */
+    @Transactional
+    public void adminDeleteTrack(Long trackId) {
+        Track track = trackRepository.findById(trackId)
+                .orElseThrow(() -> new software.decibel.exceptions.custom.ResourceNotFoundException(
+                        "Track with id " + trackId + " not found"));
+
+        // Capture URLs before deletion
+        final String audioUrl = track.getTrackUrl();
+        final String coverUrl = track.getCoverUrl();
+        final String waveformUrl = track.getWaveformUrl();
+
+        likeRepository.deleteAllByTrackId(trackId);
+        repostRepository.deleteAllByTrackId(trackId);
+        commentRepository.deleteAllByTrackId(trackId);
+        trackRepository.delete(track);
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    if (coverUrl != null) fileUtilityAzure.deleteFileByUrl(coverUrl);
+                    if (audioUrl != null) fileUtilityAzure.deleteFileByUrl(audioUrl);
+                    if (waveformUrl != null) fileUtilityAzure.deleteFileByUrl(waveformUrl);
+                } catch (Exception e) {
+                    log.error("Admin delete: DB succeeded but file deletion failed for track {}", trackId, e);
+                }
+            }
+        });
+    }
+
 
     public TrackUploadResponse uploadTrack(TrackUploadRequest request) {
 
