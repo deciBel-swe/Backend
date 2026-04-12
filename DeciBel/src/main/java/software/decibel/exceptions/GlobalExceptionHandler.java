@@ -28,6 +28,7 @@ import software.decibel.exceptions.custom.InvalidTimestampException;
 import software.decibel.exceptions.custom.PlaylistAccessDeniedException;
 import software.decibel.exceptions.custom.ReplyToReplyNotAllowedException;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
+import software.decibel.exceptions.custom.SubscriptionNotReadyException;
 import software.decibel.exceptions.custom.TrackAlreadyInPlaylistException;
 import software.decibel.exceptions.custom.TrackAlreadyPublishedException;
 import software.decibel.exceptions.custom.UnauthorizedActionException;
@@ -335,5 +336,21 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(error);
+    }
+
+    //subcription not ready error 
+    @ExceptionHandler(SubscriptionNotReadyException.class)
+    public ResponseEntity<ApiErrorResponse> handleSubscriptionNotReadyException(
+            SubscriptionNotReadyException ex, HttpServletRequest request) {
+
+        ApiErrorResponse error = ApiErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error("Bad Request")
+                .message(ex.getMessage())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 }

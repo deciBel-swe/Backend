@@ -21,5 +21,7 @@ public interface TrackRepository extends JpaRepository<Track, Long> {
     @Query("SELECT DISTINCT t.genre FROM Track t JOIN TrackLike l ON l.track.id = t.id WHERE l.user.id = :userId")
     List<String> findGenresOfLikedTracksByUserId(Long userId);
 
+    int countByUploaderId(Long userId);
+
     boolean existsBySlug(String slug);
 }

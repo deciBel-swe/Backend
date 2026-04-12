@@ -28,6 +28,7 @@ import software.decibel.dtos.track.*;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
+import software.decibel.enums.AccountTier;
 import software.decibel.enums.FileType;
 import software.decibel.enums.TrackState;
 import software.decibel.enums.Visibility;
@@ -113,6 +114,13 @@ public class TrackService {
 
         Long userId = JwtService.getCurrentUserId();
         User uploader = userService.getUserIfExistsById(userId);
+        if (uploader.getTier() == AccountTier.FREE) {
+            int trackCount = trackRepository.countByUploaderId(userId);
+            if (trackCount >= 3) {
+                throw new UnauthorizedActionException(
+                        "Free users can only upload up to 3 tracks. Upgrade to PRO to upload more.");
+            }
+        }
 
         Track track = trackMapper.toEntity(request, uploader);
 
