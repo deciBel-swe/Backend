@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import software.decibel.dtos.track.InitialTrackResponse;
 import software.decibel.dtos.track.TrackPatchRequest;
 import software.decibel.dtos.track.TrackPatchResponse;
 import software.decibel.dtos.track.TrackPublishResponse;
@@ -34,11 +35,16 @@ public class TrackController {
     // For uploading a track
     // Endpoint accepts multipart form data (files)
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<TrackUploadResponse> uploadTrack(
+    public ResponseEntity<InitialTrackResponse> uploadTrack(
             @Valid @ModelAttribute TrackUploadRequest request) {
 
-        TrackUploadResponse response = trackService.uploadTrack(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        TrackUploadResponse response = trackService.uploadTrack(request, request.uploadId());
+        InitialTrackResponse minimalResponse = new InitialTrackResponse(
+                response.id(),
+                request.title(),
+                request.uploadId()
+        );
+        return ResponseEntity.status(HttpStatus.CREATED).body(minimalResponse);
     }
 
     // For patching a track

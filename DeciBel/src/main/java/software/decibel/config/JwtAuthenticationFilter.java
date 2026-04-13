@@ -1,24 +1,24 @@
 package software.decibel.config;
 
+import java.io.IOException;
+
+import org.springframework.lang.NonNull;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.lang.NonNull;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
-import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
 import software.decibel.dtos.auth.UserPrincipal;
 import software.decibel.entities.User;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.JwtService;
-
-import java.io.IOException;
 
 @Component
 @RequiredArgsConstructor
@@ -32,7 +32,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
         String path = request.getServletPath();
         // Tell the filter to skip any route starting with /auth/ or /admin
-        return path.startsWith("/auth/") || path.startsWith("/admin");
+        return path.startsWith("/auth/") || path.startsWith("/admin") || path.startsWith("/ws");
+
     }
 
     @Override

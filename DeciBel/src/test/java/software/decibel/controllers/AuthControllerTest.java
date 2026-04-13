@@ -93,7 +93,7 @@ class AuthControllerTest {
         LoginLocalResponse response = new LoginLocalResponse(
                 "access-token",
                 1800L,
-                new LoginLocalResponse.UserInfo(2L, "pro-user", AccountTier.PRO, null,
+                new LoginLocalResponse.UserInfo(2L, "pro-user", "pro-user", AccountTier.PRO, null,
                         "avatar.png", false));
         when(authService.loginLocal(any(LoginLocalRequest.class)))
                 .thenReturn(new AuthLoginResult(response, "refresh-token", 2592000L));
@@ -117,7 +117,7 @@ class AuthControllerTest {
         LoginLocalResponse response = new LoginLocalResponse(
                 "access-token",
                 1800L,
-                new LoginLocalResponse.UserInfo(2L, "pro-user", AccountTier.PRO, null,
+                new LoginLocalResponse.UserInfo(2L, "pro-user", "pro-user", AccountTier.PRO, null,
                         "avatar.png", false));
         when(authService.loginLocal(any(LoginLocalRequest.class)))
                 .thenReturn(new AuthLoginResult(response, "refresh-token", 2592000L));
@@ -212,7 +212,7 @@ class AuthControllerTest {
         LoginLocalResponse response = new LoginLocalResponse(
                 "google-access-token",
                 1800L,
-                new LoginLocalResponse.UserInfo(3L, "google-user", AccountTier.FREE,
+                new LoginLocalResponse.UserInfo(3L, "google-user", "google-user", AccountTier.FREE,
                         "/users/google-user", "avatar.png", true));
         when(authService.loginWithGoogle(any(GoogleOauthRequest.class)))
                 .thenReturn(new AuthLoginResult(response, "google-refresh-token",

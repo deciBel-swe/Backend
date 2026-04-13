@@ -262,6 +262,7 @@ public class AuthService {
                 new LoginLocalResponse.UserInfo(
                         user.getId(),
                         user.getUsername(),
+                        user.getDisplayName(),
                         user.getTier(), // Role differentiation
                         "/users/" + user.getUsername(), // TODO: Correct URL structure if needed
                         user.getAvatarUrl(),
