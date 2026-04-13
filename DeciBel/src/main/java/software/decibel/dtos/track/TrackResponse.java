@@ -21,6 +21,11 @@ public record TrackResponse(
         boolean isPrivate,
         int trackDurationSeconds,
         LocalDate uploadDate,
-        String description) {
+        String description,
+        Long completedPlayCount,
+        Long commentCount,
+        String access,
+        String secretToken,
+        String trackPreviewUrl) {
 
 }

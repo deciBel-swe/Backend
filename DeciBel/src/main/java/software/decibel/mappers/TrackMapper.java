@@ -23,6 +23,11 @@ public interface TrackMapper {
     @Mapping(target = "isReposted", expression = "java(repostedTrackIds.contains(track.getId()))")
     @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
     @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
+    @Mapping(target = "completedPlayCount", source = "track.playCount") // Assuming completedPlayCount is same as playCount for now
+    @Mapping(target = "commentCount", expression = "java(mapCommentCount(track))")
+    @Mapping(target = "access", expression = "java(track.getVisibility() == Visibility.PUBLIC ? \"FULL\" : \"PREVIEW\")")
+    @Mapping(target = "secretToken", expression = "java(mapSecretToken(track))")
+    @Mapping(target = "trackPreviewUrl", source = "track.trackUrl") // placeholder
     TrackResponse toTrackResponse(Track track, Set<Long> likedTrackIds, Set<Long> repostedTrackIds);
 
     // MapStruct to handle single track response
@@ -32,6 +37,11 @@ public interface TrackMapper {
     @Mapping(target = "isReposted", source = "isReposted")
     @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
     @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
+    @Mapping(target = "completedPlayCount", source = "track.playCount")
+    @Mapping(target = "commentCount", expression = "java(mapCommentCount(track))")
+    @Mapping(target = "access", expression = "java(track.getVisibility() == Visibility.PUBLIC ? \"FULL\" : \"PREVIEW\")")
+    @Mapping(target = "secretToken", expression = "java(mapSecretToken(track))")
+    @Mapping(target = "trackPreviewUrl", source = "track.trackUrl")
     TrackResponse toTrackResponseSingle(Track track, boolean isLiked, boolean isReposted);
 
     // This method perfectly handles your paginated views using the Sets passed from the Service
@@ -55,7 +65,26 @@ public interface TrackMapper {
     @Mapping(target = "isReposted", expression = "java(isReposted)")
     @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
     @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
+    @Mapping(target = "completedPlayCount", source = "track.playCount")
+    @Mapping(target = "commentCount", expression = "java(mapCommentCount(track))")
+    @Mapping(target = "access", expression = "java(track.getVisibility() == Visibility.PUBLIC ? \"FULL\" : \"PREVIEW\")")
+    @Mapping(target = "secretToken", expression = "java(mapSecretToken(track))")
+    @Mapping(target = "trackPreviewUrl", source = "track.trackUrl")
     TrackResponse toTrackResponse(Track track, boolean isLiked, boolean isReposted);
+
+    default Long mapCommentCount(Track track) {
+        if (track == null || track.getComments() == null) {
+            return 0L;
+        }
+        return (long) track.getComments().size();
+    }
+
+    default String mapSecretToken(Track track) {
+        if (track == null || track.getTokens() == null || track.getTokens().isEmpty()) {
+            return null;
+        }
+        return track.getTokens().get(0).getToken();
+    }
 
     default TrackArtist mapArtist(User user) {
         if (user == null) {
