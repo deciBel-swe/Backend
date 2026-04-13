@@ -32,11 +32,10 @@ public class FeedService {
     private final RepostService repostService;
     private final TrackMapper trackMapper;
     private final PlaylistMapper playlistMapper;
+    private final software.decibel.mappers.UserMapper userMapper;
 
     public FeedPageResponse getFeed(User currentUser, Pageable pageable) {
         List<Long> followingIds = followRepository.findFollowingIdsByFollowerId(currentUser.getId());
-
-
 
         if (followingIds.isEmpty()) {
             return new FeedPageResponse(Collections.emptyList(), pageable.getPageNumber(), pageable.getPageSize(), 0, 0, true);
@@ -46,19 +45,18 @@ public class FeedService {
         Page<software.decibel.entities.TrackRepost> trackRepostsPage = trackRepostRepository.findByUserIdIn(followingIds, pageable);
         Page<software.decibel.entities.PlaylistRepost> playlistRepostsPage = playlistRepostRepository.findByUserIdIn(followingIds, pageable);
 
-
         Set<Long> likedTrackIds = likeService.getLikedTrackIds(currentUser.getId());
         Set<Long> repostedTrackIds = repostService.getRepostedTrackIds(currentUser.getId());
 
         List<ResourceRefFullDTO> feedItems = Stream.concat(
                 trackRepostsPage.getContent().stream().map(tr -> ResourceRefFullDTO.of(
                     trackMapper.toTrackResponse(tr.getTrack(), likedTrackIds, repostedTrackIds),
-                    tr.getUser(),
+                    userMapper.toUserSummary(tr.getUser()),
                     tr.getRepostedAt()
                 )),
                 playlistRepostsPage.getContent().stream().map(pr -> ResourceRefFullDTO.of(
                     playlistMapper.toResponse(pr.getPlaylist()),
-                    pr.getUser(),
+                    userMapper.toUserSummary(pr.getUser()),
                     pr.getRepostedAt()
                 ))
         ).sorted(Comparator.comparing(ResourceRefFullDTO::repostedAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed())

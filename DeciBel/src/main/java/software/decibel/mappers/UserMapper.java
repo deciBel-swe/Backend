@@ -14,8 +14,6 @@ import software.decibel.utils.UserMappingUtility;
 @Mapper(componentModel = "spring", uses = UserMappingUtility.class)
 public interface UserMapper {
 
-    UserMapper INSTANCE = org.mapstruct.factory.Mappers.getMapper(UserMapper.class);
-
     // Converts User entity to UserFollowDto, ignoring isFollowing status (handled by the service)
     @Mapping(target = "isFollowing", ignore = true)
     UserFollowDto toUserFollowDto(User user);
