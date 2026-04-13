@@ -6,7 +6,6 @@ import org.mapstruct.Mapping;
 import software.decibel.dtos.user.BlockedUserDto;
 import software.decibel.dtos.user.UserFollowDto;
 import software.decibel.dtos.user.UserProfile;
-import software.decibel.dtos.user.UserSummary;
 import software.decibel.dtos.user.UserSummaryDTO;
 import software.decibel.entities.User;
 import software.decibel.utils.UserMappingUtility;
@@ -21,9 +20,6 @@ public interface UserMapper {
 
     // Converts User entity to BlockedUserDto
     BlockedUserDto toBlockedUserDto(User user);
-
-    // Converts User entity to UserSummary
-    UserSummary toUserSummary(User user);
 
     default UserProfile toUserProfile(User target, User currentViewer,
             UserMappingUtility userMappingUtility,
