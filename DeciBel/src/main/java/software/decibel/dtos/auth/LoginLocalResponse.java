@@ -19,6 +19,8 @@ public record LoginLocalResponse(
             @NotBlank
             String username,
             @NotNull
+            String displayName,
+            @NotNull
             AccountTier tier,
             String profileUrl,
             String avatarUrl,

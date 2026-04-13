@@ -145,4 +145,12 @@ public interface TrackMapper {
     // track -> response
     @Mapping(target = "publishedAt", source = "publishedAt")
     TrackPublishResponse toTrackPublishResponse(Track track);
+
+  // --------------------TrackSummary DTOs -----------------
+  // track -> track summary
+  @Mapping(target = "trackSlug", source = "slug")
+  @Mapping(target = "artist", source = "uploader")
+  @Mapping(target = "isLiked", ignore = true)
+  @Mapping(target = "isReposted", ignore = true)
+  TrackSummaryDTO toTrackSummary(Track track);
 }

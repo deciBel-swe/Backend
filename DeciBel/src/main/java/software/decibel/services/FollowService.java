@@ -11,16 +11,20 @@ import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.user.UserFollowDto;
 import software.decibel.entities.Follow;
 import software.decibel.entities.User;
+import software.decibel.enums.NotificationType;
+import software.decibel.enums.ResourceType;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.UserMapper;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.notification.InAppNotificationService;
 
 // Service handling follow and unfollow business logic
 @Service
 @RequiredArgsConstructor
 public class FollowService {
 
+    private final InAppNotificationService inAppNotificationService;
     private final FollowRepository followRepository;
     private final UserRepository userRepository;
     private final UserMapper userMapper;
@@ -52,6 +56,13 @@ public class FollowService {
         follower.setFollowingCount(follower.getFollowingCount() + 1);
         userRepository.save(following);
         userRepository.save(follower);
+        inAppNotificationService.createNotification(
+                followingId, // Recipient (User being followed)
+                followerId, // Actor (User doing the following)
+                NotificationType.FOLLOW,
+                ResourceType.USER,
+                followerId // Resource ID (Usually the profile of the new follower)
+        );
     }
 
     // Unfollows a user and updates follower/following counts

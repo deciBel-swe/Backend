@@ -42,6 +42,7 @@ import software.decibel.enums.AuthProvider;
 import software.decibel.enums.AuthType;
 import software.decibel.enums.DeviceType;
 import software.decibel.enums.TokenType;
+import software.decibel.exceptions.custom.DuplicateResourceException;
 import software.decibel.exceptions.custom.InvalidGoogleTokenException;
 import software.decibel.repositories.AuthIdentityRepository;
 import software.decibel.repositories.UserRepository;
@@ -122,10 +123,9 @@ class AuthServiceTest {
         RegisterLocalRequest request = registerRequest();
         when(authIdentityRepository.existsByEmailIgnoreCase(request.email())).thenReturn(true);
 
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+        DuplicateResourceException exception = assertThrows(DuplicateResourceException.class,
                 () -> authService.registerLocal(request));
-
-        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        assertEquals("Email already exists", exception.getMessage());
         verify(userRepository, never()).save(any(User.class));
         verify(authIdentityRepository, never()).save(any(AuthIdentity.class));
     }

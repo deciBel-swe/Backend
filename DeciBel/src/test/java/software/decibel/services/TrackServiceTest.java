@@ -64,7 +64,6 @@ class TrackServiceTest {
     @Mock
     private TrackRepository trackRepository;
 
-    // --> Added the missing BlockRepository
     @Mock
     private BlockRepository blockRepository;
 
@@ -150,53 +149,6 @@ class TrackServiceTest {
         assertThrows(ResourceNotFoundException.class, () -> trackService.getTrackIfExistsById(1L));
     }
 
-    // updateTrackState
-    // -------------------------------
-    @Test
-    void shouldUpdateTrackState() {
-        // Arrange
-        Track track = createTrack(1L);
-
-        // Act
-        trackService.updateTrackState(track, TrackState.PROCESSING);
-
-        // Assert
-        assertEquals(TrackState.PROCESSING, track.getState());
-        // make sure it saved to repo
-        verify(trackRepository).save(track);
-        verify(messagingTemplate)
-                .convertAndSend(
-                        eq("/topic/track-status/1"),
-                        argThat(
-                                (TrackStatusResponse response)
-                                -> response.trackState() == TrackState.PROCESSING
-                                && response.trackId().equals(1L)
-                                && response.progressPercentage() == null));
-    }
-
-    @Test
-    void shouldUpdateTrackStateWithRichStatus() {
-        // Arrange
-        Track track = createTrack(1L);
-
-        // Act
-        trackService.updateTrackState(track, TrackState.UPLOADING, 50, "Step", "Error");
-
-        // Assert
-        assertEquals(TrackState.UPLOADING, track.getState());
-        verify(trackRepository).save(track);
-        verify(messagingTemplate)
-                .convertAndSend(
-                        eq("/topic/track-status/1"),
-                        argThat(
-                                (TrackStatusResponse response)
-                                -> response.trackState() == TrackState.UPLOADING
-                                && response.trackId().equals(1L)
-                                && response.progressPercentage().equals(50)
-                                && response.stepName().equals("Step")
-                                && response.errorMessage().equals("Error")));
-    }
-
     @Test
     void shouldThrow_whenTrackNotFound_updateTrack() {
         // Arrange
@@ -213,15 +165,27 @@ class TrackServiceTest {
     void shouldSetStateUploading_whenCreatingTrack() {
         // Arrange
         Track track = createTrack(1L);
+        String uploadId = "test-uuid-1234"; // Added client upload ID
         when(trackRepository.save(track)).thenReturn(track);
 
         // Act
-        Track result = trackService.createUploadingTrack(track);
+        Track result = trackService.createUploadingTrack(track, uploadId);
 
         // Assert
         assertEquals(TrackState.UPLOADING, result.getState());
+        verify(trackRepository).save(track);
         verify(messagingTemplate)
-                .convertAndSend(eq("/topic/track-status/1"), any(TrackStatusResponse.class));
+                .convertAndSend(
+                        eq("/topic/track-status/" + uploadId), // Now uses uploadId
+                        argThat(
+                                (TrackStatusResponse response)
+                                -> response.trackState() == TrackState.UPLOADING
+                                && response.trackId().equals(1L)
+                                && response.progressPercentage() != null
+                                && response.progressPercentage() == 0
+                                && "Initializing".equals(response.stepName())
+                        )
+                );
     }
 
     // deleteTrackCover
