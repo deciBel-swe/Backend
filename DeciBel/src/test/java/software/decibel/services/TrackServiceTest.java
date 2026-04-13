@@ -46,6 +46,7 @@ import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
 import software.decibel.services.engagement.LikeService;
 import software.decibel.services.engagement.RepostService;
+import software.decibel.services.track.TrackAsyncProcessor;
 import software.decibel.services.track.TrackService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.AudioUtility;
@@ -64,9 +65,11 @@ class TrackServiceTest {
     @Mock
     private TrackRepository trackRepository;
 
-    // --> Added the missing BlockRepository
     @Mock
     private BlockRepository blockRepository;
+
+    @Mock
+    private TrackAsyncProcessor trackAsyncProcessor;
 
     @Mock
     private UserService userService;
@@ -153,48 +156,60 @@ class TrackServiceTest {
     // updateTrackState
     // -------------------------------
     @Test
-    void shouldUpdateTrackState() {
+    void shouldUpdateTrackStateAndBroadcast() {
         // Arrange
-        Track track = createTrack(1L);
+        Long trackId = 1L;
+        String uploadId = "test-uuid-1234";
+        Track track = createTrack(trackId);
+
+        // Mock finding the track in the DB
+        when(trackRepository.findById(trackId)).thenReturn(Optional.of(track));
 
         // Act
-        trackService.updateTrackState(track, TrackState.PROCESSING);
+        trackAsyncProcessor.updateDbAndBroadcast(trackId, uploadId, TrackState.PROCESSING, null, null, null, null);
 
         // Assert
         assertEquals(TrackState.PROCESSING, track.getState());
-        // make sure it saved to repo
         verify(trackRepository).save(track);
         verify(messagingTemplate)
                 .convertAndSend(
-                        eq("/topic/track-status/1"),
+                        eq("/topic/track-status/" + uploadId), // Now uses uploadId
                         argThat(
                                 (TrackStatusResponse response)
                                 -> response.trackState() == TrackState.PROCESSING
-                                && response.trackId().equals(1L)
-                                && response.progressPercentage() == null));
+                                && response.trackId().equals(trackId)
+                                && response.progressPercentage() == null
+                        )
+                );
     }
 
     @Test
     void shouldUpdateTrackStateWithRichStatus() {
         // Arrange
-        Track track = createTrack(1L);
+        Long trackId = 1L;
+        String uploadId = "test-uuid-1234";
+        Track track = createTrack(trackId);
 
-        // Act
-        trackService.updateTrackState(track, TrackState.UPLOADING, 50, "Step", "Error");
+        when(trackRepository.findById(trackId)).thenReturn(Optional.of(track));
+
+        // Act (Pass the trackId, uploadId, state, progress, stepName, errorMessage, and null for final DTO)
+        trackAsyncProcessor.updateDbAndBroadcast(trackId, uploadId, TrackState.UPLOADING, 50, "Step", "Error", null);
 
         // Assert
         assertEquals(TrackState.UPLOADING, track.getState());
         verify(trackRepository).save(track);
         verify(messagingTemplate)
                 .convertAndSend(
-                        eq("/topic/track-status/1"),
+                        eq("/topic/track-status/" + uploadId), // Now uses uploadId
                         argThat(
                                 (TrackStatusResponse response)
                                 -> response.trackState() == TrackState.UPLOADING
-                                && response.trackId().equals(1L)
+                                && response.trackId().equals(trackId)
                                 && response.progressPercentage().equals(50)
-                                && response.stepName().equals("Step")
-                                && response.errorMessage().equals("Error")));
+                                && "Step".equals(response.stepName())
+                                && "Error".equals(response.errorMessage())
+                        )
+                );
     }
 
     @Test
@@ -213,15 +228,27 @@ class TrackServiceTest {
     void shouldSetStateUploading_whenCreatingTrack() {
         // Arrange
         Track track = createTrack(1L);
+        String uploadId = "test-uuid-1234"; // Added client upload ID
         when(trackRepository.save(track)).thenReturn(track);
 
         // Act
-        Track result = trackService.createUploadingTrack(track);
+        Track result = trackService.createUploadingTrack(track, uploadId);
 
         // Assert
         assertEquals(TrackState.UPLOADING, result.getState());
+        verify(trackRepository).save(track);
         verify(messagingTemplate)
-                .convertAndSend(eq("/topic/track-status/1"), any(TrackStatusResponse.class));
+                .convertAndSend(
+                        eq("/topic/track-status/" + uploadId), // Now uses uploadId
+                        argThat(
+                                (TrackStatusResponse response)
+                                -> response.trackState() == TrackState.UPLOADING
+                                && response.trackId().equals(1L)
+                                && response.progressPercentage() != null
+                                && response.progressPercentage() == 0
+                                && "Initializing".equals(response.stepName())
+                        )
+                );
     }
 
     // deleteTrackCover
