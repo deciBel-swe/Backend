@@ -192,6 +192,8 @@ public class InAppNotificationService {
                 prefs.isNotifyOnRepost();
             case COMMENT, REPLY ->
                 prefs.isNotifyOnComment();
+            case MESSAGE ->
+                prefs.isNotifyOnDM();
         };
     }
 
@@ -207,6 +209,8 @@ public class InAppNotificationService {
                 actor.getUsername() + " commented on your track";
             case REPLY ->
                 actor.getUsername() + " replied to your comment";
+            case MESSAGE ->
+                actor.getUsername() + " sent you a message";
         };
     }
 
@@ -222,6 +226,8 @@ public class InAppNotificationService {
                 "New comment on your track";
             case REPLY ->
                 "New reply on your comment";
+            case MESSAGE ->
+                "You have a new message";
         };
     }
 
