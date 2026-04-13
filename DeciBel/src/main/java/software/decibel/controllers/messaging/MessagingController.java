@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import software.decibel.dtos.messaging.ConversationPageResponse;
 import software.decibel.dtos.messaging.ConversationResponse;
 import software.decibel.dtos.messaging.MessagePageResponse;
 import software.decibel.dtos.messaging.MessageResponse;
@@ -18,7 +19,7 @@ public class MessagingController {
 
     private final MessagingService messagingService;
 
-    @PostMapping("/messages")
+    @PostMapping("/{id}/messages")
     public ResponseEntity<MessageResponse> sendMessage(
             Authentication authentication,
             @Valid @RequestBody SendMessageRequest request) {
@@ -39,5 +40,13 @@ public class MessagingController {
             Authentication authentication,
             @PathVariable("id") Long recipientId) {
         return ResponseEntity.ok(messagingService.startConversation(authentication, recipientId));
+    }
+
+    @GetMapping
+    public ResponseEntity<ConversationPageResponse> getConversations(
+            Authentication authentication,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(messagingService.getConversations(authentication, page, size));
     }
 }

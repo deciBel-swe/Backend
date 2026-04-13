@@ -11,6 +11,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import software.decibel.dtos.auth.UserPrincipal;
+import software.decibel.dtos.messaging.ConversationPageResponse;
 import software.decibel.dtos.messaging.ConversationResponse;
 import software.decibel.dtos.messaging.MessagePageResponse;
 import software.decibel.dtos.messaging.MessageResponse;
@@ -114,17 +115,29 @@ public class MessagingService {
         } catch (InterruptedException | ExecutionException e) {
             log.error("Error starting conversation in Firestore for conversationId: {}", conversationId, e);
             String message = e.getMessage();
-            if (message != null && message.contains("Cloud Firestore API has not been used")) {
-                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, 
-                    "Messaging service is currently unavailable. Please contact support to enable the Firestore API.");
+            if (message != null) {
+                if (message.contains("Cloud Firestore API has not been used")) {
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                            "Messaging service is currently unavailable. Please contact support to enable the Firestore API.");
+                }
+                if (message.contains("The query requires an index")) {
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                            "The messaging service is currently setting up database indexes. This may take a few minutes. Please check the Firestore console if the issue persists.");
+                }
             }
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to start conversation: " + e.getMessage());
         } catch (Exception e) {
             log.error("Unexpected error starting conversation in Firestore for conversationId: {}", conversationId, e);
             String message = e.getMessage();
-            if (message != null && message.contains("Cloud Firestore API has not been used")) {
-                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, 
-                    "Messaging service is currently unavailable. Please contact support to enable the Firestore API.");
+            if (message != null) {
+                if (message.contains("Cloud Firestore API has not been used")) {
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                            "Messaging service is currently unavailable. Please contact support to enable the Firestore API.");
+                }
+                if (message.contains("The query requires an index")) {
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                            "The messaging service is currently setting up database indexes. This may take a few minutes. Please check the Firestore console if the issue persists.");
+                }
             }
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error: " + e.getMessage());
         }
@@ -185,9 +198,9 @@ public class MessagingService {
             inAppNotificationService.createNotification(
                     recipientId,
                     senderId,
-                    NotificationType.MESSAGE,
-                    ResourceType.CONVERSATION,
-                    null // Could use conversationId, but resourceId is Long in createNotification
+                    NotificationType.REPLY,
+                    ResourceType.USER,
+                    senderId
             );
 
             return new MessageResponse(
@@ -200,17 +213,29 @@ public class MessagingService {
         } catch (InterruptedException | ExecutionException e) {
             log.error("Error sending message to Firestore for conversationId: {}", conversationId, e);
             String message = e.getMessage();
-            if (message != null && message.contains("Cloud Firestore API has not been used")) {
-                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, 
-                    "Messaging service is currently unavailable. Please contact support to enable the Firestore API.");
+            if (message != null) {
+                if (message.contains("Cloud Firestore API has not been used")) {
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                            "Messaging service is currently unavailable. Please contact support to enable the Firestore API.");
+                }
+                if (message.contains("The query requires an index")) {
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                            "The messaging service is currently setting up database indexes. This may take a few minutes. Please check the Firestore console if the issue persists.");
+                }
             }
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to send message: " + e.getMessage());
         } catch (Exception e) {
             log.error("Unexpected error sending message to Firestore for conversationId: {}", conversationId, e);
             String message = e.getMessage();
-            if (message != null && message.contains("Cloud Firestore API has not been used")) {
-                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, 
-                    "Messaging service is currently unavailable. Please contact support to enable the Firestore API.");
+            if (message != null) {
+                if (message.contains("Cloud Firestore API has not been used")) {
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                            "Messaging service is currently unavailable. Please contact support to enable the Firestore API.");
+                }
+                if (message.contains("The query requires an index")) {
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                            "The messaging service is currently setting up database indexes. This may take a few minutes. Please check the Firestore console if the issue persists.");
+                }
             }
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error: " + e.getMessage());
         }
@@ -292,17 +317,115 @@ public class MessagingService {
         } catch (InterruptedException | ExecutionException e) {
             log.error("Error fetching messages from Firestore for conversationId: {}", conversationId, e);
             String message = e.getMessage();
-            if (message != null && message.contains("Cloud Firestore API has not been used")) {
-                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, 
-                    "Messaging service is currently unavailable. Please contact support to enable the Firestore API.");
+            if (message != null) {
+                if (message.contains("Cloud Firestore API has not been used")) {
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                            "Messaging service is currently unavailable. Please contact support to enable the Firestore API.");
+                }
+                if (message.contains("The query requires an index")) {
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                            "The messaging service is currently setting up database indexes. This may take a few minutes. Please check the Firestore console if the issue persists.");
+                }
             }
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to fetch messages: " + e.getMessage());
         } catch (Exception e) {
             log.error("Unexpected error fetching messages from Firestore for conversationId: {}", conversationId, e);
             String message = e.getMessage();
-            if (message != null && message.contains("Cloud Firestore API has not been used")) {
-                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, 
-                    "Messaging service is currently unavailable. Please contact support to enable the Firestore API.");
+            if (message != null) {
+                if (message.contains("Cloud Firestore API has not been used")) {
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                            "Messaging service is currently unavailable. Please contact support to enable the Firestore API.");
+                }
+                if (message.contains("The query requires an index")) {
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                            "The messaging service is currently setting up database indexes. This may take a few minutes. Please check the Firestore console if the issue persists.");
+                }
+            }
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error: " + e.getMessage());
+        }
+    }
+
+    public ConversationPageResponse getConversations(Authentication authentication, int page, int size) {
+        Firestore firestore = firestoreProvider.getObject();
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        Long currentUserId = principal.getId();
+
+        try {
+            Query query = firestore.collection(CONVERSATIONS_COLLECTION)
+                    .whereArrayContains("participants", currentUserId)
+                    .orderBy("lastTimestamp", Query.Direction.DESCENDING)
+                    .limit(size)
+                    .offset(page * size);
+
+            ApiFuture<QuerySnapshot> querySnapshot = query.get();
+            List<QueryDocumentSnapshot> documents = querySnapshot.get().getDocuments();
+
+            List<ConversationResponse> conversations = documents.stream()
+                    .map(doc -> {
+                        Timestamp ts = doc.getTimestamp("lastTimestamp");
+                        LocalDateTime ldt = ts != null ?
+                                ts.toDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime() :
+                                LocalDateTime.now();
+
+                        Object participantsObj = doc.get("participants");
+                        List<Long> participants;
+                        if (participantsObj instanceof List<?>) {
+                            participants = ((List<?>) participantsObj).stream()
+                                    .map(obj -> obj instanceof Long ? (Long) obj : Long.valueOf(obj.toString()))
+                                    .collect(Collectors.toList());
+                        } else {
+                            participants = Collections.emptyList();
+                        }
+
+                        return new ConversationResponse(
+                                doc.getId(),
+                                participants,
+                                doc.getString("lastMessage"),
+                                ldt
+                        );
+                    })
+                    .collect(Collectors.toList());
+
+            AggregateQuery countQuery = firestore.collection(CONVERSATIONS_COLLECTION)
+                    .whereArrayContains("participants", currentUserId)
+                    .count();
+            long totalElements = countQuery.get().get().getCount();
+            int totalPages = size == 0 ? 0 : (int) Math.ceil((double) totalElements / size);
+
+            return new ConversationPageResponse(
+                    conversations,
+                    page,
+                    size,
+                    totalElements,
+                    totalPages,
+                    page >= totalPages - 1
+            );
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Error fetching conversations from Firestore for user: {}", currentUserId, e);
+            String message = e.getMessage();
+            if (message != null) {
+                if (message.contains("Cloud Firestore API has not been used")) {
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                            "Messaging service is currently unavailable. Please contact support to enable the Firestore API.");
+                }
+                if (message.contains("The query requires an index")) {
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                            "The messaging service is currently setting up database indexes. This may take a few minutes. Please check the Firestore console if the issue persists.");
+                }
+            }
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to fetch conversations: " + e.getMessage());
+        } catch (Exception e) {
+            log.error("Unexpected error fetching conversations from Firestore for user: {}", currentUserId, e);
+            String message = e.getMessage();
+            if (message != null) {
+                if (message.contains("Cloud Firestore API has not been used")) {
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                            "Messaging service is currently unavailable. Please contact support to enable the Firestore API.");
+                }
+                if (message.contains("The query requires an index")) {
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                            "The messaging service is currently setting up database indexes. This may take a few minutes. Please check the Firestore console if the issue persists.");
+                }
             }
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error: " + e.getMessage());
         }

@@ -69,9 +69,16 @@ public class InAppNotificationService {
                 .build());
 
         // Push via Firebase FCM
+        String title;
+        if (type == NotificationType.REPLY && resourceType == ResourceType.USER) {
+            title = actor.getUsername() + " sent you a message";
+        } else {
+            title = buildTitle(type, actor);
+        }
+
         fcmNotificationService.sendNotification(
                 recipientId,
-                buildTitle(type, actor),
+                title,
                 buildBody(type, actor, resourceType));
     }
     // GET /notifications
@@ -215,6 +222,9 @@ public class InAppNotificationService {
     }
 
     private String buildBody(NotificationType type, User actor, ResourceType resourceType) {
+        if (type == NotificationType.REPLY && resourceType == ResourceType.USER) {
+            return "You have a new message from " + actor.getUsername();
+        }
         return switch (type) {
             case FOLLOW ->
                 "You have a new follower";

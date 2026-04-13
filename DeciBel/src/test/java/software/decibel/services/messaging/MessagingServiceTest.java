@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.server.ResponseStatusException;
 import software.decibel.dtos.auth.UserPrincipal;
+import software.decibel.dtos.messaging.ConversationPageResponse;
 import software.decibel.dtos.messaging.ConversationResponse;
 import software.decibel.dtos.messaging.MessageResponse;
 import software.decibel.dtos.messaging.SendMessageRequest;
@@ -27,7 +28,15 @@ import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.notification.InAppNotificationService;
 
+import com.google.cloud.firestore.Query;
+import com.google.cloud.firestore.QuerySnapshot;
+import com.google.cloud.firestore.QueryDocumentSnapshot;
+import com.google.cloud.firestore.AggregateQuery;
+import com.google.cloud.firestore.AggregateQuerySnapshot;
 import org.springframework.beans.factory.ObjectProvider;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
@@ -164,9 +173,9 @@ class MessagingServiceTest {
         verify(inAppNotificationService).createNotification(
                 eq(2L),
                 eq(1L),
-                eq(NotificationType.MESSAGE),
-                eq(ResourceType.CONVERSATION),
-                isNull()
+                eq(NotificationType.REPLY),
+                eq(ResourceType.USER),
+                eq(1L)
         );
     }
 
@@ -208,5 +217,45 @@ class MessagingServiceTest {
         assertEquals("1_2", response.id());
         assertEquals(2, response.participants().size());
         verify(conversationDoc).set(anyMap());
+    }
+
+    @Test
+    void getConversations_success() throws ExecutionException, InterruptedException {
+        when(authentication.getPrincipal()).thenReturn(senderPrincipal);
+
+        CollectionReference conversations = mock(CollectionReference.class);
+        Query query = mock(Query.class);
+        ApiFuture<QuerySnapshot> querySnapshotFuture = mock(ApiFuture.class);
+        QuerySnapshot querySnapshot = mock(QuerySnapshot.class);
+        QueryDocumentSnapshot doc1 = mock(QueryDocumentSnapshot.class);
+        AggregateQuery aggregateQuery = mock(AggregateQuery.class);
+        ApiFuture<AggregateQuerySnapshot> aggregateQuerySnapshotFuture = mock(ApiFuture.class);
+        AggregateQuerySnapshot aggregateQuerySnapshot = mock(AggregateQuerySnapshot.class);
+
+        when(firestore.collection("conversations")).thenReturn(conversations);
+        when(conversations.whereArrayContains("participants", 1L)).thenReturn(query);
+        when(query.orderBy(anyString(), any())).thenReturn(query);
+        when(query.limit(anyInt())).thenReturn(query);
+        when(query.offset(anyInt())).thenReturn(query);
+        when(query.get()).thenReturn(querySnapshotFuture);
+        when(querySnapshotFuture.get()).thenReturn(querySnapshot);
+        when(querySnapshot.getDocuments()).thenReturn(Collections.singletonList(doc1));
+
+        when(doc1.getId()).thenReturn("1_2");
+        when(doc1.get("participants")).thenReturn(Arrays.asList(1L, 2L));
+        when(doc1.getString("lastMessage")).thenReturn("hello");
+        when(doc1.getTimestamp("lastTimestamp")).thenReturn(null);
+
+        when(conversations.whereArrayContains("participants", 1L)).thenReturn(query); // Re-called for count
+        when(query.count()).thenReturn(aggregateQuery);
+        when(aggregateQuery.get()).thenReturn(aggregateQuerySnapshotFuture);
+        when(aggregateQuerySnapshotFuture.get()).thenReturn(aggregateQuerySnapshot);
+        when(aggregateQuerySnapshot.getCount()).thenReturn(1L);
+
+        ConversationPageResponse response = messagingService.getConversations(authentication, 0, 10);
+
+        assertEquals(1, response.getContent().size());
+        assertEquals("1_2", response.getContent().get(0).id());
+        assertEquals(1L, response.getTotalElements());
     }
 }
