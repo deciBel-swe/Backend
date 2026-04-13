@@ -45,6 +45,10 @@ class FeedServiceTest {
     @Mock
     private FollowRepository followRepository;
     @Mock
+    private software.decibel.repositories.TrackRepostRepository trackRepostRepository;
+    @Mock
+    private software.decibel.repositories.PlaylistRepostRepository playlistRepostRepository;
+    @Mock
     private LikeService likeService;
     @Mock
     private RepostService repostService;
@@ -52,6 +56,8 @@ class FeedServiceTest {
     private TrackMapper trackMapper;
     @Mock
     private PlaylistMapper playlistMapper;
+    @Mock
+    private software.decibel.mappers.UserMapper userMapper;
 
     @InjectMocks
     private FeedService feedService;
@@ -82,17 +88,29 @@ class FeedServiceTest {
         List<Long> followingIds = List.of(2L, 3L);
         when(followRepository.findFollowingIdsByFollowerId(1L)).thenReturn(followingIds);
 
+        User user2 = new User();
+        user2.setId(2L);
         Track track = new Track();
         track.setId(10L);
-        Page<Track> tracksPage = new PageImpl<>(List.of(track), pageable, 1);
-        when(trackRepository.findByUploaderIdInAndVisibilityPublicAndPublishedTrue(eq(followingIds), any(Pageable.class)))
-                .thenReturn(tracksPage);
+        software.decibel.entities.TrackRepost trackRepost = software.decibel.entities.TrackRepost.builder()
+                .track(track)
+                .user(user2)
+                .repostedAt(LocalDateTime.now().minusDays(1))
+                .build();
+        Page<software.decibel.entities.TrackRepost> trackRepostsPage = new PageImpl<>(List.of(trackRepost), pageable, 1);
+        when(trackRepostRepository.findByUserIdIn(eq(followingIds), any(Pageable.class)))
+                .thenReturn(trackRepostsPage);
 
         Playlist playlist = new Playlist();
         playlist.setId(20L);
-        Page<Playlist> playlistsPage = new PageImpl<>(List.of(playlist), pageable, 1);
-        when(playlistRepository.findByUserIdInAndIsPrivateFalse(eq(followingIds), any(Pageable.class)))
-                .thenReturn(playlistsPage);
+        software.decibel.entities.PlaylistRepost playlistRepost = software.decibel.entities.PlaylistRepost.builder()
+                .playlist(playlist)
+                .user(user2)
+                .repostedAt(LocalDateTime.now())
+                .build();
+        Page<software.decibel.entities.PlaylistRepost> playlistRepostsPage = new PageImpl<>(List.of(playlistRepost), pageable, 1);
+        when(playlistRepostRepository.findByUserIdIn(eq(followingIds), any(Pageable.class)))
+                .thenReturn(playlistRepostsPage);
 
         when(likeService.getLikedTrackIds(1L)).thenReturn(Set.of());
         when(repostService.getRepostedTrackIds(1L)).thenReturn(Set.of());
@@ -110,6 +128,8 @@ class FeedServiceTest {
                 0, 0, null, null, LocalDateTime.now(), null
         );
         when(playlistMapper.toResponse(playlist)).thenReturn(playlistResponse);
+
+        when(userMapper.toUserSummary(any())).thenReturn(new software.decibel.dtos.user.UserSummary(2L, "user2", "User Two", "avatar"));
 
         FeedPageResponse response = feedService.getFeed(currentUser, pageable);
 
