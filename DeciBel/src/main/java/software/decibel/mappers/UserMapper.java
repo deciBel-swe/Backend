@@ -6,6 +6,7 @@ import org.mapstruct.Mapping;
 import software.decibel.dtos.user.BlockedUserDto;
 import software.decibel.dtos.user.UserFollowDto;
 import software.decibel.dtos.user.UserProfile;
+import software.decibel.dtos.user.UserSummary;
 import software.decibel.entities.User;
 import software.decibel.utils.UserMappingUtility;
 
@@ -13,12 +14,17 @@ import software.decibel.utils.UserMappingUtility;
 @Mapper(componentModel = "spring", uses = UserMappingUtility.class)
 public interface UserMapper {
 
+    UserMapper INSTANCE = org.mapstruct.factory.Mappers.getMapper(UserMapper.class);
+
     // Converts User entity to UserFollowDto, ignoring isFollowing status (handled by the service)
     @Mapping(target = "isFollowing", ignore = true)
     UserFollowDto toUserFollowDto(User user);
 
     // Converts User entity to BlockedUserDto
     BlockedUserDto toBlockedUserDto(User user);
+
+    // Converts User entity to UserSummary
+    UserSummary toUserSummary(User user);
 
     default UserProfile toUserProfile(User target, User currentViewer,
             UserMappingUtility userMappingUtility,

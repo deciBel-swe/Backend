@@ -26,6 +26,8 @@ public class FeedService {
     private final TrackRepository trackRepository;
     private final PlaylistRepository playlistRepository;
     private final FollowRepository followRepository;
+    private final TrackRepostRepository trackRepostRepository;
+    private final PlaylistRepostRepository playlistRepostRepository;
     private final LikeService likeService;
     private final RepostService repostService;
     private final TrackMapper trackMapper;
@@ -34,27 +36,39 @@ public class FeedService {
     public FeedPageResponse getFeed(User currentUser, Pageable pageable) {
         List<Long> followingIds = followRepository.findFollowingIdsByFollowerId(currentUser.getId());
 
+        System.out.println("DEBUG: Current user ID: " + currentUser.getId());
+        System.out.println("DEBUG: Following IDs: " + followingIds);
+
         if (followingIds.isEmpty()) {
             return new FeedPageResponse(Collections.emptyList(), pageable.getPageNumber(), pageable.getPageSize(), 0, 0, true);
         }
 
-        // Fetch tracks and playlists from followed users
-        // For now we fetch a Pageable-sized chunks of both and sort
+        // Fetch reposts from followed users
+        Page<software.decibel.entities.TrackRepost> trackRepostsPage = trackRepostRepository.findByUserIdIn(followingIds, pageable);
+        Page<software.decibel.entities.PlaylistRepost> playlistRepostsPage = playlistRepostRepository.findByUserIdIn(followingIds, pageable);
 
-        Page<Track> tracksPage = trackRepository.findByUploaderIdInAndVisibilityPublicAndPublishedTrue(followingIds, pageable);
-        Page<Playlist> playlistsPage = playlistRepository.findByUserIdInAndIsPrivateFalse(followingIds, pageable);
+        System.out.println("DEBUG: Track reposts found: " + trackRepostsPage.getTotalElements());
+        System.out.println("DEBUG: Playlist reposts found: " + playlistRepostsPage.getTotalElements());
 
         Set<Long> likedTrackIds = likeService.getLikedTrackIds(currentUser.getId());
         Set<Long> repostedTrackIds = repostService.getRepostedTrackIds(currentUser.getId());
 
         List<ResourceRefFullDTO> feedItems = Stream.concat(
-                tracksPage.getContent().stream().map(t -> ResourceRefFullDTO.of(trackMapper.toTrackResponse(t, likedTrackIds, repostedTrackIds))),
-                playlistsPage.getContent().stream().map(p -> ResourceRefFullDTO.of(playlistMapper.toResponse(p)))
-        ).sorted(Comparator.comparing(this::getSortDate).reversed())
+                trackRepostsPage.getContent().stream().map(tr -> ResourceRefFullDTO.of(
+                    trackMapper.toTrackResponse(tr.getTrack(), likedTrackIds, repostedTrackIds),
+                    tr.getUser(),
+                    tr.getRepostedAt()
+                )),
+                playlistRepostsPage.getContent().stream().map(pr -> ResourceRefFullDTO.of(
+                    playlistMapper.toResponse(pr.getPlaylist()),
+                    pr.getUser(),
+                    pr.getRepostedAt()
+                ))
+        ).sorted(Comparator.comparing(ResourceRefFullDTO::repostedAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed())
         .limit(pageable.getPageSize())
         .toList();
 
-        long totalElements = tracksPage.getTotalElements() + playlistsPage.getTotalElements();
+        long totalElements = trackRepostsPage.getTotalElements() + playlistRepostsPage.getTotalElements();
         int totalPages = (int) Math.ceil((double) totalElements / pageable.getPageSize());
 
         return new FeedPageResponse(
@@ -67,12 +81,4 @@ public class FeedService {
         );
     }
 
-    private LocalDateTime getSortDate(ResourceRefFullDTO dto) {
-        if (dto.track() != null) {
-            return dto.track().uploadDate().atStartOfDay();
-        } else if (dto.playlist() != null) {
-            return dto.playlist().createdAt();
-        }
-        return LocalDateTime.MIN;
-    }
 }
