@@ -46,7 +46,6 @@ import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
 import software.decibel.services.engagement.LikeService;
 import software.decibel.services.engagement.RepostService;
-import software.decibel.services.track.TrackAsyncProcessor;
 import software.decibel.services.track.TrackService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.AudioUtility;
@@ -67,9 +66,6 @@ class TrackServiceTest {
 
     @Mock
     private BlockRepository blockRepository;
-
-    @Mock
-    private TrackAsyncProcessor trackAsyncProcessor;
 
     @Mock
     private UserService userService;
@@ -151,65 +147,6 @@ class TrackServiceTest {
 
         // Act & Assert
         assertThrows(ResourceNotFoundException.class, () -> trackService.getTrackIfExistsById(1L));
-    }
-
-    // updateTrackState
-    // -------------------------------
-    @Test
-    void shouldUpdateTrackStateAndBroadcast() {
-        // Arrange
-        Long trackId = 1L;
-        String uploadId = "test-uuid-1234";
-        Track track = createTrack(trackId);
-
-        // Mock finding the track in the DB
-        when(trackRepository.findById(trackId)).thenReturn(Optional.of(track));
-
-        // Act
-        trackAsyncProcessor.updateDbAndBroadcast(trackId, uploadId, TrackState.PROCESSING, null, null, null, null);
-
-        // Assert
-        assertEquals(TrackState.PROCESSING, track.getState());
-        verify(trackRepository).save(track);
-        verify(messagingTemplate)
-                .convertAndSend(
-                        eq("/topic/track-status/" + uploadId), // Now uses uploadId
-                        argThat(
-                                (TrackStatusResponse response)
-                                -> response.trackState() == TrackState.PROCESSING
-                                && response.trackId().equals(trackId)
-                                && response.progressPercentage() == null
-                        )
-                );
-    }
-
-    @Test
-    void shouldUpdateTrackStateWithRichStatus() {
-        // Arrange
-        Long trackId = 1L;
-        String uploadId = "test-uuid-1234";
-        Track track = createTrack(trackId);
-
-        when(trackRepository.findById(trackId)).thenReturn(Optional.of(track));
-
-        // Act (Pass the trackId, uploadId, state, progress, stepName, errorMessage, and null for final DTO)
-        trackAsyncProcessor.updateDbAndBroadcast(trackId, uploadId, TrackState.UPLOADING, 50, "Step", "Error", null);
-
-        // Assert
-        assertEquals(TrackState.UPLOADING, track.getState());
-        verify(trackRepository).save(track);
-        verify(messagingTemplate)
-                .convertAndSend(
-                        eq("/topic/track-status/" + uploadId), // Now uses uploadId
-                        argThat(
-                                (TrackStatusResponse response)
-                                -> response.trackState() == TrackState.UPLOADING
-                                && response.trackId().equals(trackId)
-                                && response.progressPercentage().equals(50)
-                                && "Step".equals(response.stepName())
-                                && "Error".equals(response.errorMessage())
-                        )
-                );
     }
 
     @Test

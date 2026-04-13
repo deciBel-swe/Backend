@@ -102,7 +102,6 @@ public class TrackAsyncProcessor {
                 user.setTrackCount(user.getTrackCount() + 1);
                 userRepository.save(user);
 
-                // Now the mapper will work perfectly because the tags and uploader are fully loaded
                 TrackResponse finalResponse = trackMapper.toTrackResponseSingle(track, false, false);
 
                 // Broadcast the final success message
