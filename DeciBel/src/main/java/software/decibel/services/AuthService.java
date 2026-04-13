@@ -30,6 +30,7 @@ import software.decibel.enums.AuthProvider;
 import software.decibel.enums.AuthType;
 import software.decibel.enums.TokenType;
 import software.decibel.exceptions.custom.CooldownActiveException;
+import software.decibel.exceptions.custom.DuplicateResourceException;
 import software.decibel.repositories.AuthIdentityRepository;
 import software.decibel.repositories.TokenRepository;
 import software.decibel.repositories.UserRepository;
@@ -64,7 +65,7 @@ public class AuthService {
         if (authIdentityRepository.existsByEmailIgnoreCase(request.email())
                 || authIdentityRepository.existsByEmailIgnoreCaseAndProviderAndType(
                         request.email(), AuthProvider.LOCAL, AuthType.PASSWORD)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already exists");
+            throw new DuplicateResourceException("Email already exists");
         }
         String baseUsername = request.displayName().toLowerCase().replaceAll("[^a-z0-9]", "");
         String generatedUsername = baseUsername;
@@ -261,6 +262,7 @@ public class AuthService {
                 new LoginLocalResponse.UserInfo(
                         user.getId(),
                         user.getUsername(),
+                        user.getDisplayName(),
                         user.getTier(), // Role differentiation
                         "/users/" + user.getUsername(), // TODO: Correct URL structure if needed
                         user.getAvatarUrl(),
