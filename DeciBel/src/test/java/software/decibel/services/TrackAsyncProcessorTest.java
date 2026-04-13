@@ -35,7 +35,7 @@ class TrackAsyncProcessorTest {
     @InjectMocks
     private TrackAsyncProcessor trackAsyncProcessor;
 
-    // Helper method: MUST return a real object, not a mock!
+    // Helper method: MUST return a real object, not a mock
     private Track createTrack(Long id) {
         Track track = new Track();
         track.setId(id);
