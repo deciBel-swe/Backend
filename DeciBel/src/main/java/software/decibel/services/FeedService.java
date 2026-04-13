@@ -36,8 +36,7 @@ public class FeedService {
     public FeedPageResponse getFeed(User currentUser, Pageable pageable) {
         List<Long> followingIds = followRepository.findFollowingIdsByFollowerId(currentUser.getId());
 
-        System.out.println("DEBUG: Current user ID: " + currentUser.getId());
-        System.out.println("DEBUG: Following IDs: " + followingIds);
+
 
         if (followingIds.isEmpty()) {
             return new FeedPageResponse(Collections.emptyList(), pageable.getPageNumber(), pageable.getPageSize(), 0, 0, true);
@@ -47,8 +46,6 @@ public class FeedService {
         Page<software.decibel.entities.TrackRepost> trackRepostsPage = trackRepostRepository.findByUserIdIn(followingIds, pageable);
         Page<software.decibel.entities.PlaylistRepost> playlistRepostsPage = playlistRepostRepository.findByUserIdIn(followingIds, pageable);
 
-        System.out.println("DEBUG: Track reposts found: " + trackRepostsPage.getTotalElements());
-        System.out.println("DEBUG: Playlist reposts found: " + playlistRepostsPage.getTotalElements());
 
         Set<Long> likedTrackIds = likeService.getLikedTrackIds(currentUser.getId());
         Set<Long> repostedTrackIds = repostService.getRepostedTrackIds(currentUser.getId());
