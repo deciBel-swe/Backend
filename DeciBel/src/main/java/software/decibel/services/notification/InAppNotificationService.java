@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import software.decibel.dtos.notifications.*;
-import software.decibel.dtos.user.UserSummaryDTO;
+import software.decibel.dtos.user.UserSummary;
 import software.decibel.entities.Notification;
 import software.decibel.entities.NotificationPreferences;
 import software.decibel.entities.User;
@@ -156,7 +156,7 @@ public class InAppNotificationService {
         return new NotificationDto(
                 n.getId(),
                 n.getType(),
-                new UserSummaryDTO(
+                new UserSummary(
                         actor.getId(),
                         actor.getUsername(),
                         actor.getDisplayName(),

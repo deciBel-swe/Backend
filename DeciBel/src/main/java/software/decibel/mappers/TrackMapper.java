@@ -12,6 +12,7 @@ import software.decibel.entities.User;
 import software.decibel.enums.Visibility;
 
 @Mapper(componentModel = "spring",
+        uses = {UserMapper.class},
         imports = {Visibility.class}) // Spring injects it as a @Component
 public interface TrackMapper {
 

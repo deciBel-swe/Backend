@@ -1,6 +1,6 @@
 package software.decibel.dtos.track;
 
-import software.decibel.dtos.user.UserSummaryDTO;
+import software.decibel.dtos.user.UserSummary;
 
 public record TrackSummaryDTO(
     Long id,
@@ -8,7 +8,7 @@ public record TrackSummaryDTO(
     String trackSlug,
     String coverUrl,
     String trackUrl,
-    UserSummaryDTO artist,
+    UserSummary artist,
     int playCount,
     int likeCount,
     int repostCount,
