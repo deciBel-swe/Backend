@@ -85,6 +85,26 @@ class ReportControllerTest {
     }
 
     @Test
+    void reportTrack_whenJsonIsMalformed_returnsBadRequest() throws Exception {
+        mockMvc.perform(post("/tracks/15/report")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"reason\":\"Spam\""))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(reportService);
+    }
+
+    @Test
+    void reportTrack_whenTrackIdIsInvalidType_returnsBadRequest() throws Exception {
+        mockMvc.perform(post("/tracks/not-a-number/report")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new ReportRequest("Spam", null))))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(reportService);
+    }
+
+    @Test
     void reportTrack_whenServiceThrowsUnauthorized_returnsUnauthorized() throws Exception {
         when(reportService.reportTrack(eq(15L), any(ReportRequest.class)))
                 .thenThrow(new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication token is missing"));
@@ -118,6 +138,58 @@ class ReportControllerTest {
                 .content(objectMapper.writeValueAsString(new ReportRequest("Harassment", "Offensive reply"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Comment reported successfully"));
+    }
+
+    @Test
+    void reportComment_whenReasonIsMissing_returnsBadRequest() throws Exception {
+        mockMvc.perform(post("/comments/21/report")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"description\":\"Offensive reply\"}"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(reportService);
+    }
+
+    @Test
+    void reportComment_whenReasonIsBlank_returnsBadRequest() throws Exception {
+        mockMvc.perform(post("/comments/21/report")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"reason\":\"   \",\"description\":\"Offensive reply\"}"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(reportService);
+    }
+
+    @Test
+    void reportComment_whenJsonIsMalformed_returnsBadRequest() throws Exception {
+        mockMvc.perform(post("/comments/21/report")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"reason\":\"Harassment\""))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(reportService);
+    }
+
+    @Test
+    void reportComment_whenCommentIdIsInvalidType_returnsBadRequest() throws Exception {
+        mockMvc.perform(post("/comments/not-a-number/report")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new ReportRequest("Harassment", null))))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(reportService);
+    }
+
+    @Test
+    void reportComment_whenServiceThrowsUnauthorized_returnsUnauthorized() throws Exception {
+        when(reportService.reportComment(eq(21L), any(ReportRequest.class)))
+                .thenThrow(new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication token is missing"));
+
+        mockMvc.perform(post("/comments/21/report")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new ReportRequest("Harassment", null))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Authentication token is missing"));
     }
 
     @Test
