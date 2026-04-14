@@ -1,6 +1,7 @@
 package software.decibel.services;
 
 import java.time.Instant;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,10 +11,14 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.util.StringUtils;
 
+import software.decibel.dtos.auth.DeviceInfo;
+import software.decibel.dtos.auth.google.GoogleClientConfig;
 import software.decibel.dtos.auth.google.GoogleTokenInfoResponse;
 import software.decibel.dtos.auth.google.GoogleTokenResponse;
 import software.decibel.dtos.auth.google.VerifiedGoogleToken;
+import software.decibel.enums.DeviceType;
 import software.decibel.exceptions.custom.InvalidGoogleTokenException;
 
 @Service
@@ -24,71 +29,75 @@ public class GoogleTokenVerificationService {
     private static final String GOOGLE_ISSUER = "accounts.google.com";
     private static final String GOOGLE_ISSUER_HTTPS = "https://accounts.google.com";
 
-    private final RestClient restClient;
-    private final String googleClientId;
-    private final String googleClientSecret;
-    private final String googleRedirectUri;
     private static final Logger log = LoggerFactory.getLogger(GoogleTokenVerificationService.class);
+
+    private final RestClient restClient;
+    private final List<GoogleClientConfig> googleClients;
 
     public GoogleTokenVerificationService(
             RestClient.Builder restClientBuilder,
             @Value("${spring.security.oauth2.client.registration.google-web.client-id:}") String googleClientId,
             @Value("${spring.security.oauth2.client.registration.google-web.client-secret:}") String googleClientSecret,
-            @Value("${spring.security.oauth2.client.registration.google-web.redirect-uri:}") String googleRedirectUri
-    ) {
+            @Value("${spring.security.oauth2.client.registration.google-web.redirect-uri:}") String googleRedirectUri,
+            @Value("${spring.security.oauth2.client.registration.google-desktop.client-id:}") String googleDesktopClientId,
+            @Value("${spring.security.oauth2.client.registration.google-desktop.client-secret:}") String googleDesktopClientSecret,
+            @Value("${spring.security.oauth2.client.registration.google-desktop.redirect-uri:}") String googleDesktopRedirectUri,
+            @Value("${spring.security.oauth2.client.registration.google-mobile.client-id:}") String googleMobileClientId,
+            @Value("${spring.security.oauth2.client.registration.google-mobile.client-secret:}") String googleMobileClientSecret,
+            @Value("${spring.security.oauth2.client.registration.google-mobile.redirect-uri:}") String googleMobileRedirectUri) {
         this.restClient = restClientBuilder.baseUrl(GOOGLE_TOKEN_INFO_BASE_URL).build();
-        this.googleClientId = googleClientId;
-        this.googleClientSecret = googleClientSecret;
-        this.googleRedirectUri = googleRedirectUri;
+        this.googleClients = List.of(
+                new GoogleClientConfig("google-web", googleClientId, googleClientSecret, googleRedirectUri),
+                new GoogleClientConfig("google-desktop", googleDesktopClientId, googleDesktopClientSecret,
+                        googleDesktopRedirectUri),
+                new GoogleClientConfig("google-mobile", googleMobileClientId, googleMobileClientSecret,
+                        googleMobileRedirectUri))
+                .stream()
+                .filter(client -> StringUtils.hasText(client.clientId()))
+                .toList();
     }
 
-    // Main entry point — accepts an auth code and returns verified user info
     public VerifiedGoogleToken verifyAuthCode(String authCode) {
+        return verifyAuthCode(authCode, null);
+    }
+
+    public VerifiedGoogleToken verifyAuthCode(String authCode, DeviceInfo deviceInfo) {
         log.info("verifyAuthCode called with authCode={}", authCode);
-        log.info("clientId={} secretBlank={} redirectUri={}",
-                googleClientId,
-                googleClientSecret == null || googleClientSecret.isBlank(),
-                googleRedirectUri);
 
-        // Step 1 — exchange auth code for ID token
-        String idToken = exchangeAuthCodeForIdToken(authCode);
-
-        // Step 2 — verify the ID token
+        GoogleClientConfig client = resolveClientConfig(deviceInfo == null ? null : deviceInfo.deviceType());
+        String idToken = exchangeAuthCodeForIdToken(authCode, client);
         GoogleTokenInfoResponse tokenInfo = fetchTokenInfo(idToken);
-        validateTokenInfo(tokenInfo);
+        validateTokenInfo(tokenInfo, client);
 
         return new VerifiedGoogleToken(
                 tokenInfo.subject(),
                 tokenInfo.email(),
                 "true".equalsIgnoreCase(tokenInfo.emailVerified()),
                 tokenInfo.name(),
-                tokenInfo.picture()
-        );
+                tokenInfo.picture());
     }
 
-    // Exchanges auth code for tokens and returns the ID token
-    private String exchangeAuthCodeForIdToken(String authCode) {
+    private String exchangeAuthCodeForIdToken(String authCode, GoogleClientConfig client) {
         String decodedAuthCode;
         try {
             decodedAuthCode = java.net.URLDecoder.decode(authCode, java.nio.charset.StandardCharsets.UTF_8);
         } catch (Exception e) {
             decodedAuthCode = authCode;
         }
-        log.info("exchangeAuthCodeForIdToken called with authCode={}", decodedAuthCode);
-        log.info("clientId={} secretBlank={} redirectUri={}",
-                googleClientId,
-                googleClientSecret == null || googleClientSecret.isBlank(),
-                googleRedirectUri);
+
+        log.info("exchangeAuthCodeForIdToken called with authCode={} using client={}", decodedAuthCode, client.name());
         try {
             MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
             params.add("code", authCode);
-            params.add("client_id", googleClientId);
-            params.add("redirect_uri", googleRedirectUri);
+            params.add("client_id", client.clientId());
             params.add("grant_type", "authorization_code");
 
-            // Only add client_secret if it is configured (web clients require it, installed/mobile clients do not)
-            if (googleClientSecret != null && !googleClientSecret.isBlank()) {
-                params.add("client_secret", googleClientSecret);
+            if (StringUtils.hasText(client.redirectUri())) {
+                params.add("redirect_uri", client.redirectUri());
+            }
+
+            if (StringUtils.hasText(client.clientSecret())) {
+                params.add("client_secret", client.clientSecret());
             }
 
             GoogleTokenResponse tokenResponse = RestClient.create()
@@ -105,10 +114,23 @@ public class GoogleTokenVerificationService {
 
             return tokenResponse.idToken();
         } catch (RestClientException ex) {
-
             log.error("Google token exchange failed: {}", ex.getMessage(), ex);
             throw new InvalidGoogleTokenException("Failed to exchange Google auth code.", ex);
         }
+    }
+
+    private GoogleClientConfig resolveClientConfig(DeviceType deviceType) {
+        String clientName = switch (deviceType == null ? DeviceType.WEB : deviceType) {
+            case DESKTOP -> "google-desktop";
+            case MOBILE, TABLET -> "google-mobile";
+            case WEB -> "google-web";
+        };
+
+        return googleClients.stream()
+                .filter(client -> client.name().equals(clientName))
+                .findFirst()
+                .orElseThrow(() -> new InvalidGoogleTokenException(
+                        "Google OAuth is not configured for client " + clientName));
     }
 
     private GoogleTokenInfoResponse fetchTokenInfo(String idToken) {
@@ -128,7 +150,7 @@ public class GoogleTokenVerificationService {
         }
     }
 
-    private void validateTokenInfo(GoogleTokenInfoResponse tokenInfo) {
+    private void validateTokenInfo(GoogleTokenInfoResponse tokenInfo, GoogleClientConfig client) {
         if (tokenInfo.subject() == null || tokenInfo.subject().isBlank()) {
             throw new InvalidGoogleTokenException("Google token subject is missing.");
         }
@@ -137,7 +159,7 @@ public class GoogleTokenVerificationService {
             throw new InvalidGoogleTokenException("Google token email is missing.");
         }
 
-        if (!googleClientId.equals(tokenInfo.audience())) {
+        if (!client.clientId().equals(tokenInfo.audience())) {
             throw new InvalidGoogleTokenException("Google token audience is invalid.");
         }
 

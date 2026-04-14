@@ -455,7 +455,7 @@ class AuthServiceTest {
                 .build();
         Token refreshToken = Token.builder().hash("hash").build();
 
-        when(googleTokenVerificationService.verifyAuthCode("google-token"))
+        when(googleTokenVerificationService.verifyAuthCode("google-token", request.deviceInfo()))
                 .thenReturn(new VerifiedGoogleToken(
                         "google-subject", "google@example.com", true, "Google User",
                         "avatar.png"));
@@ -483,7 +483,7 @@ class AuthServiceTest {
         User savedUser = User.builder().id(15L).username("googleuser_345678").tier(AccountTier.FREE)
                 .build();
 
-        when(googleTokenVerificationService.verifyAuthCode("google-token"))
+        when(googleTokenVerificationService.verifyAuthCode("google-token", request.deviceInfo()))
                 .thenReturn(new VerifiedGoogleToken(
                         "123456789012345678", "new-google@example.com", true, "Google User",
                         "avatar.png"));
@@ -518,7 +518,7 @@ class AuthServiceTest {
                 "google-token",
                 new DeviceInfo(DeviceType.DESKTOP, "fp-google", "Chrome"));
 
-        when(googleTokenVerificationService.verifyAuthCode("google-token"))
+        when(googleTokenVerificationService.verifyAuthCode("google-token", request.deviceInfo()))
                 .thenReturn(new VerifiedGoogleToken(
                         "google-subject", "existing@example.com", true, "Google User",
                         "avatar.png"));
@@ -540,7 +540,7 @@ class AuthServiceTest {
                 "bad-google-token",
                 new DeviceInfo(DeviceType.DESKTOP, "fp-google", "Chrome"));
 
-        when(googleTokenVerificationService.verifyAuthCode("bad-google-token"))
+        when(googleTokenVerificationService.verifyAuthCode("bad-google-token", request.deviceInfo()))
                 .thenThrow(new InvalidGoogleTokenException("Invalid Google auth code."));
 
         InvalidGoogleTokenException exception = assertThrows(InvalidGoogleTokenException.class,

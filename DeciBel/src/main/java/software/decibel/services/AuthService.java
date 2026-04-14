@@ -141,7 +141,7 @@ public class AuthService {
     @Transactional
     public AuthLoginResult loginWithGoogle(GoogleOauthRequest request) {
         VerifiedGoogleToken verifiedToken = googleTokenVerificationService
-                .verifyAuthCode(request.authTokenDto());
+                .verifyAuthCode(request.authTokenDto(), request.deviceInfo());
 
         boolean[] isNew = {false};
         AuthIdentity identity = authIdentityRepository
