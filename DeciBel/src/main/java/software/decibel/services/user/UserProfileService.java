@@ -41,8 +41,16 @@ public class UserProfileService {
 
     // Public profile — no auth required
     @Transactional(readOnly = true)
-    public UpdateProfileResponse getUserPublicProfile(Long userId) {
+    public UpdateProfileResponse getUserPublicProfile(Long userId, Long currentUserId) {
         User user = findUserById(userId);
+        //If the profile is private AND the current user is not the owner, throw a 404
+        if (user.isPrivate() && !Objects.equals(user.getId(), currentUserId)) {
+            throw new ResourceNotFoundException("User with ID " + userId + " not found");
+        }
+        //check if the current user is blocked by this profile, if so, throw a 404
+        if (currentUserId != null && blockRepository.existsByBlockerAndBlocked(user, userRepository.getReferenceById(currentUserId))) {
+            throw new ResourceNotFoundException("User with ID " + userId + " not found");
+        }
         return getResponseWithFollowStatus(user, false);
     }
 

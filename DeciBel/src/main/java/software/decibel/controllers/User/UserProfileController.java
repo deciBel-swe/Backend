@@ -58,8 +58,9 @@ public class UserProfileController {
 
     //public, no auth required
     @GetMapping("/{userId}")
-    public ResponseEntity<UpdateProfileResponse> getUserProfile(@PathVariable Long userId) {
-        return ResponseEntity.ok(userService.getUserPublicProfile(userId));
+    public ResponseEntity<UpdateProfileResponse> getUserProfile(@PathVariable Long userId, @AuthenticationPrincipal UserPrincipal principal) {
+        Long currentUserId = (principal != null) ? principal.getId() : null;
+        return ResponseEntity.ok(userService.getUserPublicProfile(userId, currentUserId));
     }
 
     //full profile with privacy settings

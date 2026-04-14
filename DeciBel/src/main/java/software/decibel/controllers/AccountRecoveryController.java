@@ -1,11 +1,12 @@
 package software.decibel.controllers;
 
-import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import jakarta.validation.Valid;
 import software.decibel.dtos.auth.ForgotPasswordRequest;
 import software.decibel.dtos.auth.ForgotPasswordResponse;
 import software.decibel.dtos.auth.ResetPasswordRequest;
@@ -23,10 +24,9 @@ public class AccountRecoveryController {
         this.accountRecoveryService = accountRecoveryService;
     }
 
-
-     // Handles forgot password requests.
-     // If the email exists, a password reset link is sent to the user's email.
-     // To prevent email enumeration, it returns a generic success message regardless of whether the email exists.
+    // Handles forgot password requests.
+    // If the email exists, a password reset link is sent to the user's email.
+    // To prevent email enumeration, it returns a generic success message regardless of whether the email exists.
     @PostMapping("/forgot-password")
     public ResponseEntity<ForgotPasswordResponse> forgotPassword(
             @Valid @RequestBody ForgotPasswordRequest request
@@ -40,11 +40,8 @@ public class AccountRecoveryController {
         );
     }
 
-
-     // Handles reset password requests.
-     //Validates the provided token and updates the user's password if valid.
-
-
+    // Handles reset password requests.
+    //Validates the provided token and updates the user's password if valid.
     @PostMapping("/reset-password")
     public ResponseEntity<ResetPasswordResponse> resetPassword(
             @Valid @RequestBody ResetPasswordRequest request

@@ -1,7 +1,5 @@
 package software.decibel.services.notification;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -10,6 +8,16 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import software.decibel.dtos.notifications.*;
 import software.decibel.dtos.user.UserSummary;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import software.decibel.dtos.notifications.NotificationDto;
+import software.decibel.dtos.notifications.NotificationPageResponse;
+import software.decibel.dtos.notifications.NotificationResourceDto;
+import software.decibel.dtos.notifications.NotificationSettingsDto;
+import software.decibel.dtos.notifications.UnreadCountResponse;
+import software.decibel.dtos.notifications.UpdateNotificationSettingsRequest;
+import software.decibel.dtos.user.UserSummaryDTO;
 import software.decibel.entities.Notification;
 import software.decibel.entities.NotificationPreferences;
 import software.decibel.entities.User;
@@ -69,9 +77,16 @@ public class InAppNotificationService {
                 .build());
 
         // Push via Firebase FCM
+        String title;
+        if (type == NotificationType.REPLY && resourceType == ResourceType.USER) {
+            title = actor.getUsername() + " sent you a message";
+        } else {
+            title = buildTitle(type, actor);
+        }
+
         fcmNotificationService.sendNotification(
                 recipientId,
-                buildTitle(type, actor),
+                title,
                 buildBody(type, actor, resourceType));
     }
     // GET /notifications
@@ -192,6 +207,8 @@ public class InAppNotificationService {
                 prefs.isNotifyOnRepost();
             case COMMENT, REPLY ->
                 prefs.isNotifyOnComment();
+            case MESSAGE ->
+                prefs.isNotifyOnDM();
         };
     }
 
@@ -207,10 +224,15 @@ public class InAppNotificationService {
                 actor.getUsername() + " commented on your track";
             case REPLY ->
                 actor.getUsername() + " replied to your comment";
+            case MESSAGE ->
+                actor.getUsername() + " sent you a message";
         };
     }
 
     private String buildBody(NotificationType type, User actor, ResourceType resourceType) {
+        if (type == NotificationType.REPLY && resourceType == ResourceType.USER) {
+            return "You have a new message from " + actor.getUsername();
+        }
         return switch (type) {
             case FOLLOW ->
                 "You have a new follower";
@@ -222,6 +244,8 @@ public class InAppNotificationService {
                 "New comment on your track";
             case REPLY ->
                 "New reply on your comment";
+            case MESSAGE ->
+                "You have a new message";
         };
     }
 
