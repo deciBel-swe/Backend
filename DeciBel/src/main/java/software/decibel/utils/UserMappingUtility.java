@@ -11,6 +11,7 @@ import software.decibel.dtos.user.PrivacySettings;
 import software.decibel.dtos.user.SocialLinksDto;
 import software.decibel.dtos.user.UpdateProfileResponse;
 import software.decibel.dtos.user.UserProfile;
+import software.decibel.dtos.user.UserSummary;
 import software.decibel.entities.AuthIdentity;
 import software.decibel.entities.SocialLinks;
 import software.decibel.entities.User;
@@ -55,6 +56,16 @@ public class UserMappingUtility {
                 user.getCoverPhotoUrl(),
                 user.getFavoriteGenres(),
                 List.of(toSocialLinksDto(user))
+        );
+    }
+
+    public UserSummary toUserSummary(User user) {
+        if (user == null) return null;
+        return new UserSummary(
+                user.getId(),
+                user.getUsername(),
+                user.getDisplayName(),
+                user.getAvatarUrl()
         );
     }
 

@@ -6,6 +6,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import software.decibel.dtos.notifications.*;
+import software.decibel.dtos.user.UserSummary;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -169,7 +171,7 @@ public class InAppNotificationService {
         return new NotificationDto(
                 n.getId(),
                 n.getType(),
-                new UserSummaryDTO(
+                new UserSummary(
                         actor.getId(),
                         actor.getUsername(),
                         actor.getDisplayName(),
