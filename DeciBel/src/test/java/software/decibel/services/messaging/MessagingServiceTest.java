@@ -1,20 +1,44 @@
 package software.decibel.services.messaging;
 
-import com.google.cloud.firestore.Firestore;
-import com.google.cloud.firestore.CollectionReference;
-import com.google.cloud.firestore.DocumentReference;
-import com.google.cloud.firestore.DocumentSnapshot;
-import com.google.cloud.firestore.WriteResult;
-import com.google.api.core.ApiFuture;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.server.ResponseStatusException;
+
+import com.google.api.core.ApiFuture;
+import com.google.cloud.firestore.AggregateQuery;
+import com.google.cloud.firestore.AggregateQuerySnapshot;
+import com.google.cloud.firestore.CollectionReference;
+import com.google.cloud.firestore.DocumentReference;
+import com.google.cloud.firestore.DocumentSnapshot;
+import com.google.cloud.firestore.Firestore;
+import com.google.cloud.firestore.Query;
+import com.google.cloud.firestore.QueryDocumentSnapshot;
+import com.google.cloud.firestore.QuerySnapshot;
+import com.google.cloud.firestore.WriteResult;
+
 import software.decibel.dtos.auth.UserPrincipal;
 import software.decibel.dtos.messaging.ConversationPageResponse;
 import software.decibel.dtos.messaging.ConversationResponse;
@@ -26,23 +50,8 @@ import software.decibel.enums.NotificationType;
 import software.decibel.enums.ResourceType;
 import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.notification.FcmNotificationService;
 import software.decibel.services.notification.InAppNotificationService;
-
-import com.google.cloud.firestore.Query;
-import com.google.cloud.firestore.QuerySnapshot;
-import com.google.cloud.firestore.QueryDocumentSnapshot;
-import com.google.cloud.firestore.AggregateQuery;
-import com.google.cloud.firestore.AggregateQuerySnapshot;
-import org.springframework.beans.factory.ObjectProvider;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.ExecutionException;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class MessagingServiceTest {
@@ -59,6 +68,8 @@ class MessagingServiceTest {
     private InAppNotificationService inAppNotificationService;
     @Mock
     private Authentication authentication;
+    @Mock
+    private FcmNotificationService fcmNotificationService;
 
     @InjectMocks
     private MessagingService messagingService;
@@ -74,7 +85,7 @@ class MessagingServiceTest {
                 .username("sender")
                 .tier(AccountTier.FREE)
                 .build();
-        
+
         recipient = User.builder()
                 .id(2L)
                 .username("recipient")
@@ -87,9 +98,9 @@ class MessagingServiceTest {
         when(authentication.getPrincipal()).thenReturn(senderPrincipal);
         SendMessageRequest request = new SendMessageRequest(1L, "hello");
 
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class, 
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> messagingService.sendMessage(authentication, request));
-        
+
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
         assertEquals("You cannot send a message to yourself", exception.getReason());
     }
@@ -99,12 +110,12 @@ class MessagingServiceTest {
         when(authentication.getPrincipal()).thenReturn(senderPrincipal);
         recipient.setPrivate(true);
         when(userRepository.findById(2L)).thenReturn(Optional.of(recipient));
-        
+
         SendMessageRequest request = new SendMessageRequest(2L, "hello");
 
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class, 
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> messagingService.sendMessage(authentication, request));
-        
+
         assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
         assertEquals("This user is private and cannot receive messages", exception.getReason());
     }
@@ -114,12 +125,12 @@ class MessagingServiceTest {
         when(authentication.getPrincipal()).thenReturn(senderPrincipal);
         when(userRepository.findById(2L)).thenReturn(Optional.of(recipient));
         when(blockRepository.existsByBlocker_IdAndBlocked_Id(1L, 2L)).thenReturn(true);
-        
+
         SendMessageRequest request = new SendMessageRequest(2L, "hello");
 
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class, 
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> messagingService.sendMessage(authentication, request));
-        
+
         assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
         assertEquals("You have blocked this user", exception.getReason());
     }
@@ -130,26 +141,33 @@ class MessagingServiceTest {
         when(userRepository.findById(2L)).thenReturn(Optional.of(recipient));
         when(blockRepository.existsByBlocker_IdAndBlocked_Id(1L, 2L)).thenReturn(false);
         when(blockRepository.existsByBlocker_IdAndBlocked_Id(2L, 1L)).thenReturn(true);
-        
+
         SendMessageRequest request = new SendMessageRequest(2L, "hello");
 
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class, 
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> messagingService.sendMessage(authentication, request));
-        
+
         assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
         assertEquals("This user has blocked you", exception.getReason());
     }
 
     @Test
     void sendMessage_success_callsNotification() throws ExecutionException, InterruptedException {
+        Long senderId = 1L;
+        User mockSender = mock(User.class);
+
         when(authentication.getPrincipal()).thenReturn(senderPrincipal);
         when(userRepository.findById(2L)).thenReturn(Optional.of(recipient));
-        when(blockRepository.existsByBlocker_IdAndBlocked_Id(1L, 2L)).thenReturn(false);
-        when(blockRepository.existsByBlocker_IdAndBlocked_Id(2L, 1L)).thenReturn(false);
+        when(userRepository.findById(senderId)).thenReturn(Optional.of(mockSender));
+
+        when(mockSender.getUsername()).thenReturn("testuser");
+
+        when(blockRepository.existsByBlocker_IdAndBlocked_Id(senderId, 2L)).thenReturn(false);
+        when(blockRepository.existsByBlocker_IdAndBlocked_Id(2L, senderId)).thenReturn(false);
 
         SendMessageRequest request = new SendMessageRequest(2L, "hello");
 
-        // Mock Firestore
+        // Mock Firestore (Your existing logic)
         CollectionReference conversations = mock(CollectionReference.class);
         DocumentReference conversationDoc = mock(DocumentReference.class);
         CollectionReference messages = mock(CollectionReference.class);
@@ -172,10 +190,16 @@ class MessagingServiceTest {
 
         verify(inAppNotificationService).createNotification(
                 eq(2L),
-                eq(1L),
+                eq(senderId),
                 eq(NotificationType.REPLY),
                 eq(ResourceType.USER),
-                eq(1L)
+                eq(senderId)
+        );
+
+        verify(fcmNotificationService).sendRealTimeChatMessage(
+                eq(2L),
+                eq("testuser"), // Matches the mocked username above
+                eq("hello") // Matches the message content
         );
     }
 
@@ -254,8 +278,8 @@ class MessagingServiceTest {
 
         ConversationPageResponse response = messagingService.getConversations(authentication, 0, 10);
 
-        assertEquals(1, response.getContent().size());
-        assertEquals("1_2", response.getContent().get(0).id());
-        assertEquals(1L, response.getTotalElements());
+        assertEquals(1, response.content().size());
+        assertEquals("1_2", response.content().get(0).id());
+        assertEquals(1L, response.totalElements());
     }
 }

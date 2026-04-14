@@ -1,15 +1,35 @@
 package software.decibel.services.messaging;
 
-import com.google.api.core.ApiFuture;
-import com.google.cloud.Timestamp;
-import com.google.cloud.firestore.*;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
+
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+
+import com.google.api.core.ApiFuture;
+import com.google.cloud.Timestamp;
+import com.google.cloud.firestore.AggregateQuery;
+import com.google.cloud.firestore.DocumentReference;
+import com.google.cloud.firestore.DocumentSnapshot;
+import com.google.cloud.firestore.FieldValue;
+import com.google.cloud.firestore.Firestore;
+import com.google.cloud.firestore.Query;
+import com.google.cloud.firestore.QueryDocumentSnapshot;
+import com.google.cloud.firestore.QuerySnapshot;
+import com.google.cloud.firestore.SetOptions;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import software.decibel.dtos.auth.UserPrincipal;
 import software.decibel.dtos.messaging.ConversationPageResponse;
 import software.decibel.dtos.messaging.ConversationResponse;
@@ -21,13 +41,8 @@ import software.decibel.enums.NotificationType;
 import software.decibel.enums.ResourceType;
 import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.notification.FcmNotificationService;
 import software.decibel.services.notification.InAppNotificationService;
-
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.*;
-import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -41,6 +56,7 @@ public class MessagingService {
 
     private static final String CONVERSATIONS_COLLECTION = "conversations";
     private static final String MESSAGES_COLLECTION = "messages";
+    private final FcmNotificationService fcmNotificationService;
 
     public ConversationResponse startConversation(Authentication authentication, Long recipientId) {
         Firestore firestore = firestoreProvider.getObject();
@@ -81,7 +97,7 @@ public class MessagingService {
                 conversationData.put("lastTimestamp", FieldValue.serverTimestamp());
 
                 docRef.set(conversationData).get();
-                
+
                 return new ConversationResponse(
                         conversationId,
                         Arrays.asList(senderId, recipientId),
@@ -91,10 +107,10 @@ public class MessagingService {
             } else {
                 log.info("Conversation already exists: {}", conversationId);
                 Timestamp ts = snapshot.getTimestamp("lastTimestamp");
-                LocalDateTime ldt = ts != null ? 
-                        ts.toDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime() : 
-                        LocalDateTime.now();
-                
+                LocalDateTime ldt = ts != null
+                        ? ts.toDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime()
+                        : LocalDateTime.now();
+
                 Object participantsObj = snapshot.get("participants");
                 List<Long> participants;
                 if (participantsObj instanceof List<?>) {
@@ -189,7 +205,7 @@ public class MessagingService {
             conversationData.put("participants", Arrays.asList(senderId, recipientId));
             conversationData.put("lastMessage", request.content());
             conversationData.put("lastTimestamp", FieldValue.serverTimestamp());
-            
+
             firestore.collection(CONVERSATIONS_COLLECTION)
                     .document(conversationId)
                     .set(conversationData, SetOptions.merge());
@@ -201,6 +217,13 @@ public class MessagingService {
                     NotificationType.REPLY,
                     ResourceType.USER,
                     senderId
+            );
+            User sender = userRepository.findById(senderId).orElseThrow();
+
+            fcmNotificationService.sendRealTimeChatMessage(
+                    recipientId,
+                    sender.getUsername(), // Or "User " + senderId if you don't have getUsername()
+                    request.content()
             );
 
             return new MessageResponse(
@@ -250,7 +273,7 @@ public class MessagingService {
         // conversationId is "minId_maxId"
         String[] ids = conversationId.split("_");
         if (ids.length != 2) {
-             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid conversation ID");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid conversation ID");
         }
         try {
             Long id1 = Long.parseLong(ids[0]);
@@ -266,7 +289,7 @@ public class MessagingService {
             // Firestore pagination is usually cursor-based, but we'll use offset for simplicity if size is small,
             // or just fetch with limit if we want simple pagination.
             // Requirement says "paginated response of the chat".
-            
+
             Query query = firestore.collection(CONVERSATIONS_COLLECTION)
                     .document(conversationId)
                     .collection(MESSAGES_COLLECTION)
@@ -280,9 +303,9 @@ public class MessagingService {
             List<MessageResponse> messages = documents.stream()
                     .map(doc -> {
                         Timestamp ts = doc.getTimestamp("timestamp");
-                        LocalDateTime ldt = ts != null ? 
-                                ts.toDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime() : 
-                                LocalDateTime.now();
+                        LocalDateTime ldt = ts != null
+                                ? ts.toDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime()
+                                : LocalDateTime.now();
                         return new MessageResponse(
                                 doc.getId(),
                                 doc.getLong("senderId"),
@@ -363,9 +386,9 @@ public class MessagingService {
             List<ConversationResponse> conversations = documents.stream()
                     .map(doc -> {
                         Timestamp ts = doc.getTimestamp("lastTimestamp");
-                        LocalDateTime ldt = ts != null ?
-                                ts.toDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime() :
-                                LocalDateTime.now();
+                        LocalDateTime ldt = ts != null
+                                ? ts.toDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime()
+                                : LocalDateTime.now();
 
                         Object participantsObj = doc.get("participants");
                         List<Long> participants;
