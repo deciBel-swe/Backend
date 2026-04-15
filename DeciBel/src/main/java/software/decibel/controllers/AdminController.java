@@ -1,6 +1,7 @@
 package software.decibel.controllers;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -14,6 +15,10 @@ import org.springframework.web.bind.annotation.RestController;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import java.util.List;
+import java.util.Collections;
+import software.decibel.dtos.admin.AnalyticsResponse;
+import software.decibel.dtos.admin.BanUserRequest;
+import software.decibel.dtos.admin.BannedUsersPageResponse;
 import software.decibel.dtos.admin.ListReportsRequest;
 import software.decibel.dtos.admin.LoginAdminRequest;
 import software.decibel.dtos.admin.LoginAdminResponse;
@@ -50,12 +55,40 @@ public class AdminController {
             @Valid @RequestBody UpdateReportStatusRequest request) {
         return ResponseEntity.ok(adminModerationService.updateReportStatus(id, request));
     }
-    // Still not Clear if it is needed or not...
-    /*
+
+    @PatchMapping("/users/{userId}/ban")
+    public ResponseEntity<MessageResponse> banUser(
+            @PathVariable Long userId,
+            @Valid @RequestBody BanUserRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
+                .body(new MessageResponse("User ban moderation is not implemented yet"));
+    }
+
+    @GetMapping("/users/banned")
+    public ResponseEntity<BannedUsersPageResponse> getBannedUsers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
+                .body(new BannedUsersPageResponse(
+                        Collections.emptyList(),
+                        page,
+                        size,
+                        0,
+                        0,
+                        true,
+                        0));
+    }
+
+    @GetMapping("/analytics")
+    public ResponseEntity<AnalyticsResponse> getPlatformAnalytics() {
+        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
+                .body(new AnalyticsResponse(null, null, null, null, null));
+    }
+
     @DeleteMapping("/tracks/{trackId}")
     public ResponseEntity<Void> deleteTrack(@PathVariable Long trackId) {
         adminModerationService.adminDeleteTrack(trackId);
         return ResponseEntity.noContent().build();
     }
-    */
+
 }
