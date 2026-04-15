@@ -1,20 +1,15 @@
 package software.decibel.services.track;
 
 import jakarta.transaction.Transactional;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import org.springframework.beans.factory.annotation.Autowired;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.context.annotation.Lazy;
+import org.apache.commons.text.WordUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -22,8 +17,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
-
 import software.decibel.dtos.track.*;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
@@ -35,12 +31,12 @@ import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.exceptions.custom.TrackAlreadyPublishedException;
 import software.decibel.exceptions.custom.UnauthorizedActionException;
 import software.decibel.mappers.TrackMapper;
-import software.decibel.repositories.TrackRepository;
-import software.decibel.repositories.TrackLikeRepository;
-import software.decibel.repositories.TrackRepostRepository;
-import software.decibel.repositories.CommentRepository;
-import software.decibel.repositories.UserRepository;
 import software.decibel.repositories.BlockRepository;
+import software.decibel.repositories.CommentRepository;
+import software.decibel.repositories.TrackLikeRepository;
+import software.decibel.repositories.TrackRepository;
+import software.decibel.repositories.TrackRepostRepository;
+import software.decibel.repositories.UserRepository;
 import software.decibel.services.JwtService;
 import software.decibel.services.TagService;
 import software.decibel.services.engagement.LikeService;
@@ -49,8 +45,6 @@ import software.decibel.services.user.UserService;
 import software.decibel.utils.*;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 @RequiredArgsConstructor
@@ -120,8 +114,10 @@ public class TrackService {
         if (request.tags() != null) {
             addTrackTags(track, tags);
         }
-
-        Track createdTrack = createUploadingTrack(track);
+    // parse genre
+    track.setGenre(
+        WordUtils.capitalize(track.getGenre().trim().toLowerCase().replaceAll("\\s+", " ")));
+    Track createdTrack = createUploadingTrack(track);
 
         try {
             byte[] audioBytes = request.audioFile().getBytes();
@@ -303,8 +299,9 @@ public class TrackService {
             track.setTitle(request.title());
         }
         if (request.genre() != null) {
-            track.setGenre(request.genre());
-        }
+      track.setGenre(
+          WordUtils.capitalize(track.getGenre().trim().toLowerCase().replaceAll("\\s+", " ")));
+    }
         if (request.description() != null) {
             track.setDescription(request.description());
         }
