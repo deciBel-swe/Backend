@@ -422,8 +422,7 @@ public class PlaylistService {
     }
 
     private User getUserByUsername(String username) {
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User '" + username + "' not found"));
+        return userService.getUserIfExistsByUsername(username);
     }
 
     private boolean isUserBlocked(Long currentUserId, Long targetUserId) {

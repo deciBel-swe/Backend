@@ -12,6 +12,10 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 import software.decibel.dtos.admin.AdminUserResponse;
+import software.decibel.dtos.admin.AnalyticsResponse;
+import software.decibel.dtos.admin.BanUserRequest;
+import software.decibel.dtos.admin.BannedUserResponse;
+import software.decibel.dtos.admin.BannedUsersPageResponse;
 import software.decibel.dtos.admin.LoginAdminRequest;
 import software.decibel.dtos.admin.LoginAdminResponse;
 import software.decibel.dtos.admin.ReportResponse;
@@ -187,5 +191,63 @@ class AdminControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Validation Failed"))
                 .andExpect(jsonPath("$.message").value("One or more fields are invalid."));
+    }
+
+    @Test
+    void banUser_whenValidRequest_returnsOk() throws Exception {
+        BanUserRequest request = new BanUserRequest(true, "fraud");
+        when(adminModerationService.banUser(eq(5L), any(BanUserRequest.class)))
+                .thenReturn(new MessageResponse("User banned successfully"));
+
+        mockMvc.perform(patch("/admin/users/5/ban")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("User banned successfully"));
+    }
+
+    @Test
+    void banUser_whenReasonMissing_returnsBadRequest() throws Exception {
+        BanUserRequest request = new BanUserRequest(true, " ");
+
+        mockMvc.perform(patch("/admin/users/5/ban")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation Failed"));
+
+        verifyNoInteractions(adminModerationService);
+    }
+
+    @Test
+    void getBannedUsers_returnsOkAndJson() throws Exception {
+        BannedUsersPageResponse response = new BannedUsersPageResponse(
+                List.of(new BannedUserResponse(5L, "banned-user", "Banned User", "avatar.png", true)),
+                0,
+                20,
+                1,
+                1,
+                true,
+                3);
+        when(adminModerationService.getBannedUsers(0, 20)).thenReturn(response);
+
+        mockMvc.perform(get("/admin/users/banned")
+                        .param("page", "0")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].username").value("banned-user"))
+                .andExpect(jsonPath("$.totalBannedUsers").value(3));
+    }
+
+    @Test
+    void getPlatformAnalytics_returnsOkAndJson() throws Exception {
+        when(adminModerationService.getPlatformAnalytics())
+                .thenReturn(new AnalyticsResponse(10L, 4L, 120L, 73.5, 0L));
+
+        mockMvc.perform(get("/admin/analytics"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalUsers").value(10))
+                .andExpect(jsonPath("$.totalTracks").value(4))
+                .andExpect(jsonPath("$.totalPlays").value(120));
     }
 }

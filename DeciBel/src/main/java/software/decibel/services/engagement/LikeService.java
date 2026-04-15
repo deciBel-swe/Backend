@@ -165,8 +165,7 @@ public class LikeService {
 
     public Page<PlaylistResponse> getLikedPlaylists(String username, Pageable playlistPageable) {
         Long currentUserId = JwtService.getCurrentUserId();
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + username));
+        User user = userService.getUserIfExistsByUsername(username);
 
         //check if user has been blocked 
         if (currentUserId != null && !currentUserId.equals(user.getId())) {
@@ -197,8 +196,7 @@ public class LikeService {
     }
 
     private User findUser(Long userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User with id " + userId + " not found"));
+        return userService.getUserIfExistsById(userId);
     }
 
     private Playlist findPlaylist(Long playlistId) {

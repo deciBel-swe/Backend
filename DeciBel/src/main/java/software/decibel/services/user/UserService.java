@@ -16,7 +16,13 @@ public class UserService {
 
   public User getUserIfExistsById(Long userId) {
     return userRepository
-        .findById(userId)
+        .findByIdAndIsBannedFalse(userId)
         .orElseThrow(() -> new ResourceNotFoundException("User with id " + userId + " not found"));
+  }
+
+  public User getUserIfExistsByUsername(String username) {
+    return userRepository
+        .findByUsernameAndIsBannedFalse(username)
+        .orElseThrow(() -> new ResourceNotFoundException("User with username " + username + " not found"));
   }
 }

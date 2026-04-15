@@ -171,8 +171,7 @@ public class RepostService {
 
     // Mixed feed of track + playlist reposts in chronological order
     public Page<RepostItemResponse> getUserReposts(String username, Pageable pageable) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + username));
+        User user = userService.getUserIfExistsByUsername(username);
 
         List<RepostItemResponse> all = new ArrayList<>();
 
@@ -228,8 +227,7 @@ public class RepostService {
     }
 
     private User findUser(Long userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User with id " + userId + " not found"));
+        return userService.getUserIfExistsById(userId);
     }
     // Resolves the currently authenticated user, or null for anonymous requests
 

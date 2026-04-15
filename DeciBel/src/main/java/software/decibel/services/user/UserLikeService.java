@@ -29,6 +29,7 @@ public class UserLikeService {
     private final UserRepository userRepository;
 
     private final TrackMapper trackMapper;
+    private final UserService userService;
 
     // Get all tracks liked by user
     @Transactional
@@ -49,9 +50,7 @@ public class UserLikeService {
     @Transactional(readOnly = true)
     public TrackPageResponse getLikedTracksByUsername(String username, int page, int size) {
         // 1. Get the target user whose profile we are viewing
-        Long targetUserId = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with username: " + username))
-                .getId();
+        Long targetUserId = userService.getUserIfExistsByUsername(username).getId();
 
         // 2. Fetch the tracks THEY liked
         PageRequest pageable = PageRequest.of(page, size);
@@ -77,9 +76,7 @@ public class UserLikeService {
     @Transactional(readOnly = true)
     public TrackPageResponse getRepostedTracksByUsername(String username, int page, int size) {
         // 1. Get the target user whose profile we are viewing
-        Long targetUserId = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with username: " + username))
-                .getId();
+        Long targetUserId = userService.getUserIfExistsByUsername(username).getId();
 
         // 2. Fetch the tracks THEY reposted
         PageRequest pageable = PageRequest.of(page, size);
