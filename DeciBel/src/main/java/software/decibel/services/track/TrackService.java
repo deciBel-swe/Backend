@@ -20,13 +20,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
-import software.decibel.dtos.track.*;
+import software.decibel.dtos.track.requests.TrackPatchRequest;
+import software.decibel.dtos.track.requests.TrackUploadRequest;
+import software.decibel.dtos.track.responses.*;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
-import software.decibel.enums.FileType;
-import software.decibel.enums.TrackState;
-import software.decibel.enums.Visibility;
+import software.decibel.enums.*;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.exceptions.custom.TrackAlreadyPublishedException;
 import software.decibel.exceptions.custom.UnauthorizedActionException;
@@ -50,6 +50,7 @@ import tools.jackson.databind.ObjectMapper;
 @RequiredArgsConstructor
 @Slf4j
 public class TrackService {
+  private final TrackPlaybackService trackPlaybackService;
 
     private final TrackRepository trackRepository;
     private final UserRepository userRepository;
@@ -61,6 +62,7 @@ public class TrackService {
 
     private final LikeService likeService;
     private final RepostService repostService;
+  int PREVIEW_SECONDS = 10;
 
     private final FileUtilityAzure fileUtilityAzure;
     private final WaveFormUtility waveFormUtility;
@@ -79,12 +81,23 @@ public class TrackService {
     public void deleteTrack(Long trackId) {
         // Fetch the track first (If it doesn't exist, this throws an error and stops immediately)
         Track track = getTrackIfExistsById(trackId);
+        
 
         // Perform all database deletions
         likeRepository.deleteAllByTrackId(trackId);
         repostRepository.deleteAllByTrackId(trackId);
         commentRepository.deleteAllByTrackId(trackId);
+
+    User currentUser = userService.getUserIfExistsById(JwtService.getCurrentUserId());
+    currentUser.setTrackCount(currentUser.getTrackCount() - 1);
+    // if a free user deleted a non-blocked track -> they get refunded a slot
+
+    if (track.getAccess() != TrackAccess.BLOCKED) {
+      currentUser.setFreeTracksLeft(currentUser.getFreeTracksLeft() + 1);
+    }
+
         trackRepository.delete(track);
+
 
         //Instruct Spring to delete the files ONLY after the DB commit succeeds
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -107,14 +120,25 @@ public class TrackService {
 
         Long userId = JwtService.getCurrentUserId();
         User uploader = userService.getUserIfExistsById(userId);
+    // get allowed access based on tier and user's remaining non-blocked tracks
 
-        Track track = trackMapper.toEntity(request, uploader);
+    Track track = trackMapper.toEntity(request, uploader);
 
-        List<String> tags = TagUtility.parseTags(request.tags());
+    // changes to track that couldn't be done in mapper
+    // track access based on business logic
+    TrackAccess finalAccess = trackPlaybackService.resolveUploadAccess(uploader, request.access());
+    // update free tracks left based on initial access and final access
+
+    trackPlaybackService.updateFreeTracksLeft(uploader, null, finalAccess);
+
+    track.setAccess(finalAccess);
+
+    // track tags parsed
+    List<String> tags = TagUtility.parseTags(request.tags());
         if (request.tags() != null) {
             addTrackTags(track, tags);
         }
-    // parse genre
+    // track genre parsed
     track.setGenre(
         WordUtils.capitalize(track.getGenre().trim().toLowerCase().replaceAll("\\s+", " ")));
     Track createdTrack = createUploadingTrack(track);
@@ -184,6 +208,20 @@ public class TrackService {
             createdTrack.setDurationSeconds(
                     audioUtility.getAudioFileDurationInSeconds(audioBytes, audioOriginalFilename, request.title()));
             updateTrackState(createdTrack, TrackState.PROCESSING, audioWeight + coverWeight + waveformWeight + durationWeight, "Duration extracted", null);
+
+      // generate trackPreviewUrl
+
+      String previewUrl;
+
+      // if duration > preview_seconds -> trim
+      if (createdTrack.getDurationSeconds() > PREVIEW_SECONDS) {
+        System.out.println("here");
+        previewUrl = getPreviewUrl(audioBytes, audioOriginalFilename);
+      } else { // else audio file remains the same
+        previewUrl = trackUrl;
+      }
+
+      createdTrack.setTrackPreviewUrl(previewUrl);
 
             createdTrack.setState(TrackState.FINISHED);
             updateTrackState(createdTrack, TrackState.FINISHED, 100, "Done", null);
@@ -295,6 +333,9 @@ public class TrackService {
     public TrackPatchResponse updateTrack(Long trackId, TrackPatchRequest request) {
         Track track = getTrackIfExistsById(trackId);
 
+    Long userId = JwtService.getCurrentUserId();
+    User uploader = userService.getUserIfExistsById(userId);
+
         if (request.title() != null) {
             track.setTitle(request.title());
         }
@@ -323,6 +364,15 @@ public class TrackService {
             addTrackTags(track, tags);
         }
 
+    if (request.access() != null) {
+      TrackAccess finalAccess =
+          trackPlaybackService.resolveUploadAccess(uploader, request.access());
+
+      // update free tracks left based on initial access and final access
+      trackPlaybackService.updateFreeTracksLeft(uploader, track.getAccess(), finalAccess);
+      track.setAccess(finalAccess);
+    }
+
         return trackMapper.toTrackPatchResponse(trackRepository.save(track));
     }
 
@@ -338,25 +388,35 @@ public class TrackService {
 
     private TrackPageResponse getAllTracksByUserId(Long userId, int page, int size) {
 
+    User user = userService.getUserIfExistsById(userId);
         Pageable pageable = PageRequest.of(page, size);
         Page<Track> result = trackRepository.findByUploaderId(userId, pageable);
 
-        // Fetch ID 
-        Set<Long> likedTrackIds = likeService.getLikedTrackIds(userId);
+    // Fetch ID
+    Set<Long> likedTrackIds = likeService.getLikedTrackIds(userId);
         Set<Long> repostedTrackIds = repostService.getRepostedTrackIds(userId);
 
-        return trackMapper.toPageResponse(result, likedTrackIds, repostedTrackIds);
+    return trackMapper.toPageResponse(
+        result,
+        userService.getUserIfExistsById(JwtService.getCurrentUserId()).getTier(),
+        likedTrackIds,
+        repostedTrackIds);
     }
 
     public TrackPageResponse getPublicTracksByUserId(Long userId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<Track> result = trackRepository.findByUploaderIdAndVisibility(userId, Visibility.PUBLIC, pageable);
+    User user = userService.getUserIfExistsById(userId);
 
         // Fetch ID
         Set<Long> likedTrackIds = likeService.getLikedTrackIds(userId);
         Set<Long> repostedTrackIds = repostService.getRepostedTrackIds(userId);
 
-        return trackMapper.toPageResponse(result, likedTrackIds, repostedTrackIds);
+    return trackMapper.toPageResponse(
+        result,
+        userService.getUserIfExistsById(JwtService.getCurrentUserId()).getTier(),
+        likedTrackIds,
+        repostedTrackIds);
     }
 
     @Transactional
@@ -384,8 +444,8 @@ public class TrackService {
         Track track = getTrackIfExistsById(trackId);
         Long currentUserId = null;
         try {
-            // Attempt to get the current user ID. 
-            currentUserId = JwtService.getCurrentUserId();
+      // Attempt to get the current user ID.
+      currentUserId = JwtService.getCurrentUserId();
         } catch (Exception e) {
             // User is not logged in, leave currentUserId as null
         }
@@ -420,8 +480,13 @@ public class TrackService {
             isLiked = likeService.getLikedTrackIds(userId).contains(track.getId());
             isReposted = repostService.getRepostedTrackIds(userId).contains(track.getId());
         }
+    User user = userService.getUserIfExistsById(userId);
 
-        return trackMapper.toTrackResponseSingle(track, isLiked, isReposted);
+    return trackMapper.toTrackResponseSingle(
+        track,
+        userService.getUserIfExistsById(JwtService.getCurrentUserId()).getTier(),
+        isLiked,
+        isReposted);
     }
 
     public Track getTrackIfExistsById(Long trackId) {
@@ -460,4 +525,25 @@ public class TrackService {
         return hasBlocked || isBlockedBy;
     }
 
+  public String getPreviewUrl(byte[] audioBytes, String filename) {
+
+    try {
+
+      byte[] previewBytes = audioUtility.extractPreview(audioBytes, PREVIEW_SECONDS);
+
+      String previewUrl =
+          fileUtilityAzure.saveFileFromStream(
+              new ByteArrayInputStream(previewBytes),
+              previewBytes.length,
+              FileType.AUDIO,
+              "preview_" + filename,
+              null);
+
+      return previewUrl;
+
+    } catch (Exception e) {
+      e.printStackTrace();
+      throw new RuntimeException("getPreviewUrl failed", e);
+    }
+  }
 }

@@ -3,7 +3,7 @@ package software.decibel.services.engagement;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
-
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -11,10 +11,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-
-import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.playlist.PlaylistResponse;
-import software.decibel.dtos.track.LikeResponse;
+import software.decibel.dtos.track.responses.LikeResponse;
 import software.decibel.dtos.user.UserProfile;
 import software.decibel.entities.Playlist;
 import software.decibel.entities.PlaylistLike;
@@ -142,6 +140,7 @@ public class LikeService {
 
     public Page<PlaylistResponse> getLikedPlaylists(String username, Pageable playlistPageable) {
         Long currentUserId = JwtService.getCurrentUserId();
+    
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + username));
 
@@ -168,9 +167,14 @@ public class LikeService {
                 ? trackRepostRepository.findTrackIdsByUserId(currentUserId)
                 : Collections.emptySet();
 
-        return likedPlaylists.map(playlist
-                -> playlistMapper.toResponse(playlist, trackLikes, trackReposts, trackPageable)
-        );
+    return likedPlaylists.map(
+        playlist ->
+            playlistMapper.toResponse(
+                playlist,
+                trackLikes,
+                trackReposts,
+                trackPageable,
+                userService.getUserIfExistsById(JwtService.getCurrentUserId()).getTier()));
     }
 
     private User findUser(Long userId) {

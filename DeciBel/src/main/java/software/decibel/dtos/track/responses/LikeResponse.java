@@ -1,13 +1,13 @@
-package software.decibel.dtos.track;
+package software.decibel.dtos.track.responses;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
-public record RepostResponse(
+public record LikeResponse(
         @NotBlank
         String message,
 
         @NotNull
-        Boolean isReposted
+        Boolean isLiked
 ) {
 }

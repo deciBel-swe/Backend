@@ -14,7 +14,8 @@ import software.decibel.exceptions.custom.AudioDurationReadingException;
 public class AudioUtility {
 
   // Returns duration in seconds
-  public int getAudioFileDurationInSeconds(byte[] fileBytes, String originalFilename, String title) {
+  public int getAudioFileDurationInSeconds(
+      byte[] fileBytes, String originalFilename, String title) {
     Path tempFile = null;
     try {
 
@@ -39,6 +40,48 @@ public class AudioUtility {
         // if it wasn't deleted not a big deal
       } catch (IOException e) {
       }
+    }
+  }
+
+  // Extracts preview from audio file (using ffpeg which is downloaded on the server and used via
+  // command line)
+  public byte[] extractPreview(byte[] inputBytes, int previewDuration) {
+    try {
+      // create temp files for command line
+      Path input = Files.createTempFile("input-", ".tmp");
+      Path output = Files.createTempFile("preview-", ".mp3");
+
+      // write all bytes in input
+      Files.write(input, inputBytes);
+      String ffmpeg =
+          System.getProperty("os.name").toLowerCase().contains("win")
+              ? "C:\\ffmpeg\\bin\\ffmpeg.exe"
+              : "ffmpeg";
+      Process process =
+          new ProcessBuilder(
+                  ffmpeg,
+                  "-y",
+                  "-i",
+                  input.toString(),
+                  "-t",
+                  String.valueOf(previewDuration),
+                  "-c:a",
+                  "mp3",
+                  output.toString())
+              .start();
+
+      process.waitFor();
+
+      // write results in output and read in results
+      byte[] result = Files.readAllBytes(output);
+      // delete files
+      Files.deleteIfExists(input);
+      Files.deleteIfExists(output);
+
+      return result;
+
+    } catch (Exception e) {
+      throw new RuntimeException("Preview extraction failed", e);
     }
   }
 

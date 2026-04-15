@@ -1,4 +1,4 @@
-package software.decibel.dtos.track;
+package software.decibel.dtos.track.responses;
 
 import software.decibel.enums.TrackState;
 

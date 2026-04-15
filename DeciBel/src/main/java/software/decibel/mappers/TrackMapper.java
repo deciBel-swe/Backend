@@ -5,63 +5,118 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.mapstruct.*;
 import org.springframework.data.domain.Page;
-import software.decibel.dtos.track.*;
+import software.decibel.dtos.track.requests.TrackUploadRequest;
+import software.decibel.dtos.track.responses.*;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
+import software.decibel.enums.AccountTier;
+import software.decibel.enums.TrackAccess;
 import software.decibel.enums.Visibility;
 
 @Mapper(componentModel = "spring",
         imports = {Visibility.class}) // Spring injects it as a @Component
 public interface TrackMapper {
 
-    // ----------------- TrackResponse DTOs ---------------------
-    // MapStruct handles this fully - no default needed
-    @Mapping(target = "artist", expression = "java(mapArtist(track.getUploader()))")
-    @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
-    @Mapping(target = "isLiked", expression = "java(likedTrackIds.contains(track.getId()))")
-    @Mapping(target = "isReposted", expression = "java(repostedTrackIds.contains(track.getId()))")
-    @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
-    @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
-    TrackResponse toTrackResponse(Track track, Set<Long> likedTrackIds, Set<Long> repostedTrackIds);
+  // ----------------- TrackResponse DTOs ---------------------
 
-    // MapStruct to handle single track response
-    @Mapping(target = "artist", expression = "java(mapArtist(track.getUploader()))")
-    @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
-    @Mapping(target = "isLiked", source = "isLiked")
-    @Mapping(target = "isReposted", source = "isReposted")
-    @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
-    @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
-    TrackResponse toTrackResponseSingle(Track track, boolean isLiked, boolean isReposted);
+  @Mapping(target = "artist", expression = "java(mapArtist(track.getUploader()))")
+  @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
+  @Mapping(target = "isLiked", expression = "java(likedTrackIds.contains(track.getId()))")
+  @Mapping(target = "isReposted", expression = "java(repostedTrackIds.contains(track.getId()))")
+  @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
+  @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
+  @Mapping(target = "access", expression = "java(resolveAccess(userTier, track.getAccess()))")
+  @Mapping(target = "trackUrl", expression = "java(resolveTrackUrl(userTier, track))")
+  @Mapping(target = "trackPreviewUrl", expression = "java(resolvePreviewUrl(userTier, track))")
+  TrackResponse toTrackResponse(
+      Track track, AccountTier userTier, Set<Long> likedTrackIds, Set<Long> repostedTrackIds);
 
-    // This method perfectly handles your paginated views using the Sets passed from the Service
-    default TrackPageResponse toPageResponse(
-            Page<Track> page, Set<Long> likedTrackIds, Set<Long> repostedTrackIds) {
-        return new TrackPageResponse(
-                page.getContent().stream()
-                        .map(track -> toTrackResponse(track, likedTrackIds, repostedTrackIds))
-                        .toList(),
-                page.getNumber(),
-                page.getSize(),
-                page.getTotalElements(),
-                page.getTotalPages(),
-                page.isLast());
+  // ----------------- Single Track Response ---------------------
+
+  @Mapping(target = "artist", expression = "java(mapArtist(track.getUploader()))")
+  @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
+  @Mapping(target = "isLiked", source = "isLiked")
+  @Mapping(target = "isReposted", source = "isReposted")
+  @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
+  @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
+  @Mapping(target = "access", expression = "java(resolveAccess(userTier, track.getAccess()))")
+  @Mapping(target = "trackUrl", expression = "java(resolveTrackUrl(userTier, track))")
+  @Mapping(target = "trackPreviewUrl", expression = "java(resolvePreviewUrl(userTier, track))")
+  TrackResponse toTrackResponseSingle(
+      Track track, AccountTier userTier, boolean isLiked, boolean isReposted);
+
+  // ----------------- Page mapping ---------------------
+
+  default TrackPageResponse toPageResponse(
+      Page<Track> page, AccountTier userTier, Set<Long> likedTrackIds, Set<Long> repostedTrackIds) {
+
+    return new TrackPageResponse(
+        page.getContent().stream()
+            .map(track -> toTrackResponse(track, userTier, likedTrackIds, repostedTrackIds))
+            .toList(),
+        page.getNumber(),
+        page.getSize(),
+        page.getTotalElements(),
+        page.getTotalPages(),
+        page.isLast());
     }
 
-    // For one track only (used when you fetch a single track and already know the booleans)
-    @Mapping(target = "artist", expression = "java(mapArtist(track.getUploader()))")
-    @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
-    @Mapping(target = "isLiked", expression = "java(isLiked)")
-    @Mapping(target = "isReposted", expression = "java(isReposted)")
-    @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
-    @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
-    TrackResponse toTrackResponse(Track track, boolean isLiked, boolean isReposted);
+  // ----------------- Artist mapping ---------------------
 
-    default TrackArtist mapArtist(User user) {
-        if (user == null) {
-            return null;
-        }
-        return new TrackArtist(user.getId(), user.getUsername(), user.getDisplayName(), user.getAvatarUrl());
+  default TrackArtist mapArtist(User user) {
+    if (user == null) return null;
+
+    return new TrackArtist(
+        user.getId(), user.getUsername(), user.getDisplayName(), user.getAvatarUrl());
+  }
+
+  // ----------------- ACCESS BUSINESS RULES ---------------------
+
+  default TrackAccess resolveAccess(AccountTier tier, TrackAccess access) {
+
+    if (access == null) {
+      access = TrackAccess.BLOCKED;
+    }
+
+    // PRO override
+    if (tier == AccountTier.PRO) {
+      if (access == TrackAccess.BLOCKED) {
+        return TrackAccess.PLAYABLE;
+      }
+      return access; // playable and preview same
+    }
+
+    // free users
+    if (access == TrackAccess.PLAYABLE) {
+      return TrackAccess.BLOCKED; // playable becomes blocked
+    }
+
+    return access;
+  }
+
+  // ----------------- URL RESOLVERS ---------------------
+
+  default String resolveTrackUrl(AccountTier tier, Track track) {
+
+    TrackAccess resolved = resolveAccess(tier, track.getAccess());
+
+    if (resolved == TrackAccess.PLAYABLE) {
+      return track.getTrackUrl();
+    }
+
+    return null;
+  }
+
+  default String resolvePreviewUrl(AccountTier tier, Track track) {
+
+    TrackAccess resolved = resolveAccess(tier, track.getAccess());
+
+    if (resolved == TrackAccess.PREVIEW) {
+      return track.getTrackPreviewUrl();
+    }
+
+    return null;
     }
 
     // ----------------- TrackUpload DTOs ---------------------

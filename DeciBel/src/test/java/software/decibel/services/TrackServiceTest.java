@@ -1,32 +1,31 @@
 package software.decibel.services;
 
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
-
-import org.junit.jupiter.api.AfterEach;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import software.decibel.dtos.track.TrackPatchRequest;
-import software.decibel.dtos.track.TrackStatusResponse;
+import software.decibel.dtos.track.requests.TrackPatchRequest;
+import software.decibel.dtos.track.responses.TrackStatusResponse;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
@@ -325,6 +324,7 @@ class TrackServiceTest {
     void shouldUpdateBasicFields() {
         // Arrange
         Track track = createTrack(1L);
+    track.setGenre("Rock");
 
         TrackPatchRequest request = mock(TrackPatchRequest.class);
         when(request.title()).thenReturn("New Title");
@@ -385,7 +385,12 @@ class TrackServiceTest {
     void shouldDeleteTrackCompletely() {
         // Arrange
         Track track = createTrack(1L);
+
+    User user = new User();
+    user.setTrackCount(0);
+
         when(trackRepository.findById(1L)).thenReturn(Optional.of(track));
+    when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
 
         // Act
         trackService.deleteTrack(1L);

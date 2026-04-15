@@ -1,5 +1,7 @@
 package software.decibel.controllers.Track;
 
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -11,17 +13,14 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import software.decibel.dtos.track.TrackPatchRequest;
-import software.decibel.dtos.track.TrackPatchResponse;
-import software.decibel.dtos.track.TrackPublishResponse;
-import software.decibel.dtos.track.TrackResponse;
-import software.decibel.dtos.track.TrackStatusResponse;
-import software.decibel.dtos.track.TrackUploadRequest;
-import software.decibel.dtos.track.TrackUploadResponse;
-import software.decibel.dtos.track.TrackWaveFormUrlResponse;
+import software.decibel.dtos.track.requests.TrackPatchRequest;
+import software.decibel.dtos.track.requests.TrackUploadRequest;
+import software.decibel.dtos.track.responses.TrackPatchResponse;
+import software.decibel.dtos.track.responses.TrackPublishResponse;
+import software.decibel.dtos.track.responses.TrackResponse;
+import software.decibel.dtos.track.responses.TrackStatusResponse;
+import software.decibel.dtos.track.responses.TrackUploadResponse;
+import software.decibel.dtos.track.responses.TrackWaveFormUrlResponse;
 import software.decibel.services.track.TrackService;
 
 @RestController
