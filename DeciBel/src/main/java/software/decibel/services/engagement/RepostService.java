@@ -36,7 +36,6 @@ import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.PlaylistRepostRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
-import software.decibel.repositories.UserRepository;
 import software.decibel.services.JwtService;
 import software.decibel.services.notification.InAppNotificationService;
 import software.decibel.services.user.UserService;
@@ -54,7 +53,6 @@ public class RepostService {
     private final RepostMapper repostMapper;
     private final PlaylistRepostRepository playlistRepostRepository;
     private final PlaylistRepository playlistRepository;
-    private final UserRepository userRepository;
     private final UserMappingUtility userMappingUtility;
     private final FollowRepository followRepository;
     private final BlockRepository blockRepository;
@@ -234,7 +232,7 @@ public class RepostService {
     private User resolveCurrentViewer() {
         try {
             Long currentUserId = JwtService.getCurrentUserId();
-            return userRepository.findById(currentUserId).orElse(null);
+            return userService.getUserIfExistsById(currentUserId);
         } catch (Exception e) {
             return null;
         }

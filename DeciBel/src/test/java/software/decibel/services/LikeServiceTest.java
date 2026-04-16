@@ -46,7 +46,6 @@ import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
-import software.decibel.repositories.UserRepository;
 import software.decibel.services.engagement.LikeService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.UserMappingUtility;
@@ -72,8 +71,6 @@ class LikeServiceTest {
     private PlaylistLikeRepository playlistLikeRepository;
     @Mock
     private PlaylistRepository playlistRepository;
-    @Mock
-    private UserRepository userRepository;
     @Mock
     private PlaylistMapper playlistMapper;
     @Mock
@@ -140,7 +137,7 @@ class LikeServiceTest {
         playlist.setId(10L);
         playlist.setLikeCount(5);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userService.getUserIfExistsById(1L)).thenReturn(user);
         when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
         when(playlistLikeRepository.existsByUserAndPlaylist(any(), any())).thenReturn(false);
         when(likeMapper.toLikeResponse(anyBoolean())).thenReturn(new LikeResponse("liked", true));
@@ -159,7 +156,7 @@ class LikeServiceTest {
         Playlist playlist = new Playlist();
         playlist.setId(10L);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userService.getUserIfExistsById(1L)).thenReturn(user);
         when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
         when(playlistLikeRepository.existsByUserAndPlaylist(any(), any())).thenReturn(true);
 
@@ -180,7 +177,7 @@ class LikeServiceTest {
         playlist.setLikeCount(5);
         PlaylistLike existingLike = PlaylistLike.builder().user(user).playlist(playlist).build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userService.getUserIfExistsById(1L)).thenReturn(user);
         when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
         when(playlistLikeRepository.findByUserAndPlaylist(any(), any())).thenReturn(Optional.of(existingLike));
 
@@ -217,7 +214,7 @@ class LikeServiceTest {
                 null // tracks (TrackPageResponse)
         );
 
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));
+        when(userService.getUserIfExistsByUsername("testuser")).thenReturn(user);
 
         when(playlistLikeRepository.findLikedPlaylistsByUserId(eq(1L), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(playlist)));
