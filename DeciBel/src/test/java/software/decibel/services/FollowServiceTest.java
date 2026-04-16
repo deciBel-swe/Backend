@@ -28,6 +28,7 @@ import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.notification.InAppNotificationService;
+import software.decibel.services.user.UserService;
 
 @ExtendWith(MockitoExtension.class)
 class FollowServiceTest {
@@ -39,6 +40,8 @@ class FollowServiceTest {
     private UserRepository userRepository;
     @Mock
     private BlockRepository blockRepository;
+    @Mock
+    private UserService userService;
 
     @Mock
     private UserMapper userMapper;
@@ -53,8 +56,8 @@ class FollowServiceTest {
         User follower = User.builder().id(1L).followerCount(0).followingCount(0).build();
         User following = User.builder().id(2L).followerCount(0).followingCount(0).build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(follower));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(following));
+        when(userService.getUserIfExistsById(1L)).thenReturn(follower);
+        when(userService.getUserIfExistsById(2L)).thenReturn(following);
         when(followRepository.existsByFollowerAndFollowing(follower, following)).thenReturn(false);
 
         followService.followUser(1L, 2L);
@@ -76,8 +79,8 @@ class FollowServiceTest {
         User follower = User.builder().id(1L).build();
         User following = User.builder().id(2L).build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(follower));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(following));
+        when(userService.getUserIfExistsById(1L)).thenReturn(follower);
+        when(userService.getUserIfExistsById(2L)).thenReturn(following);
         when(followRepository.existsByFollowerAndFollowing(follower, following)).thenReturn(true);
 
         followService.followUser(1L, 2L);
@@ -91,8 +94,8 @@ class FollowServiceTest {
         User following = User.builder().id(2L).followerCount(1).followingCount(0).build();
         Follow follow = Follow.builder().follower(follower).following(following).build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(follower));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(following));
+        when(userService.getUserIfExistsById(1L)).thenReturn(follower);
+        when(userService.getUserIfExistsById(2L)).thenReturn(following);
         when(followRepository.findByFollowerAndFollowing(follower, following)).thenReturn(Optional.of(follow));
 
         followService.unfollowUser(1L, 2L);
@@ -112,7 +115,7 @@ class FollowServiceTest {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Follow> followPage = new PageImpl<>(List.of(follow));
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userService.getUserIfExistsById(1L)).thenReturn(user);
         when(followRepository.findByFollowing(user, pageable)).thenReturn(followPage);
         when(userMapper.toUserFollowDto(follower)).thenReturn(UserFollowDto.builder()
                 .id(follower.getId())
