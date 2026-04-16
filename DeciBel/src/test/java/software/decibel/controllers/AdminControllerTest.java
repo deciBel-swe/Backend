@@ -195,7 +195,7 @@ class AdminControllerTest {
 
     @Test
     void banUser_whenValidRequest_returnsOk() throws Exception {
-        BanUserRequest request = new BanUserRequest(true, "fraud");
+        BanUserRequest request = new BanUserRequest(true);
         when(adminModerationService.banUser(eq(5L), any(BanUserRequest.class)))
                 .thenReturn(new MessageResponse("User banned successfully"));
 
@@ -207,12 +207,12 @@ class AdminControllerTest {
     }
 
     @Test
-    void banUser_whenReasonMissing_returnsBadRequest() throws Exception {
-        BanUserRequest request = new BanUserRequest(true, " ");
+    void banUser_whenIsBannedMissing_returnsBadRequest() throws Exception {
+        String request = "{}";
 
         mockMvc.perform(patch("/admin/users/5/ban")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content(request))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Validation Failed"));
 

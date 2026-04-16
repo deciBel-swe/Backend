@@ -133,7 +133,7 @@ class AdminModerationServiceTest {
         mockAdminAuth();
         when(userRepository.findById(7L)).thenReturn(Optional.of(user));
 
-        MessageResponse response = adminModerationService.banUser(7L, new BanUserRequest(true, "spam"));
+        MessageResponse response = adminModerationService.banUser(7L, new BanUserRequest(true));
 
         assertEquals("User banned successfully", response.message());
         assertTrue(user.isBanned());
@@ -143,7 +143,7 @@ class AdminModerationServiceTest {
     @Test
     void banUser_whenNoAuthentication_throwsUnauthorized() {
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-                () -> adminModerationService.banUser(7L, new BanUserRequest(true, "spam")));
+                () -> adminModerationService.banUser(7L, new BanUserRequest(true)));
 
         assertEquals(401, exception.getStatusCode().value());
         verify(userRepository, never()).findById(any());
@@ -155,7 +155,7 @@ class AdminModerationServiceTest {
                 new UsernamePasswordAuthenticationToken("user", null, Collections.emptyList()));
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-                () -> adminModerationService.banUser(7L, new BanUserRequest(true, "spam")));
+                () -> adminModerationService.banUser(7L, new BanUserRequest(true)));
 
         assertEquals(403, exception.getStatusCode().value());
         verify(userRepository, never()).findById(any());
@@ -167,7 +167,7 @@ class AdminModerationServiceTest {
         when(userRepository.findById(7L)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class,
-                () -> adminModerationService.banUser(7L, new BanUserRequest(true, "spam")));
+                () -> adminModerationService.banUser(7L, new BanUserRequest(true)));
 
         verify(userRepository, never()).save(any());
     }
