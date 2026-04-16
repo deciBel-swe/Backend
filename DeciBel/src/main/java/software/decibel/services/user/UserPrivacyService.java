@@ -11,13 +11,12 @@ import software.decibel.dtos.auth.PrivacyUpdateRequest;
 import software.decibel.dtos.auth.PrivacyUpdateResponse;
 import software.decibel.dtos.auth.UserPrincipal;
 import software.decibel.entities.User;
-import software.decibel.repositories.UserRepository;
 
 @Service
 @RequiredArgsConstructor
 public class UserPrivacyService {
 
-    private final UserRepository userRepository;
+    private final UserService userService;
 
     @Transactional
     public PrivacyUpdateResponse updateMyPrivacy(Authentication authentication, PrivacyUpdateRequest request) {
@@ -58,7 +57,10 @@ public class UserPrivacyService {
         }
 
         // Always load from DB to ensure we are working with a managed entity for updates
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        try {
+            return userService.getUserIfExistsById(userId);
+        } catch (software.decibel.exceptions.custom.ResourceNotFoundException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+        }
     }
 }
