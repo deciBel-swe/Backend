@@ -52,6 +52,7 @@ import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.notification.FcmNotificationService;
 import software.decibel.services.notification.InAppNotificationService;
+import software.decibel.services.user.UserService;
 
 @ExtendWith(MockitoExtension.class)
 class MessagingServiceTest {
@@ -66,6 +67,8 @@ class MessagingServiceTest {
     private BlockRepository blockRepository;
     @Mock
     private InAppNotificationService inAppNotificationService;
+    @Mock
+    private UserService userService;
     @Mock
     private Authentication authentication;
     @Mock
@@ -109,7 +112,7 @@ class MessagingServiceTest {
     void sendMessage_toPrivateUser_throwsForbidden() {
         when(authentication.getPrincipal()).thenReturn(senderPrincipal);
         recipient.setPrivate(true);
-        when(userRepository.findById(2L)).thenReturn(Optional.of(recipient));
+        when(userService.getUserIfExistsById(2L)).thenReturn(recipient);
 
         SendMessageRequest request = new SendMessageRequest(2L, "hello");
 
@@ -123,7 +126,7 @@ class MessagingServiceTest {
     @Test
     void sendMessage_blockedBySender_throwsForbidden() {
         when(authentication.getPrincipal()).thenReturn(senderPrincipal);
-        when(userRepository.findById(2L)).thenReturn(Optional.of(recipient));
+        when(userService.getUserIfExistsById(2L)).thenReturn(recipient);
         when(blockRepository.existsByBlocker_IdAndBlocked_Id(1L, 2L)).thenReturn(true);
 
         SendMessageRequest request = new SendMessageRequest(2L, "hello");
@@ -138,7 +141,7 @@ class MessagingServiceTest {
     @Test
     void sendMessage_blockedByRecipient_throwsForbidden() {
         when(authentication.getPrincipal()).thenReturn(senderPrincipal);
-        when(userRepository.findById(2L)).thenReturn(Optional.of(recipient));
+        when(userService.getUserIfExistsById(2L)).thenReturn(recipient);
         when(blockRepository.existsByBlocker_IdAndBlocked_Id(1L, 2L)).thenReturn(false);
         when(blockRepository.existsByBlocker_IdAndBlocked_Id(2L, 1L)).thenReturn(true);
 
@@ -157,8 +160,8 @@ class MessagingServiceTest {
         User mockSender = mock(User.class);
 
         when(authentication.getPrincipal()).thenReturn(senderPrincipal);
-        when(userRepository.findById(2L)).thenReturn(Optional.of(recipient));
-        when(userRepository.findById(senderId)).thenReturn(Optional.of(mockSender));
+        when(userService.getUserIfExistsById(2L)).thenReturn(recipient);
+        when(userService.getUserIfExistsById(senderId)).thenReturn(mockSender);
 
         when(mockSender.getUsername()).thenReturn("testuser");
 
@@ -207,7 +210,7 @@ class MessagingServiceTest {
     void startConversation_toPrivateUser_throwsForbidden() {
         when(authentication.getPrincipal()).thenReturn(senderPrincipal);
         recipient.setPrivate(true);
-        when(userRepository.findById(2L)).thenReturn(Optional.of(recipient));
+        when(userService.getUserIfExistsById(2L)).thenReturn(recipient);
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> messagingService.startConversation(authentication, 2L));
@@ -219,7 +222,7 @@ class MessagingServiceTest {
     @Test
     void startConversation_success_returnsConversation() throws ExecutionException, InterruptedException {
         when(authentication.getPrincipal()).thenReturn(senderPrincipal);
-        when(userRepository.findById(2L)).thenReturn(Optional.of(recipient));
+        when(userService.getUserIfExistsById(2L)).thenReturn(recipient);
         when(blockRepository.existsByBlocker_IdAndBlocked_Id(1L, 2L)).thenReturn(false);
         when(blockRepository.existsByBlocker_IdAndBlocked_Id(2L, 1L)).thenReturn(false);
 
