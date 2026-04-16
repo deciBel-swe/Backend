@@ -21,7 +21,7 @@ import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.exceptions.custom.SubscriptionNotReadyException;
 import software.decibel.repositories.AuthIdentityRepository;
 import software.decibel.repositories.SubscriptionRepository;
-import software.decibel.repositories.UserRepository;
+import software.decibel.services.user.UserService;
 
 @Slf4j
 @Service
@@ -29,9 +29,9 @@ import software.decibel.repositories.UserRepository;
 public class SubscriptionService {
 
     private final SubscriptionRepository subscriptionRepository;
-    private final UserRepository userRepository;
     private final StripeService stripeService;
     private final AuthIdentityRepository authIdentityRepository;
+    private final UserService userService;
 
     // POST /subscription/checkout
     @Transactional
@@ -177,9 +177,7 @@ public class SubscriptionService {
     }
 
     private User findUser(Long userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                "User with id " + userId + " not found"));
+        return userService.getUserIfExistsById(userId);
     }
 
     private String resolveEmail(User user) {
