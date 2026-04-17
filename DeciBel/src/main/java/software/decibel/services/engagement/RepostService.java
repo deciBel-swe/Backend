@@ -22,6 +22,8 @@ import software.decibel.entities.PlaylistRepost;
 import software.decibel.entities.Track;
 import software.decibel.entities.TrackRepost;
 import software.decibel.entities.User;
+import software.decibel.enums.NotificationType;
+import software.decibel.enums.ResourceType;
 import software.decibel.enums.Visibility;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.RepostMapper;
@@ -34,6 +36,7 @@ import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.JwtService;
+import software.decibel.services.notification.InAppNotificationService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.UserMappingUtility;
 
@@ -45,6 +48,7 @@ public class RepostService {
     private final TrackRepostRepository trackRepostRepository;
     private final TrackRepository trackRepository;
     private final UserService userService;
+    private final InAppNotificationService inAppNotificationService;
     private final RepostMapper repostMapper;
     private final PlaylistRepostRepository playlistRepostRepository;
     private final PlaylistRepository playlistRepository;
@@ -74,6 +78,16 @@ public class RepostService {
 
         track.setRepostCount(track.getRepostCount() + 1);
         trackRepository.save(track);
+        // Notify the owner of the track that someone reposted it
+        if (track.getUploader() != null) {
+            inAppNotificationService.createNotification(
+                    track.getUploader().getId(), // Recipient (Track Owner)
+                    userId, // Actor (User who reposted)
+                    NotificationType.REPOST, // Notification type
+                    ResourceType.TRACK, // Resource type
+                    track.getId() // Resource ID
+            );
+        }
 
         return repostMapper.toRepostResponse(true);
     }
@@ -123,6 +137,15 @@ public class RepostService {
 
         playlist.setRepostCount(playlist.getRepostCount() + 1);
         playlistRepository.save(playlist);
+        if (playlist.getUser() != null) {
+            inAppNotificationService.createNotification(
+                    playlist.getUser().getId(), // Recipient (Playlist Owner)
+                    userId, // Actor (User who reposted)
+                    NotificationType.REPOST, // Notification type
+                    ResourceType.PLAYLIST, // Resource type
+                    playlist.getId() // Resource ID
+            );
+        }
         return ResponseEntity.ok(repostMapper.toRepostResponse(true)).getBody();
     }
 
@@ -182,7 +205,7 @@ public class RepostService {
         return new PageImpl<>(page, pageable, all.size());
     }
 
-    // GET /tracks/{trackId}/reposters
+    // used for getting all track reposters
     public Page<UserProfile> getTrackReposters(Long trackId, Pageable pageable) {
         trackRepository.findById(trackId)
                 .orElseThrow(() -> new ResourceNotFoundException("Track with id " + trackId + " not found"));
@@ -192,7 +215,7 @@ public class RepostService {
                 .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, blockRepository));
     }
 
-    // GET /playlists/{playlistId}/reposters
+    // used for getting all playlist reposters
     public Page<UserProfile> getPlaylistReposters(Long playlistId, Pageable pageable) {
         playlistRepository.findById(playlistId)
                 .orElseThrow(() -> new ResourceNotFoundException("Playlist with id " + playlistId + " not found"));

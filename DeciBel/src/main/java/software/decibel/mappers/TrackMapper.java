@@ -15,108 +15,133 @@ import software.decibel.enums.TrackAccess;
 import software.decibel.enums.Visibility;
 
 @Mapper(componentModel = "spring",
+        uses = {UserMapper.class},
         imports = {Visibility.class}) // Spring injects it as a @Component
 public interface TrackMapper {
 
-  // ----------------- TrackResponse DTOs ---------------------
+    // ----------------- TrackResponse DTOs ---------------------
+    @Mapping(target = "artist", expression = "java(mapArtist(track.getUploader()))")
+    @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
+    @Mapping(target = "isLiked", expression = "java(likedTrackIds.contains(track.getId()))")
+    @Mapping(target = "isReposted", expression = "java(repostedTrackIds.contains(track.getId()))")
+    @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
+    @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
+    @Mapping(target = "completedPlayCount", source = "track.playCount") // Assuming completedPlayCount is same as playCount for now
+    @Mapping(target = "commentCount", expression = "java(mapCommentCount(track))")
+    @Mapping(target = "access", expression = "java(track.getVisibility() == Visibility.PUBLIC ? \"FULL\" : \"PREVIEW\")")
+    @Mapping(target = "secretToken", expression = "java(mapSecretToken(track))")
+    @Mapping(target = "trackPreviewUrl", source = "track.trackUrl") // placeholder
+    @Mapping(target = "access", expression = "java(resolveAccess(userTier, track.getAccess()))")
+    @Mapping(target = "trackUrl", expression = "java(resolveTrackUrl(userTier, track))")
+    @Mapping(target = "trackPreviewUrl", expression = "java(resolvePreviewUrl(userTier, track))")
+    TrackResponse toTrackResponse(
+            Track track, AccountTier userTier, Set<Long> likedTrackIds, Set<Long> repostedTrackIds);
 
-  @Mapping(target = "artist", expression = "java(mapArtist(track.getUploader()))")
-  @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
-  @Mapping(target = "isLiked", expression = "java(likedTrackIds.contains(track.getId()))")
-  @Mapping(target = "isReposted", expression = "java(repostedTrackIds.contains(track.getId()))")
-  @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
-  @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
-  @Mapping(target = "access", expression = "java(resolveAccess(userTier, track.getAccess()))")
-  @Mapping(target = "trackUrl", expression = "java(resolveTrackUrl(userTier, track))")
-  @Mapping(target = "trackPreviewUrl", expression = "java(resolvePreviewUrl(userTier, track))")
-  TrackResponse toTrackResponse(
-      Track track, AccountTier userTier, Set<Long> likedTrackIds, Set<Long> repostedTrackIds);
+    // MapStruct to handle single track response
+    @Mapping(target = "artist", expression = "java(mapArtist(track.getUploader()))")
+    @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
+    @Mapping(target = "isLiked", source = "isLiked")
+    @Mapping(target = "isReposted", source = "isReposted")
+    @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
+    @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
+    TrackResponse toTrackResponseSingle(Track track, boolean isLiked, boolean isReposted);
 
-  // ----------------- Single Track Response ---------------------
+    // ----------------- Page mapping ---------------------
+    default TrackPageResponse toPageResponse(
+            Page<Track> page, AccountTier userTier, Set<Long> likedTrackIds, Set<Long> repostedTrackIds) {
 
-  @Mapping(target = "artist", expression = "java(mapArtist(track.getUploader()))")
-  @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
-  @Mapping(target = "isLiked", source = "isLiked")
-  @Mapping(target = "isReposted", source = "isReposted")
-  @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
-  @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
-  @Mapping(target = "access", expression = "java(resolveAccess(userTier, track.getAccess()))")
-  @Mapping(target = "trackUrl", expression = "java(resolveTrackUrl(userTier, track))")
-  @Mapping(target = "trackPreviewUrl", expression = "java(resolvePreviewUrl(userTier, track))")
-  TrackResponse toTrackResponseSingle(
-      Track track, AccountTier userTier, boolean isLiked, boolean isReposted);
-
-  // ----------------- Page mapping ---------------------
-
-  default TrackPageResponse toPageResponse(
-      Page<Track> page, AccountTier userTier, Set<Long> likedTrackIds, Set<Long> repostedTrackIds) {
-
-    return new TrackPageResponse(
-        page.getContent().stream()
-            .map(track -> toTrackResponse(track, userTier, likedTrackIds, repostedTrackIds))
-            .toList(),
-        page.getNumber(),
-        page.getSize(),
-        page.getTotalElements(),
-        page.getTotalPages(),
-        page.isLast());
+        return new TrackPageResponse(
+                page.getContent().stream()
+                        .map(track -> toTrackResponse(track, userTier, likedTrackIds, repostedTrackIds))
+                        .toList(),
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages(),
+                page.isLast());
     }
 
-  // ----------------- Artist mapping ---------------------
+    // For one track only (used when you fetch a single track and already know the booleans)
+    @Mapping(target = "artist", expression = "java(mapArtist(track.getUploader()))")
+    @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
+    @Mapping(target = "isLiked", expression = "java(isLiked)")
+    @Mapping(target = "isReposted", expression = "java(isReposted)")
+    @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
+    @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
+    @Mapping(target = "completedPlayCount", source = "track.playCount")
+    @Mapping(target = "commentCount", expression = "java(mapCommentCount(track))")
+    @Mapping(target = "access", expression = "java(track.getVisibility() == Visibility.PUBLIC ? \"FULL\" : \"PREVIEW\")")
+    @Mapping(target = "secretToken", expression = "java(mapSecretToken(track))")
+    @Mapping(target = "trackPreviewUrl", source = "track.trackUrl")
+    TrackResponse toTrackResponse(Track track, boolean isLiked, boolean isReposted);
 
-  default TrackArtist mapArtist(User user) {
-    if (user == null) return null;
-
-    return new TrackArtist(
-        user.getId(), user.getUsername(), user.getDisplayName(), user.getAvatarUrl());
-  }
-
-  // ----------------- ACCESS BUSINESS RULES ---------------------
-
-  default TrackAccess resolveAccess(AccountTier tier, TrackAccess access) {
-
-    if (access == null) {
-      access = TrackAccess.BLOCKED;
+    default Long mapCommentCount(Track track) {
+        if (track == null || track.getComments() == null) {
+            return 0L;
+        }
+        return (long) track.getComments().size();
     }
 
-    // PRO override
-    if (tier == AccountTier.PRO) {
-      if (access == TrackAccess.BLOCKED) {
-        return TrackAccess.PLAYABLE;
-      }
-      return access; // playable and preview same
+    default String mapSecretToken(Track track) {
+        if (track == null || track.getTokens() == null || track.getTokens().isEmpty()) {
+            return null;
+        }
+        return track.getTokens().get(0).getToken();
     }
 
-    // free users
-    if (access == TrackAccess.PLAYABLE) {
-      return TrackAccess.BLOCKED; // playable becomes blocked
+    default TrackArtist mapArtist(User user) {
+        if (user == null) {
+            return null;
+        }
+
+        return new TrackArtist(
+                user.getId(), user.getUsername(), user.getDisplayName(), user.getAvatarUrl());
     }
 
-    return access;
-  }
+    // ----------------- ACCESS BUSINESS RULES ---------------------
+    default TrackAccess resolveAccess(AccountTier tier, TrackAccess access) {
 
-  // ----------------- URL RESOLVERS ---------------------
+        if (access == null) {
+            access = TrackAccess.BLOCKED;
+        }
 
-  default String resolveTrackUrl(AccountTier tier, Track track) {
+        // PRO override
+        if (tier == AccountTier.PRO) {
+            if (access == TrackAccess.BLOCKED) {
+                return TrackAccess.PLAYABLE;
+            }
+            return access; // playable and preview same
+        }
 
-    TrackAccess resolved = resolveAccess(tier, track.getAccess());
+        // free users
+        if (access == TrackAccess.PLAYABLE) {
+            return TrackAccess.BLOCKED; // playable becomes blocked
+        }
 
-    if (resolved == TrackAccess.PLAYABLE) {
-      return track.getTrackUrl();
+        return access;
     }
 
-    return null;
-  }
+    // ----------------- URL RESOLVERS ---------------------
+    default String resolveTrackUrl(AccountTier tier, Track track) {
 
-  default String resolvePreviewUrl(AccountTier tier, Track track) {
+        TrackAccess resolved = resolveAccess(tier, track.getAccess());
 
-    TrackAccess resolved = resolveAccess(tier, track.getAccess());
+        if (resolved == TrackAccess.PLAYABLE) {
+            return track.getTrackUrl();
+        }
 
-    if (resolved == TrackAccess.PREVIEW) {
-      return track.getTrackPreviewUrl();
+        return null;
     }
 
-    return null;
+    default String resolvePreviewUrl(AccountTier tier, Track track) {
+
+        TrackAccess resolved = resolveAccess(tier, track.getAccess());
+
+        if (resolved == TrackAccess.PREVIEW) {
+            return track.getTrackPreviewUrl();
+        }
+
+        return null;
     }
 
     // ----------------- TrackUpload DTOs ---------------------
@@ -171,4 +196,12 @@ public interface TrackMapper {
     // track -> response
     @Mapping(target = "publishedAt", source = "publishedAt")
     TrackPublishResponse toTrackPublishResponse(Track track);
+
+    // --------------------TrackSummary DTOs -----------------
+    // track -> track summary
+    @Mapping(target = "trackSlug", source = "slug")
+    @Mapping(target = "artist", source = "uploader")
+    @Mapping(target = "isLiked", ignore = true)
+    @Mapping(target = "isReposted", ignore = true)
+    TrackSummaryDTO toTrackSummary(Track track);
 }
