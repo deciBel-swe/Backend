@@ -217,6 +217,7 @@ class LikeServiceTest {
         );
 
         when(userService.getUserIfExistsByUsername("testuser")).thenReturn(user);
+        when(userService.getUserIfExistsById(1L)).thenReturn(user);
 
         when(playlistLikeRepository.findLikedPlaylistsByUserId(eq(1L), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(playlist)));

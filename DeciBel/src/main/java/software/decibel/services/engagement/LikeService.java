@@ -19,6 +19,7 @@ import software.decibel.entities.PlaylistLike;
 import software.decibel.entities.Track;
 import software.decibel.entities.TrackLike;
 import software.decibel.entities.User;
+import software.decibel.enums.AccountTier;
 import software.decibel.enums.NotificationType;
 import software.decibel.enums.ResourceType;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
@@ -186,14 +187,17 @@ public class LikeService {
                 ? trackRepostRepository.findTrackIdsByUserId(currentUserId)
                 : Collections.emptySet();
 
-    return likedPlaylists.map(
-        playlist ->
-            playlistMapper.toResponse(
-                playlist,
-                trackLikes,
-                trackReposts,
-                trackPageable,
-                userService.getUserIfExistsById(JwtService.getCurrentUserId()).getTier()));
+        AccountTier currentViewerTier = currentUserId != null
+                ? userService.getUserIfExistsById(currentUserId).getTier()
+                : AccountTier.FREE;
+
+        return likedPlaylists.map(
+                playlist -> playlistMapper.toResponse(
+                        playlist,
+                        trackLikes,
+                        trackReposts,
+                        trackPageable,
+                        currentViewerTier));
     }
 
     private User findUser(Long userId) {
