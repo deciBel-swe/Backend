@@ -46,7 +46,6 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/users/username/**").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/profile/token/**").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/playlists/{playlistId}").permitAll()
-                                .requestMatchers(HttpMethod.POST, "/tracks/{trackId}").permitAll()
                                 .requestMatchers(HttpMethod.POST, "/auth/refreshtoken").permitAll()
                                 .requestMatchers(HttpMethod.POST, "/tracks/upload").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{userId}/tracks").permitAll()

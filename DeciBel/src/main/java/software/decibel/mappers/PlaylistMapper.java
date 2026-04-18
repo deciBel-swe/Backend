@@ -4,12 +4,14 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import lombok.RequiredArgsConstructor;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
+
+import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.playlist.CreatePlaylistRequest;
 import software.decibel.dtos.playlist.OwnerDto;
 import software.decibel.dtos.playlist.PatchPlaylistRequest;
@@ -43,7 +45,7 @@ public class PlaylistMapper {
                 .build();
     }
 
-    // 2. patch dto
+    // patch dto
     public void updateEntityFromPatch(PatchPlaylistRequest request, Playlist playlist, String newSlug, String newCoverArtUrl) {
         if (request.title() != null) {
             playlist.setTitle(request.title());
@@ -67,13 +69,13 @@ public class PlaylistMapper {
         }
     }
 
-  // 3. response dto
-  public PlaylistResponse toResponse(
-      Playlist playlist,
-      Set<Long> likedTrackIds,
-      Set<Long> repostedTrackIds,
-      Pageable trackPageable,
-      AccountTier accountTier) {
+    // response dto
+    public PlaylistResponse toResponse(
+            Playlist playlist,
+            Set<Long> likedTrackIds,
+            Set<Long> repostedTrackIds,
+            Pageable trackPageable,
+            AccountTier accountTier) {
 
         List<Track> allTracks = playlist.getTracks() != null ? playlist.getTracks() : new ArrayList<>();
 
@@ -89,9 +91,9 @@ public class PlaylistMapper {
         // 2. Create the Spring Page object
         Page<Track> trackPage = new PageImpl<>(pagedTracks, trackPageable, allTracks.size());
 
-    // 3. Map it using the method already inside your TrackMapper!
-    TrackPageResponse trackPageResponse =
-        trackMapper.toPageResponse(trackPage, accountTier, likedTrackIds, repostedTrackIds);
+        // 3. Map it using the method already inside your TrackMapper!
+        TrackPageResponse trackPageResponse
+                = trackMapper.toPageResponse(trackPage, accountTier, likedTrackIds, repostedTrackIds);
 
         // Safely extract user variables
         Long userId = null;
@@ -126,17 +128,17 @@ public class PlaylistMapper {
 
     //Fallback method: Use this for Guest users (not logged in)
     public PlaylistResponse toResponse(Playlist playlist, Set<Long> likedTrackIds, Set<Long> repostedTrackIds) {
-    // Defaults to Page 0, Size 20
-    return toResponse(
-        playlist, likedTrackIds, repostedTrackIds, PageRequest.of(0, 20), AccountTier.FREE);
+        // Defaults to Page 0, Size 20
+        return toResponse(
+                playlist, likedTrackIds, repostedTrackIds, PageRequest.of(0, 20), AccountTier.FREE);
     }
 
     public PlaylistResponse toResponse(Playlist playlist) {
-    return toResponse(
-        playlist,
-        Collections.emptySet(),
-        Collections.emptySet(),
-        PageRequest.of(0, 20),
-        AccountTier.FREE);
+        return toResponse(
+                playlist,
+                Collections.emptySet(),
+                Collections.emptySet(),
+                PageRequest.of(0, 20),
+                AccountTier.FREE);
     }
 }
