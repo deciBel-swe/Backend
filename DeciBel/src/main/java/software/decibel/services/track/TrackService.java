@@ -1,16 +1,11 @@
 package software.decibel.services.track;
 
-import jakarta.transaction.Transactional;
-
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.text.WordUtils;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -19,31 +14,36 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
+
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import software.decibel.dtos.track.requests.TrackPatchRequest;
 import software.decibel.dtos.track.requests.TrackUploadRequest;
-import software.decibel.dtos.track.responses.*;
+import software.decibel.dtos.track.responses.TrackPageResponse;
+import software.decibel.dtos.track.responses.TrackPatchResponse;
+import software.decibel.dtos.track.responses.TrackPublishResponse;
+import software.decibel.dtos.track.responses.TrackResponse;
+import software.decibel.dtos.track.responses.TrackStatusResponse;
+import software.decibel.dtos.track.responses.TrackUploadResponse;
+import software.decibel.dtos.track.responses.TrackWaveFormUrlResponse;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
-import software.decibel.enums.*;
+import software.decibel.enums.AccountTier;
+import software.decibel.enums.FileType;
+import software.decibel.enums.TrackState;
+import software.decibel.enums.Visibility;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.exceptions.custom.TrackAlreadyPublishedException;
 import software.decibel.exceptions.custom.UnauthorizedActionException;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.CommentRepository;
-import software.decibel.repositories.BlockRepository;
-import software.decibel.repositories.CommentRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
-import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
-import software.decibel.repositories.CommentRepository;
-import software.decibel.repositories.UserRepository;
-import software.decibel.repositories.BlockRepository;
 import software.decibel.services.JwtService;
 import software.decibel.services.TagService;
 import software.decibel.services.engagement.LikeService;
@@ -58,8 +58,6 @@ import software.decibel.utils.TagUtility;
 @Slf4j
 public class TrackService {
 
-    private final TrackPlaybackService trackPlaybackService;
-
     private final TrackRepository trackRepository;
     private final TrackLikeRepository likeRepository;
     private final TrackRepostRepository repostRepository;
@@ -69,7 +67,6 @@ public class TrackService {
 
     private final LikeService likeService;
     private final RepostService repostService;
-    int PREVIEW_SECONDS = 10;
 
     private final FileUtilityAzure fileUtilityAzure;
     private final TrackMapper trackMapper;
@@ -88,7 +85,6 @@ public class TrackService {
     @Transactional
     public void deleteTrack(Long trackId) {
         Track track = getTrackIfExistsById(trackId);
-
         //fetch track url data before deleting
         final String audioUrl = track.getTrackUrl();
         final String coverUrl = track.getCoverUrl();
@@ -100,15 +96,6 @@ public class TrackService {
         User user = track.getUploader();
         //update track count
         user.setTrackCount(user.getTrackCount() - 1);
-
-        User currentUser = userService.getUserIfExistsById(JwtService.getCurrentUserId());
-        currentUser.setTrackCount(currentUser.getTrackCount() - 1);
-        // if a free user deleted a non-blocked track -> they get refunded a slot
-
-        if (track.getAccess() != TrackAccess.BLOCKED) {
-            currentUser.setFreeTracksLeft(currentUser.getFreeTracksLeft() + 1);
-        }
-
         trackRepository.delete(track);
         //delete from azure
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -184,27 +171,14 @@ public class TrackService {
                         "Free users can only upload up to 3 tracks. Upgrade to PRO to upload more.");
             }
         }
-        // get allowed access based on tier and user's remaining non-blocked tracks
 
         Track track = trackMapper.toEntity(request, uploader);
 
-        // changes to track that couldn't be done in mapper
-        // track access based on business logic
-        TrackAccess finalAccess = trackPlaybackService.resolveUploadAccess(uploader, request.access());
-        // update free tracks left based on initial access and final access
-
-        trackPlaybackService.updateFreeTracksLeft(uploader, null, finalAccess);
-
-        track.setAccess(finalAccess);
-
-        // track tags parsed
         List<String> tags = TagUtility.parseTags(request.tags());
         if (request.tags() != null) {
             addTrackTags(track, tags);
         }
-        // track genre parsed
-        track.setGenre(
-                WordUtils.capitalize(track.getGenre().trim().toLowerCase().replaceAll("\\s+", " ")));
+
         Track createdTrack = createUploadingTrack(track, uploadId);
 
         try {
@@ -229,110 +203,6 @@ public class TrackService {
             trackAsyncProcessor.updateDbAndBroadcast(createdTrack.getId(), uploadId, TrackState.FAILED, null, null, "Failed to read upload data", null);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error reading uploaded files", e);
         }
-    }
-
-    @Async
-    public void processTrackUploadAsync(Track createdTrack, TrackUploadRequest request, byte[] audioBytes,
-            String audioOriginalFilename, byte[] coverBytes, String coverOriginalFilename, Long userId) {
-        try {
-            int audioWeight = 50;
-            int coverWeight = 15;
-            int waveformWeight = 15;
-            int durationWeight = 15;
-            int finalWeight = 5;
-
-            updateTrackState(createdTrack, TrackState.UPLOADING, 0, "Processing started", null);
-
-            String trackUrl = fileUtilityAzure.saveFileFromStream(
-                    new ByteArrayInputStream(audioBytes),
-                    (long) audioBytes.length,
-                    FileType.AUDIO,
-                    audioOriginalFilename,
-                    createProgressCallback(createdTrack, 0, audioWeight, "Uploading audio file"));
-
-            String coverUrl = null;
-            if (coverBytes != null) {
-                coverUrl = fileUtilityAzure.saveFileFromStream(
-                        new ByteArrayInputStream(coverBytes),
-                        (long) coverBytes.length,
-                        FileType.TRACK_COVERS,
-                        coverOriginalFilename,
-                        createProgressCallback(createdTrack, audioWeight, coverWeight, "Uploading cover image"));
-            } else {
-                updateTrackState(createdTrack, TrackState.UPLOADING, audioWeight + coverWeight, "No cover provided", null);
-            }
-
-            updateTrackState(createdTrack, TrackState.UPLOADING, audioWeight + coverWeight, "Generating waveform", null);
-            List<Float> waveformData = objectMapper.readValue(request.waveformData(), new TypeReference<List<Float>>() {
-            });
-            String waveformUrl = waveFormUtility.saveWaveformToAzure(waveformData, request.title());
-            updateTrackState(createdTrack, TrackState.UPLOADING, audioWeight + coverWeight + waveformWeight, "Waveform ready", null);
-
-            createdTrack.setTrackUrl(trackUrl);
-            createdTrack.setCoverUrl(coverUrl);
-            createdTrack.setWaveformUrl(waveformUrl);
-
-            updateTrackState(createdTrack, TrackState.PROCESSING, audioWeight + coverWeight + waveformWeight, "Extracting audio duration", null);
-            createdTrack.setDurationSeconds(
-                    audioUtility.getAudioFileDurationInSeconds(audioBytes, audioOriginalFilename, request.title()));
-            updateTrackState(createdTrack, TrackState.PROCESSING, audioWeight + coverWeight + waveformWeight + durationWeight, "Duration extracted", null);
-
-            // generate trackPreviewUrl
-            String previewUrl;
-
-            // if duration > preview_seconds -> trim
-            if (createdTrack.getDurationSeconds() > PREVIEW_SECONDS) {
-                System.out.println("here");
-                previewUrl = getPreviewUrl(audioBytes, audioOriginalFilename);
-            } else { // else audio file remains the same
-                previewUrl = trackUrl;
-            }
-
-            createdTrack.setTrackPreviewUrl(previewUrl);
-
-            createdTrack.setState(TrackState.FINISHED);
-            updateTrackState(createdTrack, TrackState.FINISHED, 100, "Done", null);
-
-            trackRepository.save(createdTrack);
-            User user = userService.getUserIfExistsById(userId);
-            user.setTrackCount(user.getTrackCount() + 1);
-            userRepository.save(user);
-
-        } catch (Exception e) {
-            String errorMessage = (e.getMessage() != null && !e.getMessage().isBlank())
-                    ? e.getMessage()
-                    : "An unexpected error occurred during track processing";
-            updateTrackState(createdTrack, TrackState.FAILED, null, null, errorMessage);
-        }
-    }
-
-    private ProgressCallback createProgressCallback(Track track, int startPercentage, int weight, String stepName) {
-        return new ProgressCallback() {
-            private int lastReportedProgress = -1;
-
-            @Override
-            public void onProgress(long bytesRead, long totalBytes) {
-                int subProgress = (int) ((bytesRead * weight) / totalBytes);
-                int totalProgress = startPercentage + subProgress;
-
-                boolean isStartOfStep = totalProgress == startPercentage;
-                boolean isEndOfStep = totalProgress == startPercentage + weight;
-                boolean isMultipleOfFive = totalProgress % 5 == 0;
-
-                if (totalProgress != lastReportedProgress && (isStartOfStep || isEndOfStep || isMultipleOfFive)) {
-                    updateTrackState(track, TrackState.UPLOADING, totalProgress, stepName, null);
-                    lastReportedProgress = totalProgress;
-
-                    if (stepName.contains("Uploading")) {
-                        try {
-                            Thread.sleep(20);
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                        }
-                    }
-                }
-            }
-        };
     }
 
     @Transactional
@@ -386,15 +256,11 @@ public class TrackService {
     public TrackPatchResponse updateTrack(Long trackId, TrackPatchRequest request) {
         Track track = getTrackIfExistsById(trackId);
 
-        Long userId = JwtService.getCurrentUserId();
-        User uploader = userService.getUserIfExistsById(userId);
-
         if (request.title() != null) {
             track.setTitle(request.title());
         }
         if (request.genre() != null) {
-            track.setGenre(
-                    WordUtils.capitalize(track.getGenre().trim().toLowerCase().replaceAll("\\s+", " ")));
+            track.setGenre(request.genre());
         }
         if (request.description() != null) {
             track.setDescription(request.description());
@@ -417,15 +283,6 @@ public class TrackService {
             addTrackTags(track, tags);
         }
 
-        if (request.access() != null) {
-            TrackAccess finalAccess
-                    = trackPlaybackService.resolveUploadAccess(uploader, request.access());
-
-            // update free tracks left based on initial access and final access
-            trackPlaybackService.updateFreeTracksLeft(uploader, track.getAccess(), finalAccess);
-            track.setAccess(finalAccess);
-        }
-
         return trackMapper.toTrackPatchResponse(trackRepository.save(track));
     }
 
@@ -440,36 +297,32 @@ public class TrackService {
     }
 
     private TrackPageResponse getAllTracksByUserId(Long userId, int page, int size) {
-        userService.getUserIfExistsById(userId);
-
         User user = userService.getUserIfExistsById(userId);
+
         Pageable pageable = PageRequest.of(page, size);
         Page<Track> result = trackRepository.findByUploaderId(userId, pageable);
 
-        // Fetch ID
         Set<Long> likedTrackIds = likeService.getLikedTrackIds(userId);
         Set<Long> repostedTrackIds = repostService.getRepostedTrackIds(userId);
 
-        return trackMapper.toPageResponse(
-                result,
-                userService.getUserIfExistsById(JwtService.getCurrentUserId()).getTier(),
-                likedTrackIds,
-                repostedTrackIds);
+        return trackMapper.toPageResponse(result, user.getTier(), likedTrackIds, repostedTrackIds);
     }
 
     public TrackPageResponse getPublicTracksByUserId(Long userId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<Track> result = trackRepository.findByUploaderIdAndVisibility(userId, Visibility.PUBLIC, pageable);
-        User user = userService.getUserIfExistsById(userId);
 
-        Set<Long> likedTrackIds = likeService.getLikedTrackIds(userId);
-        Set<Long> repostedTrackIds = repostService.getRepostedTrackIds(userId);
+        Long currentUserId = null;
+        try {
+            currentUserId = JwtService.getCurrentUserId();
+        } catch (Exception e) {
+        }
 
-        return trackMapper.toPageResponse(
-                result,
-                userService.getUserIfExistsById(JwtService.getCurrentUserId()).getTier(),
-                likedTrackIds,
-                repostedTrackIds);
+        Set<Long> likedTrackIds = currentUserId != null ? likeService.getLikedTrackIds(currentUserId) : Set.of();
+        Set<Long> repostedTrackIds = currentUserId != null ? repostService.getRepostedTrackIds(currentUserId) : Set.of();
+        AccountTier currentTier = currentUserId != null ? userService.getUserIfExistsById(currentUserId).getTier() : AccountTier.FREE;
+
+        return trackMapper.toPageResponse(result, currentTier, likedTrackIds, repostedTrackIds);
     }
 
     @Transactional
@@ -497,18 +350,23 @@ public class TrackService {
         Pageable pageable = PageRequest.of(page, size);
         Page<Track> trendingTracks = trackRepository.findAllTrending(pageable);
 
-        Long currentUserId = JwtService.getCurrentUserId();
+        Long currentUserId = null;
+        try {
+            currentUserId = JwtService.getCurrentUserId();
+        } catch (Exception e) {
+        }
+
         Set<Long> likedTrackIds = (currentUserId != null) ? likeService.getLikedTrackIds(currentUserId) : Set.of();
         Set<Long> repostedTrackIds = (currentUserId != null) ? repostService.getRepostedTrackIds(currentUserId) : Set.of();
+        AccountTier currentTier = (currentUserId != null) ? userService.getUserIfExistsById(currentUserId).getTier() : AccountTier.FREE;
 
-        return trackMapper.toPageResponse(trendingTracks, likedTrackIds, repostedTrackIds);
+        return trackMapper.toPageResponse(trendingTracks, currentTier, likedTrackIds, repostedTrackIds);
     }
 
     public TrackResponse getTrackData(Long trackId) {
         Track track = getTrackIfExistsById(trackId);
         Long currentUserId = null;
         try {
-            // Attempt to get the current user ID.
             currentUserId = JwtService.getCurrentUserId();
         } catch (Exception e) {
         }
@@ -535,18 +393,15 @@ public class TrackService {
     private TrackResponse buildTrackResponse(Track track, Long userId) {
         boolean isLiked = false;
         boolean isReposted = false;
+        AccountTier tier = AccountTier.FREE;
 
         if (userId != null) {
             isLiked = likeService.getLikedTrackIds(userId).contains(track.getId());
             isReposted = repostService.getRepostedTrackIds(userId).contains(track.getId());
+            tier = userService.getUserIfExistsById(userId).getTier();
         }
-        User user = userService.getUserIfExistsById(userId);
 
-        return trackMapper.toTrackResponseSingle(
-                track,
-                userService.getUserIfExistsById(JwtService.getCurrentUserId()).getTier(),
-                isLiked,
-                isReposted);
+        return trackMapper.toTrackResponseSingle(track, tier, isLiked, isReposted);
     }
 
     public Track getTrackIfExistsById(Long trackId) {
@@ -581,27 +436,5 @@ public class TrackService {
         boolean hasBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(currentUserId, targetUserId);
         boolean isBlockedBy = blockRepository.existsByBlocker_IdAndBlocked_Id(targetUserId, currentUserId);
         return hasBlocked || isBlockedBy;
-    }
-
-    public String getPreviewUrl(byte[] audioBytes, String filename) {
-
-        try {
-
-            byte[] previewBytes = audioUtility.extractPreview(audioBytes, PREVIEW_SECONDS);
-
-            String previewUrl
-                    = fileUtilityAzure.saveFileFromStream(
-                            new ByteArrayInputStream(previewBytes),
-                            previewBytes.length,
-                            FileType.AUDIO,
-                            "preview_" + filename,
-                            null);
-
-            return previewUrl;
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw new RuntimeException("getPreviewUrl failed", e);
-        }
     }
 }

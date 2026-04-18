@@ -5,6 +5,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.mapstruct.*;
 import org.springframework.data.domain.Page;
+
+import software.decibel.dtos.track.TrackSummaryDTO;
 import software.decibel.dtos.track.requests.TrackUploadRequest;
 import software.decibel.dtos.track.responses.*;
 import software.decibel.entities.Tag;
@@ -26,11 +28,9 @@ public interface TrackMapper {
     @Mapping(target = "isReposted", expression = "java(repostedTrackIds.contains(track.getId()))")
     @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
     @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
-    @Mapping(target = "completedPlayCount", source = "track.playCount") // Assuming completedPlayCount is same as playCount for now
+    @Mapping(target = "playCount", source = "track.playCount") // Assuming completedPlayCount is same as playCount for now
     @Mapping(target = "commentCount", expression = "java(mapCommentCount(track))")
-    @Mapping(target = "access", expression = "java(track.getVisibility() == Visibility.PUBLIC ? \"FULL\" : \"PREVIEW\")")
     @Mapping(target = "secretToken", expression = "java(mapSecretToken(track))")
-    @Mapping(target = "trackPreviewUrl", source = "track.trackUrl") // placeholder
     @Mapping(target = "access", expression = "java(resolveAccess(userTier, track.getAccess()))")
     @Mapping(target = "trackUrl", expression = "java(resolveTrackUrl(userTier, track))")
     @Mapping(target = "trackPreviewUrl", expression = "java(resolvePreviewUrl(userTier, track))")
@@ -40,11 +40,17 @@ public interface TrackMapper {
     // MapStruct to handle single track response
     @Mapping(target = "artist", expression = "java(mapArtist(track.getUploader()))")
     @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
-    @Mapping(target = "isLiked", source = "isLiked")
-    @Mapping(target = "isReposted", source = "isReposted")
+    @Mapping(target = "isLiked", expression = "java(isLiked)")
+    @Mapping(target = "isReposted", expression = "java(isReposted)")
     @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
     @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
-    TrackResponse toTrackResponseSingle(Track track, boolean isLiked, boolean isReposted);
+    @Mapping(target = "playCount", source = "track.playCount")
+    @Mapping(target = "commentCount", expression = "java(mapCommentCount(track))")
+    @Mapping(target = "secretToken", expression = "java(mapSecretToken(track))")
+    @Mapping(target = "access", expression = "java(track.getVisibility() == Visibility.PUBLIC ? software.decibel.enums.TrackAccess.PLAYABLE : software.decibel.enums.TrackAccess.PREVIEW)")
+    @Mapping(target = "trackUrl", expression = "java(resolveTrackUrl(userTier, track))")
+    @Mapping(target = "trackPreviewUrl", expression = "java(resolvePreviewUrl(userTier, track))")
+    TrackResponse toTrackResponseSingle(Track track, AccountTier userTier, boolean isLiked, boolean isReposted);
 
     // ----------------- Page mapping ---------------------
     default TrackPageResponse toPageResponse(
@@ -68,18 +74,18 @@ public interface TrackMapper {
     @Mapping(target = "isReposted", expression = "java(isReposted)")
     @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
     @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
-    @Mapping(target = "completedPlayCount", source = "track.playCount")
+    @Mapping(target = "playCount", source = "track.playCount")
     @Mapping(target = "commentCount", expression = "java(mapCommentCount(track))")
     @Mapping(target = "access", expression = "java(track.getVisibility() == Visibility.PUBLIC ? \"FULL\" : \"PREVIEW\")")
     @Mapping(target = "secretToken", expression = "java(mapSecretToken(track))")
     @Mapping(target = "trackPreviewUrl", source = "track.trackUrl")
     TrackResponse toTrackResponse(Track track, boolean isLiked, boolean isReposted);
 
-    default Long mapCommentCount(Track track) {
+    default int mapCommentCount(Track track) {
         if (track == null || track.getComments() == null) {
-            return 0L;
+            return 0;
         }
-        return (long) track.getComments().size();
+        return track.getComments().size();
     }
 
     default String mapSecretToken(Track track) {
@@ -115,7 +121,7 @@ public interface TrackMapper {
 
         // free users
         if (access == TrackAccess.PLAYABLE) {
-            return TrackAccess.BLOCKED; // playable becomes blocked
+            return TrackAccess.PLAYABLE;
         }
 
         return access;
