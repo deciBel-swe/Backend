@@ -96,7 +96,8 @@ public class TrackService {
         //update track count
         user.setTrackCount(user.getTrackCount() - 1);
 
-    if (track.getAccess() != TrackAccess.BLOCKED) {
+    // if free user deleted a nn-blocked track they free a slot
+    if (track.getAccess() != TrackAccess.BLOCKED && user.getTier() == AccountTier.FREE) {
       user.setFreeTracksLeft(user.getFreeTracksLeft() + 1);
     }
 
