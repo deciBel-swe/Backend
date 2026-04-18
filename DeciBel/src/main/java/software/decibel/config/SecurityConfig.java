@@ -61,6 +61,7 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/tracks/{trackId}/comments").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/explore/trending").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/comments/{commentId}/replies").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/search").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{username}/liked-tracks").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{username}/reposted-tracks").permitAll()
                                 .requestMatchers("/webhook/**").permitAll()
