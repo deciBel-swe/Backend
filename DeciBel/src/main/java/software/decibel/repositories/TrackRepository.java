@@ -24,6 +24,12 @@ public interface TrackRepository extends JpaRepository<Track, Long> {
 
     boolean existsBySlug(String slug);
 
+    @Query("SELECT COALESCE(SUM(t.playCount), 0) FROM Track t")
+    Long sumPlayCount();
+
+    @Query("SELECT COALESCE(AVG(t.playThroughRate), 0) FROM Track t")
+    Double averagePlayThroughRate();
+
   // Genre Station – Discover Tracks by Genre
 
   // Filtering:

@@ -24,6 +24,7 @@ import software.decibel.mappers.UserMapper;
 import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.user.UserService;
 
 import java.util.List;
 
@@ -38,6 +39,8 @@ class BlockServiceTest {
     private UserRepository userRepository;
     @Mock
     private UserMapper userMapper;
+    @Mock
+    private UserService userService;
 
     @InjectMocks
     private BlockService blockService;
@@ -53,8 +56,8 @@ class BlockServiceTest {
 
     @Test
     void blockUser_success() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(blocker));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(blocked));
+        when(userService.getUserIfExistsById(1L)).thenReturn(blocker);
+        when(userService.getUserIfExistsById(2L)).thenReturn(blocked);
         when(blockRepository.existsByBlockerAndBlocked(blocker, blocked)).thenReturn(false);
 
         // Mock follow relationship in both directions
@@ -85,16 +88,16 @@ class BlockServiceTest {
 
     @Test
     void blockUser_userNotFound_throwsException() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(blocker));
-        when(userRepository.findById(2L)).thenReturn(Optional.empty());
+        when(userService.getUserIfExistsById(1L)).thenReturn(blocker);
+        when(userService.getUserIfExistsById(2L)).thenThrow(new ResourceNotFoundException("User to block not found"));
 
         assertThrows(ResourceNotFoundException.class, () -> blockService.blockUser(1L, 2L));
     }
 
     @Test
     void unblockUser_success() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(blocker));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(blocked));
+        when(userService.getUserIfExistsById(1L)).thenReturn(blocker);
+        when(userService.getUserIfExistsById(2L)).thenReturn(blocked);
         Block block = Block.builder().blocker(blocker).blocked(blocked).build();
         when(blockRepository.findByBlockerAndBlocked(blocker, blocked)).thenReturn(Optional.of(block));
 
@@ -105,7 +108,7 @@ class BlockServiceTest {
 
     @Test
     void getBlockedUsers_success() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(blocker));
+        when(userService.getUserIfExistsById(1L)).thenReturn(blocker);
         Block block = Block.builder().blocker(blocker).blocked(blocked).build();
         Page<Block> page = new PageImpl<>(List.of(block));
         when(blockRepository.findByBlocker(eq(blocker), any(Pageable.class))).thenReturn(page);

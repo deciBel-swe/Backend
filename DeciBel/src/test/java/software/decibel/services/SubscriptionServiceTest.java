@@ -35,6 +35,7 @@ import software.decibel.repositories.SubscriptionRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.subscription.StripeService;
 import software.decibel.services.subscription.SubscriptionService;
+import software.decibel.services.user.UserService;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT) // FIXED: Prevents strict stubbing crashes
@@ -48,6 +49,8 @@ class SubscriptionServiceTest {
     private StripeService stripeService;
     @Mock
     private AuthIdentityRepository authIdentityRepository;
+    @Mock
+    private UserService userService;
 
     @InjectMocks
     private SubscriptionService subscriptionService;
@@ -57,7 +60,7 @@ class SubscriptionServiceTest {
         User user = freeUser();
         Subscription existing = activeSubscription(user);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userService.getUserIfExistsById(1L)).thenReturn(user);
         when(subscriptionRepository.findByUserId(1L)).thenReturn(Optional.of(existing));
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
@@ -69,7 +72,7 @@ class SubscriptionServiceTest {
 
     @Test
     void createCheckoutSession_whenUserNotFound_throwsNotFoundException() {
-        when(userRepository.findById(99L)).thenReturn(Optional.empty());
+        when(userService.getUserIfExistsById(99L)).thenThrow(new ResourceNotFoundException("User with id 99 not found"));
 
         assertThrows(ResourceNotFoundException.class,
                 () -> subscriptionService.createCheckoutSession(99L));

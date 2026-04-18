@@ -53,6 +53,10 @@ public class User {
     @Builder.Default
     private boolean showHistory = true;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean isBanned = false;
+
     @Builder.Default
     private int followerCount = 0;
     @Builder.Default

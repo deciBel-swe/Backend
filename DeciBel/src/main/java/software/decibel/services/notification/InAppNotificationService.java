@@ -28,6 +28,7 @@ import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.NotificationPreferencesRepository;
 import software.decibel.repositories.NotificationRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.user.UserService;
 
 @Slf4j
 @Service
@@ -39,6 +40,7 @@ public class InAppNotificationService {
     private final UserRepository userRepository;
     private final FollowRepository followRepository;
     private final FcmNotificationService fcmNotificationService;
+    private final UserService userService;
 
     //called by the other services (like, repost, follow, comment)
     @Transactional
@@ -254,8 +256,6 @@ public class InAppNotificationService {
     }
 
     private User findUser(Long userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                "User with id " + userId + " not found"));
+        return userService.getUserIfExistsById(userId);
     }
 }

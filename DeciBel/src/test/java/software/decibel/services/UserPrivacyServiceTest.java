@@ -25,12 +25,15 @@ import software.decibel.dtos.auth.UserPrincipal;
 import software.decibel.entities.User;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.user.UserPrivacyService;
+import software.decibel.services.user.UserService;
 
 @ExtendWith(MockitoExtension.class)
 class UserPrivacyServiceTest {
 
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private UserService userService;
 
     @InjectMocks
     private UserPrivacyService userPrivacyService;
@@ -45,7 +48,7 @@ class UserPrivacyServiceTest {
 
         UserPrincipal principal = UserPrincipal.fromUser(user);
         when(authentication.getPrincipal()).thenReturn(principal);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userService.getUserIfExistsById(1L)).thenReturn(user);
 
         PrivacyUpdateResponse response = userPrivacyService.updateMyPrivacy(
                 authentication,
@@ -56,7 +59,7 @@ class UserPrivacyServiceTest {
         assertFalse(user.isShowHistory());
         assertTrue(response.isPrivate());
         assertFalse(response.showHistory());
-        verify(userRepository).findById(1L);
+        verify(userService).getUserIfExistsById(1L);
     }
 
     @Test
@@ -87,7 +90,7 @@ class UserPrivacyServiceTest {
         Authentication authentication = mock(Authentication.class);
         when(authentication.isAuthenticated()).thenReturn(true);
         when(authentication.getName()).thenReturn("99");
-        when(userRepository.findById(99L)).thenReturn(Optional.empty());
+        when(userService.getUserIfExistsById(99L)).thenThrow(new software.decibel.exceptions.custom.ResourceNotFoundException("User with id 99 not found"));
 
         ResponseStatusException ex = assertThrows(
                 ResponseStatusException.class,
@@ -95,7 +98,7 @@ class UserPrivacyServiceTest {
         );
 
         assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode());
-        verify(userRepository).findById(99L);
-        verifyNoMoreInteractions(userRepository);
+        verify(userService).getUserIfExistsById(99L);
+        verifyNoMoreInteractions(userService);
     }
 }

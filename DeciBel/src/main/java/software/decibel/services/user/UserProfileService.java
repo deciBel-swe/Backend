@@ -22,6 +22,7 @@ import software.decibel.repositories.SocialLinksRepository;
 import software.decibel.repositories.UserProfileTokenRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.JwtService;
+import software.decibel.services.user.UserService;
 import software.decibel.utils.FileUtilityAzure;
 import software.decibel.utils.LocationUtility;
 import software.decibel.utils.UserMappingUtility;
@@ -38,6 +39,7 @@ public class UserProfileService {
     private final UserProfileTokenRepository userProfileTokenRepository;
     private final FollowRepository followRepository;
     private final BlockRepository blockRepository;
+    private final UserService userService;
 
     // Public profile — no auth required
     @Transactional(readOnly = true)
@@ -99,8 +101,7 @@ public class UserProfileService {
 
     @Transactional(readOnly = true)
     public UpdateProfileResponse getUserPublicProfileByUsername(String username, Long currentUserId) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User with username " + username + " not found"));
+        User user = userService.getUserIfExistsByUsername(username);
         //If the profile is private AND the current user is not the owner, throw a 404
         if (user.isPrivate() && !Objects.equals(user.getId(), currentUserId)) {
             throw new ResourceNotFoundException("User with username " + username + " not found");
@@ -182,8 +183,7 @@ public class UserProfileService {
     }
 
     private User findUserById(Long userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User with id " + userId + " not found"));
+        return userService.getUserIfExistsById(userId);
     }
 
     private void upsertSocialLink(User user, SocialPlatform platform, String url) {

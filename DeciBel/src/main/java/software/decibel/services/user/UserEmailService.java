@@ -39,6 +39,7 @@ public class UserEmailService {
     private final TokenService tokenService;
     private final EmailService emailService;
     private final FrontendLinkService frontendLinkService;
+    private final UserService userService;
 
     @Transactional
     public MessageResponse requestMyEmailChange(Authentication authentication, ChangeEmailRequest request) {
@@ -139,7 +140,10 @@ public class UserEmailService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid ID format");
         }
 
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        try {
+            return userService.getUserIfExistsById(userId);
+        } catch (software.decibel.exceptions.custom.ResourceNotFoundException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+        }
     }
 }

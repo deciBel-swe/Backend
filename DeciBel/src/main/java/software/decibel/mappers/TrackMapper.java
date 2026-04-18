@@ -5,7 +5,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.mapstruct.*;
 import org.springframework.data.domain.Page;
-
 import software.decibel.dtos.track.TrackSummaryDTO;
 import software.decibel.dtos.track.requests.TrackUploadRequest;
 import software.decibel.dtos.track.responses.*;
@@ -119,10 +118,7 @@ public interface TrackMapper {
             return access; // playable and preview same
         }
 
-        // free users
-        if (access == TrackAccess.PLAYABLE) {
-            return TrackAccess.PLAYABLE;
-        }
+      
 
         return access;
     }

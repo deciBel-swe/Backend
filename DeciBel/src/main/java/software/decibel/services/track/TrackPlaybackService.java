@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import software.decibel.dtos.track.responses.*;
 import software.decibel.entities.User;
 import software.decibel.enums.*;
+import software.decibel.exceptions.custom.FreeUserOutOfFreeTracks;
 import software.decibel.utils.*;
 
 @Service
@@ -16,7 +17,6 @@ import software.decibel.utils.*;
 public class TrackPlaybackService {
   private final FileUtilityAzure fileUtilityAzure;
   private final AudioUtility audioUtility;
-  int PREVIEW_SECONDS = 10;
 
   // Function that returns allowed track access (PLAYABLE, BLOCKED, PREVIEW) depending on user's
   // tier and free tracks left
@@ -25,53 +25,93 @@ public class TrackPlaybackService {
   // free -> only get 3 non-blocked uploads at a time
   public TrackAccess resolveUploadAccess(User user, TrackAccess requestedAccess) {
 
-    // pro does anything
+    // pro users can set any access level they want
     if (user.getTier() == AccountTier.PRO) {
       return requestedAccess;
     }
 
-    // free user -> BLOCKED (as they wish)
-    else if (requestedAccess == TrackAccess.BLOCKED) {
+    // free users can always set tracks to BLOCKED (doesn't consume a slot)
+    if (requestedAccess == TrackAccess.BLOCKED) {
       return TrackAccess.BLOCKED;
     }
 
-    // free user -> PLAYABLE or PREVIEW → check slots
-    else if (user.getFreeTracksLeft() > 0) {
+    // free users can upload as PLAYABLE or PREVIEW if they have slots available
+    if (user.getFreeTracksLeft() > 0) {
       return requestedAccess;
     }
 
-    // free user -> no slots → forced BLOCKED
-    return TrackAccess.BLOCKED;
+    // free user has no slots left and is trying to upload a non-blocked track
+    throw new FreeUserOutOfFreeTracks(user.getId());
   }
 
+  // For patch requests
+  // existingAccess: the current access level of the track
+  // requestedAccess: the new access level the user wants to change to
+  public TrackAccess resolvePatchAccess(
+      User user, TrackAccess existingAccess, TrackAccess requestedAccess) {
+
+    // pro users can change to any access level they want
+    if (user.getTier() == AccountTier.PRO) {
+      return requestedAccess;
+    }
+
+    // free users can always change to BLOCKED (frees up a slot)
+    if (requestedAccess == TrackAccess.BLOCKED) {
+      return requestedAccess;
+    }
+
+    // free users can transfer between PREVIEW <-> PLAYABLE without consuming additional slots
+
+    if (existingAccess == TrackAccess.PREVIEW || existingAccess == TrackAccess.PLAYABLE) {
+      if (requestedAccess == TrackAccess.PREVIEW || requestedAccess == TrackAccess.PLAYABLE) {
+        return requestedAccess;
+      }
+    }
+
+    // free users can only unblock a BLOCKED track if they have a free slot available
+    if (existingAccess == TrackAccess.BLOCKED && user.getFreeTracksLeft() > 0) {
+      return requestedAccess;
+    }
+
+    // free user has no slots left and is trying to unblock a track
+    throw new FreeUserOutOfFreeTracks(user.getId());
+  }
+
+ 
   public void updateFreeTracksLeft(
       User user, TrackAccess initialAccess, TrackAccess resolvedAccess) {
 
-    // only free users are affected
+    // pro tier users have unlimited uploads, no tracking needed
     if (user.getTier() == AccountTier.PRO) {
       return;
     }
 
-    // normalize null (default is blocked)
+    // normalize null to BLOCKED (default state for tracks)
     if (initialAccess == null) {
       initialAccess = TrackAccess.BLOCKED;
     }
 
-    // no change (ex. blocked -> blocked.. playable -> preview)
+    // no change in access level means no change in slot usage
     if (initialAccess == resolvedAccess) {
       return;
     }
 
-    // blocked -> not blocked (consume slot)
-    if (initialAccess == TrackAccess.BLOCKED && !(resolvedAccess == TrackAccess.BLOCKED)) {
+    // transition: BLOCKED -> PLAYABLE or BLOCKED -> PREVIEW (consume 1 slot)
+    if (initialAccess == TrackAccess.BLOCKED
+        && (resolvedAccess == TrackAccess.PLAYABLE || resolvedAccess == TrackAccess.PREVIEW)) {
       user.setFreeTracksLeft(user.getFreeTracksLeft() - 1);
       return;
     }
 
-    // not blocked -> blocked(refund slot)
-    if (!(initialAccess == TrackAccess.BLOCKED) && resolvedAccess == TrackAccess.BLOCKED) {
+    // transition: PLAYABLE -> BLOCKED or PREVIEW -> BLOCKED (refund 1 slot)
+    if ((initialAccess == TrackAccess.PLAYABLE || initialAccess == TrackAccess.PREVIEW)
+        && resolvedAccess == TrackAccess.BLOCKED) {
       user.setFreeTracksLeft(user.getFreeTracksLeft() + 1);
     }
+
+    // transition: PLAYABLE <-> PREVIEW (no slot impact, both are non-blocked states)
+    // this covers: PLAYABLE -> PREVIEW or PREVIEW -> PLAYABLE
+    // no action needed
   }
 
   public byte[] extractPreview(byte[] inputBytes, int previewDurationSeconds) {
