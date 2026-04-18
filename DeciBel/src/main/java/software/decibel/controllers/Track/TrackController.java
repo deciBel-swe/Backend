@@ -15,14 +15,14 @@ import org.springframework.web.bind.annotation.RestController;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.track.InitialTrackResponse;
-import software.decibel.dtos.track.TrackPatchRequest;
-import software.decibel.dtos.track.TrackPatchResponse;
-import software.decibel.dtos.track.TrackPublishResponse;
-import software.decibel.dtos.track.TrackResponse;
-import software.decibel.dtos.track.TrackStatusResponse;
-import software.decibel.dtos.track.TrackUploadRequest;
-import software.decibel.dtos.track.TrackUploadResponse;
-import software.decibel.dtos.track.TrackWaveFormUrlResponse;
+import software.decibel.dtos.track.requests.TrackPatchRequest;
+import software.decibel.dtos.track.requests.TrackUploadRequest;
+import software.decibel.dtos.track.responses.TrackPatchResponse;
+import software.decibel.dtos.track.responses.TrackPublishResponse;
+import software.decibel.dtos.track.responses.TrackResponse;
+import software.decibel.dtos.track.responses.TrackStatusResponse;
+import software.decibel.dtos.track.responses.TrackUploadResponse;
+import software.decibel.dtos.track.responses.TrackWaveFormUrlResponse;
 import software.decibel.services.track.TrackService;
 
 @RestController

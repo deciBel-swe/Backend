@@ -1,21 +1,35 @@
 package software.decibel.services;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+
 import software.decibel.dtos.discovery.FeedPageResponse;
 import software.decibel.dtos.playlist.PlaylistResponse;
-import software.decibel.dtos.track.TrackResponse;
+import software.decibel.dtos.track.responses.TrackResponse;
 import software.decibel.entities.Playlist;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
+import software.decibel.enums.TrackAccess;
 import software.decibel.mappers.PlaylistMapper;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.FollowRepository;
@@ -23,17 +37,6 @@ import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.services.engagement.LikeService;
 import software.decibel.services.engagement.RepostService;
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class FeedServiceTest {
@@ -116,12 +119,30 @@ class FeedServiceTest {
         when(repostService.getRepostedTrackIds(1L)).thenReturn(Set.of());
 
         TrackResponse trackResponse = new TrackResponse(
-                10L, "Track Title", null, "url", "cover", "waveform", "genre",
-                false, false, null, LocalDate.now().minusDays(1), 0, 0, 0,
-                false, 120, LocalDate.now().minusDays(1), "desc", 0L, 0L,
-                "FULL", "token", "preview"
+                10L,
+                "Track Title",
+                null,
+                "url",
+                "preview",
+                "cover",
+                "waveform",
+                "genre",
+                false,
+                false,
+                null,
+                LocalDate.now().minusDays(1),
+                0,
+                0,
+                0,
+                0,
+                false,
+                120,
+                LocalDate.now().minusDays(1),
+                "desc",
+                "token",
+                TrackAccess.PLAYABLE
         );
-        when(trackMapper.toTrackResponse(eq(track), any(), any())).thenReturn(trackResponse);
+        when(trackMapper.toTrackResponse(any(), any(), any(), any())).thenReturn(trackResponse);
 
         PlaylistResponse playlistResponse = new PlaylistResponse(
                 20L, "Playlist Title", null, false, "desc", false, "cover",

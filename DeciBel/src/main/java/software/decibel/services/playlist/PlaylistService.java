@@ -1,21 +1,19 @@
 package software.decibel.services.playlist;
 
+import jakarta.transaction.Transactional;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
-
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import software.decibel.dtos.playlist.CreatePlaylistRequest;
 import software.decibel.dtos.playlist.PatchPlaylistRequest;
 import software.decibel.dtos.playlist.PlaylistResponse;
@@ -114,6 +112,8 @@ public class PlaylistService {
 
     public PlaylistResponse getPlaylist(Long playlistId, Pageable trackPageable) {
         Long currentUserId = JwtService.getCurrentUserId();
+    User currentUser = userService.getUserIfExistsById(currentUserId);
+
         Playlist playlist = findPlaylistById(playlistId);
 
         // Privacy Check: Is it private and viewed by someone other than the owner?
@@ -129,16 +129,23 @@ public class PlaylistService {
         }
 
         if (currentUserId == null) {
-            // Guest viewing playlist
-            return playlistMapper.toResponse(playlist, Collections.emptySet(), Collections.emptySet(), trackPageable);
+      // Guest viewing playlist
+
+      return playlistMapper.toResponse(
+          playlist,
+          Collections.emptySet(),
+          Collections.emptySet(),
+          trackPageable,
+          currentUser.getTier());
         }
 
         // Fetch likes/reposts for logged-in user
         Set<Long> likedTrackIds = trackLikeRepository.findTrackIdsByUserId(currentUserId);
         Set<Long> repostedTrackIds = trackRepostRepository.findTrackIdsByUserId(currentUserId);
 
-        // Map and Paginate!
-        return playlistMapper.toResponse(playlist, likedTrackIds, repostedTrackIds, trackPageable);
+    // Map and Paginate!
+    return playlistMapper.toResponse(
+        playlist, likedTrackIds, repostedTrackIds, trackPageable, currentUser.getTier());
     }
 
     @Transactional
@@ -327,6 +334,7 @@ public class PlaylistService {
     public PlaylistResponse getPublicPlaylistByIdAndUsername(String username, Long playlistId, Pageable trackPageable) {
         User user = getUserByUsername(username);
         Long currentUserId = JwtService.getCurrentUserId();
+    User currentUser = userService.getUserIfExistsById(currentUserId);
 
         // Block checking for the profile being viewed
         if (isUserBlocked(currentUserId, user.getId())) {
@@ -354,7 +362,8 @@ public class PlaylistService {
                 ? trackRepostRepository.findTrackIdsByUserId(currentUserId)
                 : Collections.emptySet();
 
-        return playlistMapper.toResponse(playlist, trackLikes, trackReposts, trackPageable);
+    return playlistMapper.toResponse(
+        playlist, trackLikes, trackReposts, trackPageable, currentUser.getTier());
     }
 
     // all playlists (including private) of the current user
@@ -367,13 +376,15 @@ public class PlaylistService {
     // getting current user's specific playlist by ID (private or public)
     public PlaylistResponse getOwnedPlaylistById(Long currentUserId, Long playlistId, Pageable trackPageable) {
         Playlist playlist = findPlaylistById(playlistId);
+    User currentUser = userService.getUserIfExistsById(currentUserId);
 
         // Since we already know the currentUserId (they own the playlist), we don't need JwtService here
         Set<Long> trackLikes = trackLikeRepository.findTrackIdsByUserId(currentUserId);
         Set<Long> trackReposts = trackRepostRepository.findTrackIdsByUserId(currentUserId);
 
-        // Pass all 4 arguments to the mapper!
-        return playlistMapper.toResponse(playlist, trackLikes, trackReposts, trackPageable);
+    // Pass all 4 arguments to the mapper!
+    return playlistMapper.toResponse(
+        playlist, trackLikes, trackReposts, trackPageable, currentUser.getTier());
     }
 
     // getting all user liked playlists

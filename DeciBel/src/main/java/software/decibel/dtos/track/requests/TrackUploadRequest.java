@@ -1,4 +1,4 @@
-package software.decibel.dtos.track;
+package software.decibel.dtos.track.requests;
 
 import java.time.LocalDate;
 
@@ -12,6 +12,7 @@ import software.decibel.customValidation.ValidAudioFile;
 import software.decibel.customValidation.ValidImageFile;
 import software.decibel.customValidation.ValidTagList;
 import software.decibel.customValidation.ValidWaveFormData;
+import software.decibel.enums.TrackAccess;
 
 public record TrackUploadRequest(
         @ValidAudioFile
@@ -39,6 +40,8 @@ public record TrackUploadRequest(
         @NotNull(message = "Release date is required")
         @DateTimeFormat(pattern = "yyyy-MM-dd")
         LocalDate releaseDate,
+        @NotNull(message = "Track Access is required: PLAYABLE, BLOCKED, PREVIEW")
+        TrackAccess access,
         @NotBlank(message = "Upload ID is required for progress tracking")
         String uploadId) {
 

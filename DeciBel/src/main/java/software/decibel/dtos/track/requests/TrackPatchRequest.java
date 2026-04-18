@@ -1,4 +1,4 @@
-package software.decibel.dtos.track;
+package software.decibel.dtos.track.requests;
 
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
@@ -6,6 +6,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.multipart.MultipartFile;
 import software.decibel.customValidation.ValidImageFile;
 import software.decibel.customValidation.ValidTagList;
+import software.decibel.enums.TrackAccess;
 
 public record TrackPatchRequest(
     @Size(max = 200, message = "Title must be less than 200 characters") String title,
@@ -18,4 +19,5 @@ public record TrackPatchRequest(
     // the JSON string on the backend keeps the part count low.
     @ValidTagList String tags,
     @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate releaseDate,
-    @ValidImageFile MultipartFile coverImage) {}
+    @ValidImageFile MultipartFile coverImage,
+    TrackAccess access) {}

@@ -1,21 +1,20 @@
 package software.decibel.services;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
-
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
-import software.decibel.dtos.track.TrackStatusResponse;
+import software.decibel.dtos.track.responses.TrackStatusResponse;
 import software.decibel.entities.Track;
 import software.decibel.enums.TrackState;
 import software.decibel.repositories.TrackRepository;

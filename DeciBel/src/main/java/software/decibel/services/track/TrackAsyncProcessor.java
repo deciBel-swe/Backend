@@ -11,9 +11,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import software.decibel.dtos.track.TrackResponse;
-import software.decibel.dtos.track.TrackStatusResponse;
-import software.decibel.dtos.track.TrackUploadRequest;
+import software.decibel.dtos.track.requests.TrackUploadRequest;
+import software.decibel.dtos.track.responses.TrackResponse;
+import software.decibel.dtos.track.responses.TrackStatusResponse;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
 import software.decibel.enums.FileType;
@@ -33,6 +33,8 @@ import tools.jackson.databind.ObjectMapper;
 @RequiredArgsConstructor
 @Slf4j
 public class TrackAsyncProcessor {
+
+    private static final int PREVIEW_SECONDS = 10;
 
     private final TrackRepository trackRepository;
     private final UserRepository userRepository;
@@ -84,13 +86,25 @@ public class TrackAsyncProcessor {
             broadcastProgress(trackId, uploadId, TrackState.PROCESSING, audioWeight + coverWeight + waveformWeight, "Extracting audio duration");
             int durationSeconds = audioUtility.getAudioFileDurationInSeconds(audioBytes, audioOriginalFilename, request.title());
             broadcastProgress(trackId, uploadId, TrackState.PROCESSING, audioWeight + coverWeight + waveformWeight + durationWeight, "Duration extracted");
-            //needed becuase lamda fucntions require effectively final variables, and the trackUrl and coverUrl are needed in the transaction below
+
+            // --- MISSING PREVIEW LOGIC RESTORED HERE ---
+            String previewUrl;
+            if (durationSeconds > PREVIEW_SECONDS) {
+                broadcastProgress(trackId, uploadId, TrackState.PROCESSING, audioWeight + coverWeight + waveformWeight + durationWeight, "Generating preview");
+                previewUrl = getPreviewUrl(audioBytes, audioOriginalFilename);
+            } else {
+                previewUrl = trackUrl;
+            }
+
             final String finalCoverUrl = coverUrl;
+            final String finalPreviewUrl = previewUrl; // Need to make it final for the lambda
+
             transactionTemplate.execute(status -> {
                 Track track = trackRepository.findById(trackId).orElseThrow();
                 track.setTrackUrl(trackUrl);
                 track.setCoverUrl(finalCoverUrl);
                 track.setWaveformUrl(waveformUrl);
+                track.setTrackPreviewUrl(finalPreviewUrl); // <-- PREVIEW URL IS NOW SAVED
                 track.setDurationSeconds(durationSeconds);
                 track.setState(TrackState.FINISHED);
                 track.getTags().size();
@@ -102,16 +116,16 @@ public class TrackAsyncProcessor {
                 user.setTrackCount(user.getTrackCount() + 1);
                 userRepository.save(user);
 
-                TrackResponse finalResponse = trackMapper.toTrackResponseSingle(track, false, false);
+                // Note: I added user.getTier() here to match the fix we did earlier!
+                TrackResponse finalResponse = trackMapper.toTrackResponseSingle(track, user.getTier(), false, false);
 
-                // Broadcast the final success message
+                // Broadcast the final success message with the populated URLs
                 messagingTemplate.convertAndSend(
                         "/topic/track-status/" + uploadId,
                         new TrackStatusResponse(TrackState.FINISHED, trackId, 100, "Done", null, finalResponse));
 
                 return null;
             });
-
         } catch (Exception e) {
             String errorMessage = (e.getMessage() != null && !e.getMessage().isBlank())
                     ? e.getMessage()
@@ -165,5 +179,27 @@ public class TrackAsyncProcessor {
         messagingTemplate.convertAndSend(
                 "/topic/track-status/" + uploadId,
                 new TrackStatusResponse(state, trackId, progress, stepName, errorMessage, finalResponse));
+    }
+
+    public String getPreviewUrl(byte[] audioBytes, String filename) {
+
+        try {
+
+            byte[] previewBytes = audioUtility.extractPreview(audioBytes, PREVIEW_SECONDS);
+
+            String previewUrl
+                    = fileUtilityAzure.saveFileFromStream(
+                            new ByteArrayInputStream(previewBytes),
+                            previewBytes.length,
+                            FileType.AUDIO,
+                            "preview_" + filename,
+                            null);
+
+            return previewUrl;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("getPreviewUrl failed", e);
+        }
     }
 }
