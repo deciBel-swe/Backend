@@ -17,7 +17,6 @@ import software.decibel.enums.TokenType;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.exceptions.custom.TierException;
 import software.decibel.repositories.AuthIdentityRepository;
-import software.decibel.repositories.UserRepository;
 import software.decibel.services.JwtService;
 import software.decibel.services.SessionService;
 import software.decibel.services.TokenService;
@@ -26,7 +25,7 @@ import software.decibel.services.TokenService;
 @RequiredArgsConstructor
 public class UserTierService {
 
-    private final UserRepository userRepository;
+    private final UserService userService;
     private final AuthIdentityRepository authIdentityRepository;
     private final JwtService jwtService;
     private final TokenService tokenService;
@@ -34,8 +33,7 @@ public class UserTierService {
 
     @Transactional
     public TierUpgradeResponse upgradeTier(Long userId, TierUpgradeRequest request, DeviceInfo deviceInfo) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User with id " + userId + " not found"));
+        User user = userService.getUserIfExistsById(userId);
 
         AccountTier requestedTier = request.targetTier();
 
@@ -47,16 +45,19 @@ public class UserTierService {
             throw new TierException("Cannot downgrade to FREE tier");
         }
 
-        // Resolve email from any identity — all identities for a user share the same email
+        // Resolve email from any identity — all identities for a user share the same
+        // email
         List<AuthIdentity> identities = authIdentityRepository.findAllByUser(user);
         if (identities.isEmpty()) {
             throw new ResourceNotFoundException("No auth identity found for user " + userId);
         }
         String email = identities.get(0).getEmail();
 
-        // Apply tier change
+        // Managed entity inside this transaction; Hibernate persists the tier change on
+        // flush.
+        // No need to call save here,the tier change is stored when the transaction
+        // finishes.
         user.setTier(requestedTier);
-        userRepository.save(user);
 
         // Rotate refresh token — invalidate all existing sessions and issue a fresh one
         sessionService.deleteAllSessionsForUser(user);
@@ -73,7 +74,6 @@ public class UserTierService {
                 "Tier updated to " + user.getTier(),
                 newAccessToken,
                 issuedRefreshToken.rawToken(),
-                JwtService.REFRESH_TOKEN_EXPIRES_IN_SECONDS
-        );
+                JwtService.REFRESH_TOKEN_EXPIRES_IN_SECONDS);
     }
 }

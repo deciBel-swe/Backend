@@ -35,12 +35,15 @@ import software.decibel.repositories.AuthIdentityRepository;
 import software.decibel.repositories.PendingEmailChangeRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.user.UserEmailService;
+import software.decibel.services.user.UserService;
 
 @ExtendWith(MockitoExtension.class)
 class UserEmailServiceTest {
 
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private UserService userService;
 
     @Mock
     private AuthIdentityRepository authIdentityRepository;
@@ -77,7 +80,7 @@ class UserEmailServiceTest {
                 .expiresAt(LocalDateTime.now().plusMinutes(30))
                 .build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userService.getUserIfExistsById(1L)).thenReturn(user);
         when(authIdentityRepository.findByUserAndProviderAndType(user, AuthProvider.LOCAL, AuthType.PASSWORD))
                 .thenReturn(Optional.of(currentIdentity));
         when(authIdentityRepository.existsByEmailIgnoreCase("new@example.com")).thenReturn(false);
@@ -111,7 +114,7 @@ class UserEmailServiceTest {
                 .type(AuthType.PASSWORD)
                 .build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userService.getUserIfExistsById(1L)).thenReturn(user);
         when(authIdentityRepository.findByUserAndProviderAndType(user, AuthProvider.LOCAL, AuthType.PASSWORD))
                 .thenReturn(Optional.of(currentIdentity));
         when(authIdentityRepository.existsByEmailIgnoreCase("used@example.com")).thenReturn(true);
@@ -149,7 +152,7 @@ class UserEmailServiceTest {
                 .type(AuthType.PASSWORD)
                 .build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userService.getUserIfExistsById(1L)).thenReturn(user);
         when(tokenService.findValidUnusedToken("raw-token", TokenType.EMAIL_CHANGE, "Invalid or expired token"))
                 .thenReturn(token);
         when(pendingEmailChangeRepository.findByToken(token)).thenReturn(Optional.of(pendingEmailChange));
@@ -186,7 +189,7 @@ class UserEmailServiceTest {
                 .token(token)
                 .build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(currentUser));
+        when(userService.getUserIfExistsById(1L)).thenReturn(currentUser);
         when(tokenService.findValidUnusedToken("raw-token", TokenType.EMAIL_CHANGE, "Invalid or expired token"))
                 .thenReturn(token);
         when(pendingEmailChangeRepository.findByToken(token)).thenReturn(Optional.of(pendingEmailChange));

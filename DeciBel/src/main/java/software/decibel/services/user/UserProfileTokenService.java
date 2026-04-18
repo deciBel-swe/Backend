@@ -8,7 +8,6 @@ import software.decibel.entities.User;
 import software.decibel.entities.UserProfileToken;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.repositories.UserProfileTokenRepository;
-import software.decibel.repositories.UserRepository;
 
 import java.util.UUID;
 
@@ -17,13 +16,12 @@ import java.util.UUID;
 public class UserProfileTokenService {
 
     private final UserProfileTokenRepository userProfileTokenRepository;
-    private final UserRepository userRepository;
+    private final UserService userService;
 
     // Returns the active token for the user, or throws if none exists
     public UserProfileTokenResponse getActiveToken(Long userId) {
         // Check user exists
-        userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User with id " + userId + " not found"));
+        userService.getUserIfExistsById(userId);
 
         UserProfileToken token = userProfileTokenRepository
                 .findByUserIdAndIsDeletedFalse(userId)
@@ -35,8 +33,7 @@ public class UserProfileTokenService {
     // Soft deletes existing token and generates a new one
     @Transactional
     public UserProfileTokenResponse regenerateToken(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User with id " + userId + " not found"));
+        User user = userService.getUserIfExistsById(userId);
 
         // Soft delete existing active token if present
         userProfileTokenRepository

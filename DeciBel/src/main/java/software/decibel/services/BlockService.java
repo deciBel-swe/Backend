@@ -15,6 +15,7 @@ import software.decibel.mappers.UserMapper;
 import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.user.UserService;
 
 /**
  * Service handling user blocking and unblocking business logic.
@@ -27,6 +28,7 @@ public class BlockService {
     private final FollowRepository followRepository;
     private final UserRepository userRepository;
     private final UserMapper userMapper;
+    private final UserService userService;
 
     /**
      * Blocks a user and removes any existing follow relationship between them.
@@ -40,10 +42,8 @@ public class BlockService {
             throw new IllegalArgumentException("Users cannot block themselves");
         }
 
-        User blocker = userRepository.findById(blockerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Blocker not found"));
-        User blocked = userRepository.findById(blockedId)
-                .orElseThrow(() -> new ResourceNotFoundException("User to block not found"));
+        User blocker = userService.getUserIfExistsById(blockerId);
+        User blocked = userService.getUserIfExistsById(blockedId);
 
         if (blockRepository.existsByBlockerAndBlocked(blocker, blocked)) {
             return; // Already blocked
@@ -69,10 +69,8 @@ public class BlockService {
      */
     @Transactional
     public void unblockUser(Long blockerId, Long blockedId) {
-        User blocker = userRepository.findById(blockerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Blocker not found"));
-        User blocked = userRepository.findById(blockedId)
-                .orElseThrow(() -> new ResourceNotFoundException("User to unblock not found"));
+        User blocker = userService.getUserIfExistsById(blockerId);
+        User blocked = userService.getUserIfExistsById(blockedId);
 
         blockRepository.findByBlockerAndBlocked(blocker, blocked)
                 .ifPresent(blockRepository::delete);
@@ -86,8 +84,7 @@ public class BlockService {
      * @return a page of blocked user DTOs
      */
     public Page<BlockedUserDto> getBlockedUsers(Long blockerId, Pageable pageable) {
-        User blocker = userRepository.findById(blockerId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        User blocker = userService.getUserIfExistsById(blockerId);
 
         return blockRepository.findByBlocker(blocker, pageable)
                 .map(block -> userMapper.toBlockedUserDto(block.getBlocked()));

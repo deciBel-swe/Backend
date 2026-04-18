@@ -43,6 +43,7 @@ import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.notification.FcmNotificationService;
 import software.decibel.services.notification.InAppNotificationService;
+import software.decibel.services.user.UserService;
 
 @Service
 @Slf4j
@@ -53,6 +54,7 @@ public class MessagingService {
     private final UserRepository userRepository;
     private final BlockRepository blockRepository;
     private final InAppNotificationService inAppNotificationService;
+    private final UserService userService;
 
     private static final String CONVERSATIONS_COLLECTION = "conversations";
     private static final String MESSAGES_COLLECTION = "messages";
@@ -67,8 +69,7 @@ public class MessagingService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You cannot start a conversation with yourself");
         }
 
-        User recipient = userRepository.findById(recipientId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Recipient not found"));
+        User recipient = resolveActiveUser(recipientId, "Recipient not found");
 
         // Privacy check: private users cannot receive messages
         if (recipient.isPrivate()) {
@@ -169,8 +170,7 @@ public class MessagingService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You cannot send a message to yourself");
         }
 
-        User recipient = userRepository.findById(recipientId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Recipient not found"));
+        User recipient = resolveActiveUser(recipientId, "Recipient not found");
 
         // Privacy check: private users cannot receive messages
         if (recipient.isPrivate()) {
@@ -218,7 +218,7 @@ public class MessagingService {
                     ResourceType.USER,
                     senderId
             );
-            User sender = userRepository.findById(senderId).orElseThrow();
+            User sender = resolveActiveUser(senderId, "Sender not found");
 
             fcmNotificationService.sendRealTimeChatMessage(
                     recipientId,
@@ -459,6 +459,14 @@ public class MessagingService {
             return id1 + "_" + id2;
         } else {
             return id2 + "_" + id1;
+        }
+    }
+
+    private User resolveActiveUser(Long userId, String message) {
+        try {
+            return userService.getUserIfExistsById(userId);
+        } catch (software.decibel.exceptions.custom.ResourceNotFoundException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, message);
         }
     }
 }
