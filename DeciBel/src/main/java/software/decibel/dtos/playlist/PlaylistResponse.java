@@ -2,8 +2,7 @@ package software.decibel.dtos.playlist;
 
 import java.time.LocalDateTime;
 import java.util.List;
-
-import software.decibel.dtos.track.TrackPageResponse;
+import software.decibel.dtos.track.responses.TrackPageResponse;
 import software.decibel.enums.PlaylistType;
 
 public record PlaylistResponse(

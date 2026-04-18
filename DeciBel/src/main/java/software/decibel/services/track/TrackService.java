@@ -19,15 +19,15 @@ import org.springframework.web.server.ResponseStatusException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import software.decibel.dtos.track.TrackPageResponse;
-import software.decibel.dtos.track.TrackPatchRequest;
-import software.decibel.dtos.track.TrackPatchResponse;
-import software.decibel.dtos.track.TrackPublishResponse;
-import software.decibel.dtos.track.TrackResponse;
-import software.decibel.dtos.track.TrackStatusResponse;
-import software.decibel.dtos.track.TrackUploadRequest;
-import software.decibel.dtos.track.TrackUploadResponse;
-import software.decibel.dtos.track.TrackWaveFormUrlResponse;
+import software.decibel.dtos.track.requests.TrackPatchRequest;
+import software.decibel.dtos.track.requests.TrackUploadRequest;
+import software.decibel.dtos.track.responses.TrackPageResponse;
+import software.decibel.dtos.track.responses.TrackPatchResponse;
+import software.decibel.dtos.track.responses.TrackPublishResponse;
+import software.decibel.dtos.track.responses.TrackResponse;
+import software.decibel.dtos.track.responses.TrackStatusResponse;
+import software.decibel.dtos.track.responses.TrackUploadResponse;
+import software.decibel.dtos.track.responses.TrackWaveFormUrlResponse;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
@@ -297,7 +297,7 @@ public class TrackService {
     }
 
     private TrackPageResponse getAllTracksByUserId(Long userId, int page, int size) {
-        userService.getUserIfExistsById(userId);
+        User user = userService.getUserIfExistsById(userId);
 
         Pageable pageable = PageRequest.of(page, size);
         Page<Track> result = trackRepository.findByUploaderId(userId, pageable);
@@ -305,17 +305,24 @@ public class TrackService {
         Set<Long> likedTrackIds = likeService.getLikedTrackIds(userId);
         Set<Long> repostedTrackIds = repostService.getRepostedTrackIds(userId);
 
-        return trackMapper.toPageResponse(result, likedTrackIds, repostedTrackIds);
+        return trackMapper.toPageResponse(result, user.getTier(), likedTrackIds, repostedTrackIds);
     }
 
     public TrackPageResponse getPublicTracksByUserId(Long userId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<Track> result = trackRepository.findByUploaderIdAndVisibility(userId, Visibility.PUBLIC, pageable);
 
-        Set<Long> likedTrackIds = likeService.getLikedTrackIds(userId);
-        Set<Long> repostedTrackIds = repostService.getRepostedTrackIds(userId);
+        Long currentUserId = null;
+        try {
+            currentUserId = JwtService.getCurrentUserId();
+        } catch (Exception e) {
+        }
 
-        return trackMapper.toPageResponse(result, likedTrackIds, repostedTrackIds);
+        Set<Long> likedTrackIds = currentUserId != null ? likeService.getLikedTrackIds(currentUserId) : Set.of();
+        Set<Long> repostedTrackIds = currentUserId != null ? repostService.getRepostedTrackIds(currentUserId) : Set.of();
+        AccountTier currentTier = currentUserId != null ? userService.getUserIfExistsById(currentUserId).getTier() : AccountTier.FREE;
+
+        return trackMapper.toPageResponse(result, currentTier, likedTrackIds, repostedTrackIds);
     }
 
     @Transactional
@@ -343,11 +350,17 @@ public class TrackService {
         Pageable pageable = PageRequest.of(page, size);
         Page<Track> trendingTracks = trackRepository.findAllTrending(pageable);
 
-        Long currentUserId = JwtService.getCurrentUserId();
+        Long currentUserId = null;
+        try {
+            currentUserId = JwtService.getCurrentUserId();
+        } catch (Exception e) {
+        }
+
         Set<Long> likedTrackIds = (currentUserId != null) ? likeService.getLikedTrackIds(currentUserId) : Set.of();
         Set<Long> repostedTrackIds = (currentUserId != null) ? repostService.getRepostedTrackIds(currentUserId) : Set.of();
+        AccountTier currentTier = (currentUserId != null) ? userService.getUserIfExistsById(currentUserId).getTier() : AccountTier.FREE;
 
-        return trackMapper.toPageResponse(trendingTracks, likedTrackIds, repostedTrackIds);
+        return trackMapper.toPageResponse(trendingTracks, currentTier, likedTrackIds, repostedTrackIds);
     }
 
     public TrackResponse getTrackData(Long trackId) {
@@ -380,13 +393,15 @@ public class TrackService {
     private TrackResponse buildTrackResponse(Track track, Long userId) {
         boolean isLiked = false;
         boolean isReposted = false;
+        AccountTier tier = AccountTier.FREE;
 
         if (userId != null) {
             isLiked = likeService.getLikedTrackIds(userId).contains(track.getId());
             isReposted = repostService.getRepostedTrackIds(userId).contains(track.getId());
+            tier = userService.getUserIfExistsById(userId).getTier();
         }
 
-        return trackMapper.toTrackResponseSingle(track, isLiked, isReposted);
+        return trackMapper.toTrackResponseSingle(track, tier, isLiked, isReposted);
     }
 
     public Track getTrackIfExistsById(Long trackId) {

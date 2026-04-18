@@ -1,8 +1,7 @@
 package software.decibel.mappers;
 
 import org.mapstruct.Mapper;
-
-import software.decibel.dtos.track.LikeResponse;
+import software.decibel.dtos.track.responses.LikeResponse;
 
 @Mapper(componentModel = "spring")
 public interface LikeMapper {

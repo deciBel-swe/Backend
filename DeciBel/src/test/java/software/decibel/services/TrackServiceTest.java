@@ -29,12 +29,13 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import software.decibel.dtos.track.TrackPageResponse;
-import software.decibel.dtos.track.TrackPatchRequest;
-import software.decibel.dtos.track.TrackStatusResponse;
+import software.decibel.dtos.track.requests.TrackPatchRequest;
+import software.decibel.dtos.track.responses.TrackPageResponse;
+import software.decibel.dtos.track.responses.TrackStatusResponse;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
+import software.decibel.enums.AccountTier;
 import software.decibel.enums.TrackState;
 import software.decibel.enums.Visibility;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
@@ -302,6 +303,7 @@ class TrackServiceTest {
     void shouldUpdateBasicFields() {
         // Arrange
         Track track = createTrack(1L);
+        track.setGenre("Rock");
 
         TrackPatchRequest request = mock(TrackPatchRequest.class);
         when(request.title()).thenReturn("New Title");
@@ -362,10 +364,18 @@ class TrackServiceTest {
     void shouldReturnTrendingTracks() {
         Track track = createTrack(1L);
         Page<Track> page = new PageImpl<>(List.of(track));
+        User mockUser = new User();
+        mockUser.setId(1L);
+        mockUser.setTier(AccountTier.FREE);
+
+        when(userService.getUserIfExistsById(any())).thenReturn(mockUser);
+
         when(trackRepository.findAllTrending(any())).thenReturn(page);
         when(likeService.getLikedTrackIds(any())).thenReturn(Set.of());
         when(repostService.getRepostedTrackIds(any())).thenReturn(Set.of());
-        when(trackMapper.toPageResponse(any(), any(), any())).thenReturn(new TrackPageResponse(List.of(), 0, 10, 1, 1, true));
+
+        when(trackMapper.toPageResponse(any(), any(), any(), any()))
+                .thenReturn(new TrackPageResponse(List.of(), 0, 10, 1, 1, true));
 
         TrackPageResponse result = trackService.getTrendingTracks(0, 10);
 
@@ -377,7 +387,12 @@ class TrackServiceTest {
     void shouldDeleteTrackCompletely() {
         // Arrange
         Track track = createTrack(1L);
+
+        User user = new User();
+        user.setTrackCount(0);
+
         when(trackRepository.findById(1L)).thenReturn(Optional.of(track));
+        when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
 
         // Act
         trackService.deleteTrack(1L);

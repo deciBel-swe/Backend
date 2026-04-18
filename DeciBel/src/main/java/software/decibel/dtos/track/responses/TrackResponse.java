@@ -1,13 +1,16 @@
-package software.decibel.dtos.track;
+package software.decibel.dtos.track.responses;
 
 import java.time.LocalDate;
 import java.util.List;
+
+import software.decibel.enums.TrackAccess;
 
 public record TrackResponse(
         Long id,
         String title,
         TrackArtist artist,
         String trackUrl,
+        String trackPreviewUrl,
         String coverUrl,
         String waveformUrl,
         String genre,
@@ -18,14 +21,12 @@ public record TrackResponse(
         int playCount,
         int likeCount,
         int repostCount,
+        int commentCount,
         boolean isPrivate,
         int trackDurationSeconds,
         LocalDate uploadDate,
         String description,
-        Long completedPlayCount,
-        Long commentCount,
-        String access,
         String secretToken,
-        String trackPreviewUrl) {
+        TrackAccess access) {
 
 }

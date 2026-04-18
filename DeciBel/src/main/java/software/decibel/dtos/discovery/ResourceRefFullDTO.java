@@ -1,10 +1,10 @@
 package software.decibel.dtos.discovery;
 
-import software.decibel.dtos.playlist.PlaylistResponse;
-import software.decibel.dtos.track.TrackResponse;
-import software.decibel.dtos.user.UserSummary;
-
 import java.time.LocalDateTime;
+
+import software.decibel.dtos.playlist.PlaylistResponse;
+import software.decibel.dtos.track.responses.TrackResponse;
+import software.decibel.dtos.user.UserSummary;
 
 public record ResourceRefFullDTO(
         String type,

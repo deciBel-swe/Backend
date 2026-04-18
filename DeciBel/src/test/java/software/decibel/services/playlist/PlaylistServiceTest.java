@@ -1,36 +1,36 @@
 package software.decibel.services.playlist;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
-
 import software.decibel.dtos.playlist.CreatePlaylistRequest;
 import software.decibel.dtos.playlist.PatchPlaylistRequest;
 import software.decibel.dtos.playlist.PlaylistResponse;
 import software.decibel.entities.Playlist;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
+import software.decibel.enums.AccountTier;
 import software.decibel.enums.PlaylistType;
 import software.decibel.enums.Visibility;
 import software.decibel.exceptions.custom.PlaylistAccessDeniedException;
@@ -175,8 +175,10 @@ class PlaylistServiceTest {
     @Test
     void getPlaylist_whenExists_returnsPlaylistResponse() {
         User user = user(1L);
+    user.setTier(AccountTier.FREE);
         Playlist playlist = playlist(user);
         when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
+    when(userService.getUserIfExistsById(1L)).thenReturn(user);
 
         // Mock current user so visibility checks pass
         try (MockedStatic<JwtService> mockedJwt = mockStatic(JwtService.class)) {

@@ -1,7 +1,7 @@
 package software.decibel.mappers;
 
 import org.mapstruct.Mapper;
-import software.decibel.dtos.track.RepostResponse;
+import software.decibel.dtos.track.responses.RepostResponse;
 
 @Mapper(componentModel = "spring")
 public interface RepostMapper {

@@ -9,6 +9,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import software.decibel.enums.TrackAccess;
 import software.decibel.enums.TrackState;
 import software.decibel.enums.Visibility;
 
@@ -47,6 +48,9 @@ public class Track {
     @Enumerated(EnumType.STRING)
     private TrackState state;
 
+    @Enumerated(EnumType.STRING)
+    private TrackAccess access;
+
     @CreationTimestamp
     private LocalDateTime uploadDate;
 
@@ -58,6 +62,7 @@ public class Track {
 
     // --- File & Storage Details ---
     private String trackUrl;
+    private String trackPreviewUrl;
     private String coverUrl;
     private String waveformUrl;
 

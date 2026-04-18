@@ -1,7 +1,8 @@
-package software.decibel.dtos.track;
+package software.decibel.dtos.track.responses;
 
 import java.time.LocalDate;
 import java.util.List;
+import software.decibel.enums.TrackAccess;
 
 public record TrackPatchResponse(
     Long id,
@@ -11,4 +12,5 @@ public record TrackPatchResponse(
     String description,
     Boolean isPrivate,
     List<String> tags,
-    LocalDate releaseDate) {}
+    LocalDate releaseDate,
+    TrackAccess access) {}

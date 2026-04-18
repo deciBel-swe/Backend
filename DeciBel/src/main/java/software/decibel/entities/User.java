@@ -64,6 +64,8 @@ public class User {
     @Builder.Default
     private int trackCount = 0;
 
+  @Builder.Default private int freeTracksLeft = 3;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 
