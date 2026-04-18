@@ -83,6 +83,7 @@ public class TrackService {
     @Transactional
     public void deleteTrack(Long trackId) {
         Track track = getTrackIfExistsById(trackId);
+        
         //fetch track url data before deleting
         final String audioUrl = track.getTrackUrl();
         final String coverUrl = track.getCoverUrl();
@@ -95,7 +96,10 @@ public class TrackService {
         //update track count
         user.setTrackCount(user.getTrackCount() - 1);
 
-        
+    if (track.getAccess() != TrackAccess.BLOCKED) {
+      user.setFreeTracksLeft(user.getFreeTracksLeft() + 1);
+    }
+
         trackRepository.delete(track);
         //delete from azure
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -291,7 +295,7 @@ public class TrackService {
 
     if (request.access() != null) {
       TrackAccess finalAccess =
-          trackPlaybackService.resolveUploadAccess(uploader, request.access());
+          trackPlaybackService.resolvePatchAccess(uploader, track.getAccess(), request.access());
 
       // update free tracks left based on initial access and final access
       trackPlaybackService.updateFreeTracksLeft(uploader, track.getAccess(), finalAccess);
