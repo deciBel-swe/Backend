@@ -9,21 +9,18 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import software.decibel.exceptions.custom.*;
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
-import org.springframework.web.bind.MissingServletRequestParameterException;
-import org.springframework.web.HttpMediaTypeNotSupportedException;
-import org.springframework.web.server.ResponseStatusException;
-
-import jakarta.servlet.http.HttpServletRequest;
-import lombok.extern.slf4j.Slf4j;
 import software.decibel.exceptions.custom.AudioDurationReadingException;
 import software.decibel.exceptions.custom.AzureFileStorageException;
 import software.decibel.exceptions.custom.CooldownActiveException;
@@ -239,6 +236,23 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.badRequest().body(error);
     }
+
+  // Called when free user out of free uploads (can only upload / patch to blocked from now on)
+  @ExceptionHandler(FreeUserOutOfFreeTracks.class)
+  public ResponseEntity<ApiErrorResponse> handleFreeUserOutOfFreeTracks(
+      FreeUserOutOfFreeTracks ex, HttpServletRequest request) {
+
+    ApiErrorResponse error =
+        ApiErrorResponse.builder()
+            .timestamp(LocalDateTime.now())
+            .status(HttpStatus.BAD_REQUEST.value())
+            .error("Free User Out of Free Tracks")
+            .message(ex.getMessage())
+            .path(request.getRequestURI())
+            .build();
+
+    return ResponseEntity.badRequest().body(error);
+  }
 
     // Called when trying to reply to another reply (according to the docs replies are one level max)
     @ExceptionHandler(ReplyToReplyNotAllowedException.class)

@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import software.decibel.dtos.track.responses.*;
 import software.decibel.entities.User;
 import software.decibel.enums.*;
+import software.decibel.exceptions.custom.FreeUserOutOfFreeTracks;
 import software.decibel.utils.*;
 
 @Service
@@ -40,8 +41,8 @@ public class TrackPlaybackService {
       return requestedAccess;
     }
 
-    // free user -> no slots → forced BLOCKED
-    return TrackAccess.BLOCKED;
+    // free user -> no slots → cant upload not blocked
+    throw new FreeUserOutOfFreeTracks(user.getId());
   }
 
   public void updateFreeTracksLeft(

@@ -94,6 +94,8 @@ public class TrackService {
         User user = track.getUploader();
         //update track count
         user.setTrackCount(user.getTrackCount() - 1);
+
+        
         trackRepository.delete(track);
         //delete from azure
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -256,12 +258,15 @@ public class TrackService {
     @Transactional
     public TrackPatchResponse updateTrack(Long trackId, TrackPatchRequest request) {
         Track track = getTrackIfExistsById(trackId);
+    Long userId = JwtService.getCurrentUserId();
+    User uploader = userService.getUserIfExistsById(userId);
 
         if (request.title() != null) {
             track.setTitle(request.title());
         }
         if (request.genre() != null) {
             track.setGenre(request.genre());
+      WordUtils.capitalize(track.getGenre().trim().toLowerCase().replaceAll("\\s+", " "));
         }
         if (request.description() != null) {
             track.setDescription(request.description());
@@ -283,6 +288,15 @@ public class TrackService {
         if (request.tags() != null) {
             addTrackTags(track, tags);
         }
+
+    if (request.access() != null) {
+      TrackAccess finalAccess =
+          trackPlaybackService.resolveUploadAccess(uploader, request.access());
+
+      // update free tracks left based on initial access and final access
+      trackPlaybackService.updateFreeTracksLeft(uploader, track.getAccess(), finalAccess);
+      track.setAccess(finalAccess);
+    }
 
         return trackMapper.toTrackPatchResponse(trackRepository.save(track));
     }
