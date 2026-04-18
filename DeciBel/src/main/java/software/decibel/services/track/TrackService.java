@@ -1,11 +1,14 @@
 package software.decibel.services.track;
 
+import jakarta.transaction.Transactional;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.text.WordUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -15,10 +18,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
-
-import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import software.decibel.dtos.track.requests.TrackPatchRequest;
 import software.decibel.dtos.track.requests.TrackUploadRequest;
 import software.decibel.dtos.track.responses.TrackPageResponse;
@@ -31,10 +30,7 @@ import software.decibel.dtos.track.responses.TrackWaveFormUrlResponse;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
-import software.decibel.enums.AccountTier;
-import software.decibel.enums.FileType;
-import software.decibel.enums.TrackState;
-import software.decibel.enums.Visibility;
+import software.decibel.enums.*;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.exceptions.custom.TrackAlreadyPublishedException;
 import software.decibel.exceptions.custom.UnauthorizedActionException;
@@ -65,6 +61,8 @@ public class TrackService {
     private final UserService userService;
     private final BlockRepository blockRepository;
 
+  private final TrackPlaybackService trackPlaybackService;
+
     private final LikeService likeService;
     private final RepostService repostService;
 
@@ -85,6 +83,7 @@ public class TrackService {
     @Transactional
     public void deleteTrack(Long trackId) {
         Track track = getTrackIfExistsById(trackId);
+        
         //fetch track url data before deleting
         final String audioUrl = track.getTrackUrl();
         final String coverUrl = track.getCoverUrl();
@@ -96,6 +95,12 @@ public class TrackService {
         User user = track.getUploader();
         //update track count
         user.setTrackCount(user.getTrackCount() - 1);
+
+    // if free user deleted a nn-blocked track they free a slot
+    if (track.getAccess() != TrackAccess.BLOCKED && user.getTier() == AccountTier.FREE) {
+      user.setFreeTracksLeft(user.getFreeTracksLeft() + 1);
+    }
+
         trackRepository.delete(track);
         //delete from azure
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -164,20 +169,23 @@ public class TrackService {
 
         Long userId = JwtService.getCurrentUserId();
         User uploader = userService.getUserIfExistsById(userId);
-        if (uploader.getTier() == AccountTier.FREE) {
-            int trackCount = trackRepository.countByUploaderId(userId);
-            if (trackCount >= 3) {
-                throw new UnauthorizedActionException(
-                        "Free users can only upload up to 3 tracks. Upgrade to PRO to upload more.");
-            }
-        }
+        
+       
 
         Track track = trackMapper.toEntity(request, uploader);
+    // Resolve track access based on business logic and user's tier
+    TrackAccess finalAccess = trackPlaybackService.resolveUploadAccess(uploader, request.access());
+    trackPlaybackService.updateFreeTracksLeft(uploader, null, finalAccess);
+    track.setAccess(finalAccess);
 
         List<String> tags = TagUtility.parseTags(request.tags());
         if (request.tags() != null) {
             addTrackTags(track, tags);
         }
+
+    // Normalize genre
+    track.setGenre(
+        WordUtils.capitalize(track.getGenre().trim().toLowerCase().replaceAll("\\s+", " ")));
 
         Track createdTrack = createUploadingTrack(track, uploadId);
 
@@ -255,12 +263,15 @@ public class TrackService {
     @Transactional
     public TrackPatchResponse updateTrack(Long trackId, TrackPatchRequest request) {
         Track track = getTrackIfExistsById(trackId);
+    Long userId = JwtService.getCurrentUserId();
+    User uploader = userService.getUserIfExistsById(userId);
 
         if (request.title() != null) {
             track.setTitle(request.title());
         }
         if (request.genre() != null) {
             track.setGenre(request.genre());
+      WordUtils.capitalize(track.getGenre().trim().toLowerCase().replaceAll("\\s+", " "));
         }
         if (request.description() != null) {
             track.setDescription(request.description());
@@ -282,6 +293,15 @@ public class TrackService {
         if (request.tags() != null) {
             addTrackTags(track, tags);
         }
+
+    if (request.access() != null) {
+      TrackAccess finalAccess =
+          trackPlaybackService.resolvePatchAccess(uploader, track.getAccess(), request.access());
+
+      // update free tracks left based on initial access and final access
+      trackPlaybackService.updateFreeTracksLeft(uploader, track.getAccess(), finalAccess);
+      track.setAccess(finalAccess);
+    }
 
         return trackMapper.toTrackPatchResponse(trackRepository.save(track));
     }
