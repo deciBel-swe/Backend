@@ -57,30 +57,39 @@ public class SearchService {
     }
 
     private SearchResponse searchAll(String query, Pageable pageable) {
-        // For "all", we might want to combine results. 
-        // A simple way is to take a few from each, but here we'll just search everything and combine.
-        // However, standard search usually paginates. 
-        // If we want a global search like feed, we might need a more complex query or just combine.
-        
-        Page<Track> tracks = trackRepository.searchPublicTracks(query, pageable);
-        Page<Playlist> playlists = playlistRepository.searchPublicPlaylists(query, pageable);
-        Page<User> users = userRepository.searchPublicUsers(query, pageable);
+        int pageSize = pageable.getPageSize();
+        int pageNumber = pageable.getPageNumber();
+
+        // Distribute pageSize across different types (Tracks, Playlists, Users)
+        // Taking a balanced portion from each to combine them.
+        int tracksLimit = pageSize / 3 + (pageSize % 3 > 0 ? 1 : 0);
+        int playlistsLimit = pageSize / 3 + (pageSize % 3 > 1 ? 1 : 0);
+        int usersLimit = pageSize / 3;
+
+        Pageable tracksPageable = PageRequest.of(pageNumber, tracksLimit);
+        Pageable playlistsPageable = PageRequest.of(pageNumber, playlistsLimit);
+        Pageable usersPageable = PageRequest.of(pageNumber, usersLimit);
+
+        Page<Track> tracks = trackRepository.searchPublicTracks(query, tracksPageable);
+        Page<Playlist> playlists = playlistRepository.searchPublicPlaylists(query, playlistsPageable);
+        Page<User> users = userRepository.searchPublicUsers(query, usersPageable);
 
         List<ResourceRefFullDTO> content = new ArrayList<>();
         tracks.getContent().forEach(t -> content.add(ResourceRefFullDTO.of(trackMapper.toTrackResponse(t, false, false))));
         playlists.getContent().forEach(p -> content.add(ResourceRefFullDTO.of(playlistMapper.toResponse(p))));
         users.getContent().forEach(u -> content.add(ResourceRefFullDTO.of(userMapper.toUserSummary(u))));
 
-        // This "all" search is a bit naive for pagination as it's not truly global pagination across types.
-        // But for many apps, it's acceptable to just return combined results from first pages of each.
-        
+        long totalElements = tracks.getTotalElements() + playlists.getTotalElements() + users.getTotalElements();
+        int totalPages = (int) Math.ceil((double) totalElements / pageSize);
+        boolean isLast = tracks.isLast() && playlists.isLast() && users.isLast();
+
         return new SearchResponse(
                 content,
-                pageable.getPageNumber(),
-                pageable.getPageSize(),
-                tracks.getTotalElements() + playlists.getTotalElements() + users.getTotalElements(),
-                Math.max(Math.max(tracks.getTotalPages(), playlists.getTotalPages()), users.getTotalPages()),
-                tracks.isLast() && playlists.isLast() && users.isLast()
+                pageNumber,
+                pageSize,
+                totalElements,
+                totalPages,
+                isLast
         );
     }
 

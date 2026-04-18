@@ -92,6 +92,19 @@ class SearchServiceTest {
         verify(userRepository, times(1)).searchPublicUsers(eq("test"), any(Pageable.class));
     }
 
+    @Test
+    void search_withAll_callsAllRepositories() {
+        when(trackRepository.searchPublicTracks(anyString(), any(Pageable.class))).thenReturn(new PageImpl<>(Collections.emptyList()));
+        when(playlistRepository.searchPublicPlaylists(anyString(), any(Pageable.class))).thenReturn(new PageImpl<>(Collections.emptyList()));
+        when(userRepository.searchPublicUsers(anyString(), any(Pageable.class))).thenReturn(new PageImpl<>(Collections.emptyList()));
+
+        searchService.search("test", "all", 0, 30);
+
+        verify(trackRepository).searchPublicTracks(eq("test"), any(Pageable.class));
+        verify(playlistRepository).searchPublicPlaylists(eq("test"), any(Pageable.class));
+        verify(userRepository).searchPublicUsers(eq("test"), any(Pageable.class));
+    }
+
     private String eq(String test) {
         return org.mockito.ArgumentMatchers.eq(test);
     }
