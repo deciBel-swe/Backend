@@ -41,6 +41,12 @@ public class Report {
     @Column(nullable = false)
     private ReportTargetType targetType;
 
+    @Column(nullable = false)
+    private String reason;
+
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
