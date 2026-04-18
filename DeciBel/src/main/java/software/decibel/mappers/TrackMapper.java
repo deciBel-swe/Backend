@@ -76,7 +76,7 @@ public interface TrackMapper {
     @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
     @Mapping(target = "playCount", source = "track.playCount")
     @Mapping(target = "commentCount", expression = "java(mapCommentCount(track))")
-    @Mapping(target = "access", expression = "java(track.getVisibility() == Visibility.PUBLIC ? \"FULL\" : \"PREVIEW\")")
+    @Mapping(target = "access", expression = "java(track.getVisibility() == Visibility.PUBLIC ? software.decibel.enums.TrackAccess.PLAYABLE : software.decibel.enums.TrackAccess.PREVIEW)")
     @Mapping(target = "secretToken", expression = "java(mapSecretToken(track))")
     @Mapping(target = "trackPreviewUrl", source = "track.trackUrl")
     TrackResponse toTrackResponse(Track track, boolean isLiked, boolean isReposted);
