@@ -1,15 +1,14 @@
 package software.decibel.services.track;
 
-import java.util.UUID;
-
-import org.springframework.stereotype.Service;
-
 import jakarta.transaction.Transactional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import software.decibel.dtos.track.TrackResponse;
-import software.decibel.dtos.track.TrackTokenResponse;
+import org.springframework.stereotype.Service;
+import software.decibel.dtos.track.responses.TrackResponse;
+import software.decibel.dtos.track.responses.TrackTokenResponse;
 import software.decibel.entities.Track;
 import software.decibel.entities.TrackToken;
+import software.decibel.entities.User;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.exceptions.custom.UnauthorizedActionException;
 import software.decibel.mappers.TrackMapper;
@@ -18,6 +17,7 @@ import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepostRepository;
 import software.decibel.repositories.TrackTokenRepository;
 import software.decibel.services.JwtService;
+import software.decibel.services.user.UserService;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +27,7 @@ public class TrackTokenService {
     private final TrackLikeRepository likeRepository;
     private final TrackRepostRepository repostRepository;
     private final TrackService trackService;
+  private final UserService userService;
     private final TrackTokenMapper trackTokenMapper;
     private final TrackMapper trackMapper;
 
@@ -75,11 +76,16 @@ public class TrackTokenService {
                 .orElseThrow(() -> new ResourceNotFoundException("Invalid or expired track token"));
 
         Long userId = JwtService.getCurrentUserId();
+    User user = userService.getUserIfExistsById(userId);
         Track track = trackToken.getTrack();
 
         boolean isLiked = likeRepository.existsByUserIdAndTrackId(userId, track.getId());
         boolean isReposted = repostRepository.existsByUserIdAndTrackId(userId, track.getId());
 
-        return trackMapper.toTrackResponse(track, isLiked, isReposted);
+    return trackMapper.toTrackResponseSingle(
+        track,
+        userService.getUserIfExistsById(JwtService.getCurrentUserId()).getTier(),
+        isLiked,
+        isReposted);
     }
 }

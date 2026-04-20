@@ -1,24 +1,24 @@
 package software.decibel.services;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -26,9 +26,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
-
 import software.decibel.dtos.engagement.RepostItemResponse;
-import software.decibel.dtos.track.RepostResponse;
+import software.decibel.dtos.track.responses.RepostResponse;
 import software.decibel.entities.Playlist;
 import software.decibel.entities.PlaylistRepost;
 import software.decibel.entities.Track;
@@ -44,7 +43,6 @@ import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.PlaylistRepostRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
-import software.decibel.repositories.UserRepository;
 import software.decibel.services.engagement.RepostService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.UserMappingUtility;
@@ -64,8 +62,6 @@ class RepostServiceTest {
     private PlaylistRepostRepository playlistRepostRepository;
     @Mock
     private PlaylistRepository playlistRepository;
-    @Mock
-    private UserRepository userRepository;
     @Mock
     private UserMappingUtility userMappingUtility;
     @Mock
@@ -158,7 +154,7 @@ class RepostServiceTest {
         playlist.setId(10L);
         playlist.setRepostCount(2);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userService.getUserIfExistsById(1L)).thenReturn(user);
         when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
         when(playlistRepostRepository.existsByUserAndPlaylist(any(), any())).thenReturn(false);
         when(repostMapper.toRepostResponse(anyBoolean())).thenReturn(new RepostResponse("reposted", true));
@@ -179,7 +175,7 @@ class RepostServiceTest {
         playlist.setRepostCount(2);
         PlaylistRepost existingRepost = PlaylistRepost.builder().user(user).playlist(playlist).build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userService.getUserIfExistsById(1L)).thenReturn(user);
         when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
         when(playlistRepostRepository.findByUserAndPlaylist(any(), any())).thenReturn(Optional.of(existingRepost));
 
@@ -203,7 +199,7 @@ class RepostServiceTest {
         track.setTitle("T1");
         Pageable pageable = PageRequest.of(0, 10);
 
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));
+        when(userService.getUserIfExistsByUsername("testuser")).thenReturn(user);
 
         PlaylistRepost pr = PlaylistRepost.builder().playlist(playlist).repostedAt(LocalDateTime.now().minusDays(1)).build();
         TrackRepost tr = TrackRepost.builder().track(track).repostedAt(LocalDateTime.now()).build();

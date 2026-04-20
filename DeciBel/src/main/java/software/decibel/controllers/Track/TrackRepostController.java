@@ -1,14 +1,13 @@
 package software.decibel.controllers.Track;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import lombok.RequiredArgsConstructor;
-import software.decibel.dtos.track.RepostResponse;
+import software.decibel.dtos.track.responses.RepostResponse;
 import software.decibel.services.engagement.RepostService;
 
 @RestController

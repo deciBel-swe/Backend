@@ -3,9 +3,11 @@ package software.decibel.services;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.AfterEach;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,14 +24,18 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.MockitoAnnotations;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import software.decibel.dtos.track.TrackPatchRequest;
-import software.decibel.dtos.track.TrackStatusResponse;
+import software.decibel.dtos.track.requests.TrackPatchRequest;
+import software.decibel.dtos.track.responses.TrackPageResponse;
+import software.decibel.dtos.track.responses.TrackStatusResponse;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
+import software.decibel.enums.AccountTier;
 import software.decibel.enums.TrackState;
 import software.decibel.enums.Visibility;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
@@ -39,6 +45,8 @@ import software.decibel.repositories.CommentRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
+import software.decibel.services.engagement.LikeService;
+import software.decibel.services.engagement.RepostService;
 import software.decibel.services.track.TrackService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.AudioUtility;
@@ -57,7 +65,6 @@ class TrackServiceTest {
     @Mock
     private TrackRepository trackRepository;
 
-    // --> Added the missing BlockRepository
     @Mock
     private BlockRepository blockRepository;
 
@@ -77,6 +84,12 @@ class TrackServiceTest {
     private ObjectMapper objectMapper;
     @Mock
     private SimpMessagingTemplate messagingTemplate;
+
+    @Mock
+    private LikeService likeService;
+
+    @Mock
+    private RepostService repostService;
 
     @InjectMocks
     private TrackService trackService;
@@ -137,53 +150,6 @@ class TrackServiceTest {
         assertThrows(ResourceNotFoundException.class, () -> trackService.getTrackIfExistsById(1L));
     }
 
-    // updateTrackState
-    // -------------------------------
-    @Test
-    void shouldUpdateTrackState() {
-        // Arrange
-        Track track = createTrack(1L);
-
-        // Act
-        trackService.updateTrackState(track, TrackState.PROCESSING);
-
-        // Assert
-        assertEquals(TrackState.PROCESSING, track.getState());
-        // make sure it saved to repo
-        verify(trackRepository).save(track);
-        verify(messagingTemplate)
-                .convertAndSend(
-                        eq("/topic/track-status/1"),
-                        argThat(
-                                (TrackStatusResponse response)
-                                -> response.trackState() == TrackState.PROCESSING
-                                && response.trackId().equals(1L)
-                                && response.progressPercentage() == null));
-    }
-
-    @Test
-    void shouldUpdateTrackStateWithRichStatus() {
-        // Arrange
-        Track track = createTrack(1L);
-
-        // Act
-        trackService.updateTrackState(track, TrackState.UPLOADING, 50, "Step", "Error");
-
-        // Assert
-        assertEquals(TrackState.UPLOADING, track.getState());
-        verify(trackRepository).save(track);
-        verify(messagingTemplate)
-                .convertAndSend(
-                        eq("/topic/track-status/1"),
-                        argThat(
-                                (TrackStatusResponse response)
-                                -> response.trackState() == TrackState.UPLOADING
-                                && response.trackId().equals(1L)
-                                && response.progressPercentage().equals(50)
-                                && response.stepName().equals("Step")
-                                && response.errorMessage().equals("Error")));
-    }
-
     @Test
     void shouldThrow_whenTrackNotFound_updateTrack() {
         // Arrange
@@ -200,15 +166,27 @@ class TrackServiceTest {
     void shouldSetStateUploading_whenCreatingTrack() {
         // Arrange
         Track track = createTrack(1L);
+        String uploadId = "test-uuid-1234"; // Added client upload ID
         when(trackRepository.save(track)).thenReturn(track);
 
         // Act
-        Track result = trackService.createUploadingTrack(track);
+        Track result = trackService.createUploadingTrack(track, uploadId);
 
         // Assert
         assertEquals(TrackState.UPLOADING, result.getState());
+        verify(trackRepository).save(track);
         verify(messagingTemplate)
-                .convertAndSend(eq("/topic/track-status/1"), any(TrackStatusResponse.class));
+                .convertAndSend(
+                        eq("/topic/track-status/" + uploadId), // Now uses uploadId
+                        argThat(
+                                (TrackStatusResponse response)
+                                -> response.trackState() == TrackState.UPLOADING
+                                && response.trackId().equals(1L)
+                                && response.progressPercentage() != null
+                                && response.progressPercentage() == 0
+                                && "Initializing".equals(response.stepName())
+                        )
+                );
     }
 
     // deleteTrackCover
@@ -325,6 +303,7 @@ class TrackServiceTest {
     void shouldUpdateBasicFields() {
         // Arrange
         Track track = createTrack(1L);
+        track.setGenre("Rock");
 
         TrackPatchRequest request = mock(TrackPatchRequest.class);
         when(request.title()).thenReturn("New Title");
@@ -382,10 +361,38 @@ class TrackServiceTest {
     }
 
     @Test
+    void shouldReturnTrendingTracks() {
+        Track track = createTrack(1L);
+        Page<Track> page = new PageImpl<>(List.of(track));
+        User mockUser = new User();
+        mockUser.setId(1L);
+        mockUser.setTier(AccountTier.FREE);
+
+        when(userService.getUserIfExistsById(any())).thenReturn(mockUser);
+
+        when(trackRepository.findAllTrending(any())).thenReturn(page);
+        when(likeService.getLikedTrackIds(any())).thenReturn(Set.of());
+        when(repostService.getRepostedTrackIds(any())).thenReturn(Set.of());
+
+        when(trackMapper.toPageResponse(any(), any(), any(), any()))
+                .thenReturn(new TrackPageResponse(List.of(), 0, 10, 1, 1, true));
+
+        TrackPageResponse result = trackService.getTrendingTracks(0, 10);
+
+        assertNotNull(result);
+        verify(trackRepository).findAllTrending(any());
+    }
+
+    @Test
     void shouldDeleteTrackCompletely() {
         // Arrange
         Track track = createTrack(1L);
+
+        User user = new User();
+        user.setTrackCount(0);
+
         when(trackRepository.findById(1L)).thenReturn(Optional.of(track));
+        when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
 
         // Act
         trackService.deleteTrack(1L);

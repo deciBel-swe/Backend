@@ -1,25 +1,25 @@
 package software.decibel.services;
 
-import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -27,14 +27,14 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
-
 import software.decibel.dtos.playlist.PlaylistResponse;
-import software.decibel.dtos.track.LikeResponse;
+import software.decibel.dtos.track.responses.LikeResponse;
 import software.decibel.entities.Playlist;
 import software.decibel.entities.PlaylistLike;
 import software.decibel.entities.Track;
 import software.decibel.entities.TrackLike;
 import software.decibel.entities.User;
+import software.decibel.enums.AccountTier;
 import software.decibel.enums.PlaylistType;
 import software.decibel.mappers.LikeMapper;
 import software.decibel.mappers.PlaylistMapper;
@@ -46,7 +46,6 @@ import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
-import software.decibel.repositories.UserRepository;
 import software.decibel.services.engagement.LikeService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.UserMappingUtility;
@@ -72,8 +71,6 @@ class LikeServiceTest {
     private PlaylistLikeRepository playlistLikeRepository;
     @Mock
     private PlaylistRepository playlistRepository;
-    @Mock
-    private UserRepository userRepository;
     @Mock
     private PlaylistMapper playlistMapper;
     @Mock
@@ -140,7 +137,7 @@ class LikeServiceTest {
         playlist.setId(10L);
         playlist.setLikeCount(5);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userService.getUserIfExistsById(1L)).thenReturn(user);
         when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
         when(playlistLikeRepository.existsByUserAndPlaylist(any(), any())).thenReturn(false);
         when(likeMapper.toLikeResponse(anyBoolean())).thenReturn(new LikeResponse("liked", true));
@@ -159,7 +156,7 @@ class LikeServiceTest {
         Playlist playlist = new Playlist();
         playlist.setId(10L);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userService.getUserIfExistsById(1L)).thenReturn(user);
         when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
         when(playlistLikeRepository.existsByUserAndPlaylist(any(), any())).thenReturn(true);
 
@@ -180,7 +177,7 @@ class LikeServiceTest {
         playlist.setLikeCount(5);
         PlaylistLike existingLike = PlaylistLike.builder().user(user).playlist(playlist).build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userService.getUserIfExistsById(1L)).thenReturn(user);
         when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
         when(playlistLikeRepository.findByUserAndPlaylist(any(), any())).thenReturn(Optional.of(existingLike));
 
@@ -194,6 +191,8 @@ class LikeServiceTest {
     void getLikedPlaylists_success() {
         User user = new User();
         user.setId(1L);
+    user.setTier(AccountTier.FREE);
+
         user.setUsername("testuser");
 
         Playlist playlist = new Playlist();
@@ -217,7 +216,8 @@ class LikeServiceTest {
                 null // tracks (TrackPageResponse)
         );
 
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));
+        when(userService.getUserIfExistsByUsername("testuser")).thenReturn(user);
+        when(userService.getUserIfExistsById(1L)).thenReturn(user);
 
         when(playlistLikeRepository.findLikedPlaylistsByUserId(eq(1L), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(playlist)));
@@ -225,7 +225,7 @@ class LikeServiceTest {
         when(trackLikeRepository.findTrackIdsByUserId(1L)).thenReturn(Collections.emptySet());
         when(trackRepostRepository.findTrackIdsByUserId(1L)).thenReturn(Collections.emptySet());
 
-        when(playlistMapper.toResponse(any(), any(), any(), any())).thenReturn(dummyResponse);
+    when(playlistMapper.toResponse(any(), any(), any(), any(), any())).thenReturn(dummyResponse);
 
         try (MockedStatic<JwtService> mockedJwt = mockStatic(JwtService.class)) {
             mockedJwt.when(JwtService::getCurrentUserId).thenReturn(1L);

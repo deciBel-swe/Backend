@@ -14,14 +14,15 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import software.decibel.dtos.track.TrackPatchRequest;
-import software.decibel.dtos.track.TrackPatchResponse;
-import software.decibel.dtos.track.TrackPublishResponse;
-import software.decibel.dtos.track.TrackResponse;
-import software.decibel.dtos.track.TrackStatusResponse;
-import software.decibel.dtos.track.TrackUploadRequest;
-import software.decibel.dtos.track.TrackUploadResponse;
-import software.decibel.dtos.track.TrackWaveFormUrlResponse;
+import software.decibel.dtos.track.InitialTrackResponse;
+import software.decibel.dtos.track.requests.TrackPatchRequest;
+import software.decibel.dtos.track.requests.TrackUploadRequest;
+import software.decibel.dtos.track.responses.TrackPatchResponse;
+import software.decibel.dtos.track.responses.TrackPublishResponse;
+import software.decibel.dtos.track.responses.TrackResponse;
+import software.decibel.dtos.track.responses.TrackStatusResponse;
+import software.decibel.dtos.track.responses.TrackUploadResponse;
+import software.decibel.dtos.track.responses.TrackWaveFormUrlResponse;
 import software.decibel.services.track.TrackService;
 
 @RestController
@@ -34,11 +35,24 @@ public class TrackController {
     // For uploading a track
     // Endpoint accepts multipart form data (files)
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<TrackUploadResponse> uploadTrack(
+    public ResponseEntity<TrackResponse> uploadTrack(
             @Valid @ModelAttribute TrackUploadRequest request) {
 
-        TrackUploadResponse response = trackService.uploadTrack(request);
+        TrackResponse response = trackService.uploadTrack(request, request.uploadId());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping(value = "/upload/v2", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<InitialTrackResponse> uploadTrackAsync(
+            @Valid @ModelAttribute TrackUploadRequest request) {
+
+        TrackUploadResponse response = trackService.uploadTrackAsync(request, request.uploadId());
+        InitialTrackResponse minimalResponse = new InitialTrackResponse(
+                response.id(),
+                request.title(),
+                request.uploadId()
+        );
+        return ResponseEntity.status(HttpStatus.CREATED).body(minimalResponse);
     }
 
     // For patching a track

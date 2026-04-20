@@ -53,12 +53,18 @@ public class User {
     @Builder.Default
     private boolean showHistory = true;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean isBanned = false;
+
     @Builder.Default
     private int followerCount = 0;
     @Builder.Default
     private int followingCount = 0;
     @Builder.Default
     private int trackCount = 0;
+
+  @Builder.Default private int freeTracksLeft = 3;
 
     @CreationTimestamp
     private LocalDateTime createdAt;

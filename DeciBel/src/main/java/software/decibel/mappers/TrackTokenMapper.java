@@ -1,7 +1,7 @@
 package software.decibel.mappers;
 
 import org.mapstruct.*;
-import software.decibel.dtos.track.TrackTokenResponse;
+import software.decibel.dtos.track.responses.TrackTokenResponse;
 import software.decibel.entities.TrackToken;
 
 @Mapper(componentModel = "spring") // Spring injects it as a @Component

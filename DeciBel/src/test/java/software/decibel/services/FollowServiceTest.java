@@ -1,28 +1,34 @@
 package software.decibel.services;
 
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.any;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+
 import software.decibel.dtos.user.UserFollowDto;
 import software.decibel.entities.Follow;
 import software.decibel.entities.User;
-import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.UserMapper;
+import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.UserRepository;
-
-import java.util.List;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import software.decibel.services.notification.InAppNotificationService;
+import software.decibel.services.user.UserService;
 
 @ExtendWith(MockitoExtension.class)
 class FollowServiceTest {
@@ -32,9 +38,15 @@ class FollowServiceTest {
 
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private BlockRepository blockRepository;
+    @Mock
+    private UserService userService;
 
     @Mock
     private UserMapper userMapper;
+    @Mock
+    private InAppNotificationService inAppNotificationService;
 
     @InjectMocks
     private FollowService followService;
@@ -44,8 +56,8 @@ class FollowServiceTest {
         User follower = User.builder().id(1L).followerCount(0).followingCount(0).build();
         User following = User.builder().id(2L).followerCount(0).followingCount(0).build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(follower));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(following));
+        when(userService.getUserIfExistsById(1L)).thenReturn(follower);
+        when(userService.getUserIfExistsById(2L)).thenReturn(following);
         when(followRepository.existsByFollowerAndFollowing(follower, following)).thenReturn(false);
 
         followService.followUser(1L, 2L);
@@ -67,8 +79,8 @@ class FollowServiceTest {
         User follower = User.builder().id(1L).build();
         User following = User.builder().id(2L).build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(follower));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(following));
+        when(userService.getUserIfExistsById(1L)).thenReturn(follower);
+        when(userService.getUserIfExistsById(2L)).thenReturn(following);
         when(followRepository.existsByFollowerAndFollowing(follower, following)).thenReturn(true);
 
         followService.followUser(1L, 2L);
@@ -82,8 +94,8 @@ class FollowServiceTest {
         User following = User.builder().id(2L).followerCount(1).followingCount(0).build();
         Follow follow = Follow.builder().follower(follower).following(following).build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(follower));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(following));
+        when(userService.getUserIfExistsById(1L)).thenReturn(follower);
+        when(userService.getUserIfExistsById(2L)).thenReturn(following);
         when(followRepository.findByFollowerAndFollowing(follower, following)).thenReturn(Optional.of(follow));
 
         followService.unfollowUser(1L, 2L);
@@ -103,7 +115,7 @@ class FollowServiceTest {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Follow> followPage = new PageImpl<>(List.of(follow));
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userService.getUserIfExistsById(1L)).thenReturn(user);
         when(followRepository.findByFollowing(user, pageable)).thenReturn(followPage);
         when(userMapper.toUserFollowDto(follower)).thenReturn(UserFollowDto.builder()
                 .id(follower.getId())

@@ -5,7 +5,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -14,16 +14,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-
-import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.engagement.RepostItemResponse;
-import software.decibel.dtos.track.RepostResponse;
+import software.decibel.dtos.track.responses.RepostResponse;
 import software.decibel.dtos.user.UserProfile;
 import software.decibel.entities.Playlist;
 import software.decibel.entities.PlaylistRepost;
 import software.decibel.entities.Track;
 import software.decibel.entities.TrackRepost;
 import software.decibel.entities.User;
+import software.decibel.enums.NotificationType;
+import software.decibel.enums.ResourceType;
 import software.decibel.enums.Visibility;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.RepostMapper;
@@ -34,8 +34,8 @@ import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.PlaylistRepostRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
-import software.decibel.repositories.UserRepository;
 import software.decibel.services.JwtService;
+import software.decibel.services.notification.InAppNotificationService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.UserMappingUtility;
 
@@ -47,10 +47,10 @@ public class RepostService {
     private final TrackRepostRepository trackRepostRepository;
     private final TrackRepository trackRepository;
     private final UserService userService;
+    private final InAppNotificationService inAppNotificationService;
     private final RepostMapper repostMapper;
     private final PlaylistRepostRepository playlistRepostRepository;
     private final PlaylistRepository playlistRepository;
-    private final UserRepository userRepository;
     private final UserMappingUtility userMappingUtility;
     private final FollowRepository followRepository;
     private final BlockRepository blockRepository;
@@ -76,6 +76,16 @@ public class RepostService {
 
         track.setRepostCount(track.getRepostCount() + 1);
         trackRepository.save(track);
+        // Notify the owner of the track that someone reposted it
+        if (track.getUploader() != null) {
+            inAppNotificationService.createNotification(
+                    track.getUploader().getId(), // Recipient (Track Owner)
+                    userId, // Actor (User who reposted)
+                    NotificationType.REPOST, // Notification type
+                    ResourceType.TRACK, // Resource type
+                    track.getId() // Resource ID
+            );
+        }
 
         return repostMapper.toRepostResponse(true);
     }
@@ -125,6 +135,15 @@ public class RepostService {
 
         playlist.setRepostCount(playlist.getRepostCount() + 1);
         playlistRepository.save(playlist);
+        if (playlist.getUser() != null) {
+            inAppNotificationService.createNotification(
+                    playlist.getUser().getId(), // Recipient (Playlist Owner)
+                    userId, // Actor (User who reposted)
+                    NotificationType.REPOST, // Notification type
+                    ResourceType.PLAYLIST, // Resource type
+                    playlist.getId() // Resource ID
+            );
+        }
         return ResponseEntity.ok(repostMapper.toRepostResponse(true)).getBody();
     }
 
@@ -148,8 +167,7 @@ public class RepostService {
 
     // Mixed feed of track + playlist reposts in chronological order
     public Page<RepostItemResponse> getUserReposts(String username, Pageable pageable) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + username));
+        User user = userService.getUserIfExistsByUsername(username);
 
         List<RepostItemResponse> all = new ArrayList<>();
 
@@ -184,7 +202,7 @@ public class RepostService {
         return new PageImpl<>(page, pageable, all.size());
     }
 
-    // GET /tracks/{trackId}/reposters
+    // used for getting all track reposters
     public Page<UserProfile> getTrackReposters(Long trackId, Pageable pageable) {
         trackRepository.findById(trackId)
                 .orElseThrow(() -> new ResourceNotFoundException("Track with id " + trackId + " not found"));
@@ -194,7 +212,7 @@ public class RepostService {
                 .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, blockRepository));
     }
 
-    // GET /playlists/{playlistId}/reposters
+    // used for getting all playlist reposters
     public Page<UserProfile> getPlaylistReposters(Long playlistId, Pageable pageable) {
         playlistRepository.findById(playlistId)
                 .orElseThrow(() -> new ResourceNotFoundException("Playlist with id " + playlistId + " not found"));
@@ -205,15 +223,14 @@ public class RepostService {
     }
 
     private User findUser(Long userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User with id " + userId + " not found"));
+        return userService.getUserIfExistsById(userId);
     }
     // Resolves the currently authenticated user, or null for anonymous requests
 
     private User resolveCurrentViewer() {
         try {
             Long currentUserId = JwtService.getCurrentUserId();
-            return userRepository.findById(currentUserId).orElse(null);
+            return userService.getUserIfExistsById(currentUserId);
         } catch (Exception e) {
             return null;
         }

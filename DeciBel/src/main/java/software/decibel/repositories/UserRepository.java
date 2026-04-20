@@ -3,6 +3,7 @@ package software.decibel.repositories;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -12,6 +13,10 @@ import software.decibel.entities.User;
 public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByUsername(String username);
+    Optional<User> findByIdAndIsBannedFalse(Long id);
+    Optional<User> findByUsernameAndIsBannedFalse(String username);
+    Page<User> findByIsBannedTrue(Pageable pageable);
+    long countByIsBannedTrue();
 
     // function to find users to follow based on common genres or favorite genres
     @Query("""
@@ -48,4 +53,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
         ORDER BY u.followerCount DESC, u.id ASC
     """)
     List<User> findPopularUsers(Long userId, Pageable pageable);
+
+    @Query("SELECT u FROM User u WHERE (LOWER(u.username) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(u.displayName) LIKE LOWER(CONCAT('%', :query, '%'))) AND u.isPrivate = false")
+    Page<User> searchPublicUsers(String query, Pageable pageable);
 }

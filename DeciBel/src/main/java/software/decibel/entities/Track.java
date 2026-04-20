@@ -9,6 +9,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import software.decibel.enums.TrackAccess;
 import software.decibel.enums.TrackState;
 import software.decibel.enums.Visibility;
 
@@ -20,71 +21,77 @@ import software.decibel.enums.Visibility;
 @Builder
 public class Track {
 
-  @Id
-  @GeneratedValue(strategy = GenerationType.IDENTITY)
-  private Long id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-  // --- Track Metadata ---
-  @Column(nullable = false)
-  private String title;
-  
-  @Column(nullable = false)
-  private LocalDate releaseDate;
-  
-  @Column(nullable = false)
-  private String genre;
+    // --- Track Metadata ---
+    @Column(nullable = false)
+    private String title;
 
-  private String description;
-  private int durationSeconds;
+    @Column(nullable = false)
+    private LocalDate releaseDate;
 
-  private int likeCount = 0;
-  private int repostCount = 0;
-  private int playCount = 0;
-  private double playThroughRate = 0.0;
+    @Column(nullable = false)
+    private String genre;
 
-  @Enumerated(EnumType.STRING)
-  private TrackState state;
+    private String description;
+    private int durationSeconds;
 
-  @CreationTimestamp private LocalDateTime uploadDate;
+    private int likeCount = 0;
+    private int repostCount = 0;
+    private int playCount = 0;
+    private int completedPlayCount = 0;
+    private int commentCount = 0;
+    private double playThroughRate = 0.0;
 
-  // ---Visibility ---
-  @Enumerated(EnumType.STRING)
-  @Column(nullable = false)
-  @Builder.Default
-  private Visibility visibility = Visibility.PUBLIC;
+    @Enumerated(EnumType.STRING)
+    private TrackState state;
 
-  // --- File & Storage Details ---
-  private String trackUrl;
-  private String coverUrl;
-  private String waveformUrl;
+    @Enumerated(EnumType.STRING)
+    private TrackAccess access;
 
-  // ---- publishing ----
+    @CreationTimestamp
+    private LocalDateTime uploadDate;
 
-  @Column(unique = true)
-  private String slug;
+    // ---Visibility ---
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private Visibility visibility = Visibility.PUBLIC;
 
-  private boolean published = false;
-  private LocalDateTime publishedAt;
+    // --- File & Storage Details ---
+    private String trackUrl;
+    private String trackPreviewUrl;
+    private String coverUrl;
+    private String waveformUrl;
 
-  // --- Relationships ---
-  @ManyToOne(fetch = FetchType.LAZY)
-  @JoinColumn(name = "uploader_id", nullable = false)
-  private User uploader;
+    // ---- publishing ----
+    @Column(unique = true)
+    private String slug;
 
-  // Many tracks can have many independent tags
-  @ManyToMany
-  @JoinTable(
-      name = "track_tags",
-      joinColumns = @JoinColumn(name = "track_id"),
-      inverseJoinColumns = @JoinColumn(name = "tag_id"))
-  private List<Tag> tags;
+    private boolean published = false;
+    private LocalDateTime publishedAt;
 
-  // A track has many secret tokens (deleted once track is deleted)
-  @OneToMany(mappedBy = "track", cascade = CascadeType.ALL, orphanRemoval = true)
-  private List<TrackToken> tokens;
+    // --- Relationships ---
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "uploader_id", nullable = false)
+    private User uploader;
 
-  // track can have many comments
-  // purpose is to delete comments if track is deleted
-  @OneToMany(mappedBy = "track", cascade = CascadeType.ALL, orphanRemoval = true)
-  private List<Comment> comments;
+    // Many tracks can have many independent tags
+    @ManyToMany
+    @JoinTable(
+            name = "track_tags",
+            joinColumns = @JoinColumn(name = "track_id"),
+            inverseJoinColumns = @JoinColumn(name = "tag_id"))
+    private List<Tag> tags;
+
+    // A track has many secret tokens (deleted once track is deleted)
+    @OneToMany(mappedBy = "track", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<TrackToken> tokens;
+
+    // track can have many comments
+    // purpose is to delete comments if track is deleted
+    @OneToMany(mappedBy = "track", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Comment> comments;
 }

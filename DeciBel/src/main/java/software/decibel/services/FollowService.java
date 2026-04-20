@@ -11,19 +11,28 @@ import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.user.UserFollowDto;
 import software.decibel.entities.Follow;
 import software.decibel.entities.User;
+import software.decibel.enums.NotificationType;
+import software.decibel.enums.ResourceType;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
+import software.decibel.exceptions.custom.UnauthorizedActionException;
 import software.decibel.mappers.UserMapper;
+import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.notification.InAppNotificationService;
+import software.decibel.services.user.UserService;
 
 // Service handling follow and unfollow business logic
 @Service
 @RequiredArgsConstructor
 public class FollowService {
 
+    private final InAppNotificationService inAppNotificationService;
     private final FollowRepository followRepository;
     private final UserRepository userRepository;
     private final UserMapper userMapper;
+    private final BlockRepository blockRepository;
+    private final UserService userService;
 
     // Follows a user and updates follower/following counts
     @Transactional
@@ -32,11 +41,12 @@ public class FollowService {
             throw new IllegalArgumentException("Users cannot follow themselves");
         }
 
-        User follower = userRepository.findById(followerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Follower not found"));
-        User following = userRepository.findById(followingId)
-                .orElseThrow(() -> new ResourceNotFoundException("User to follow not found"));
+        User follower = userService.getUserIfExistsById(followerId);
+        User following = userService.getUserIfExistsById(followingId);
 
+        if (blockRepository.existsByBlockerAndBlocked(following, follower)) {
+            throw new UnauthorizedActionException("you have been block by " + following.getDisplayName() + " please don't");
+        }
         if (followRepository.existsByFollowerAndFollowing(follower, following)) {
             return; // Already following
         }
@@ -52,15 +62,20 @@ public class FollowService {
         follower.setFollowingCount(follower.getFollowingCount() + 1);
         userRepository.save(following);
         userRepository.save(follower);
+        inAppNotificationService.createNotification(
+                followingId, // Recipient (User being followed)
+                followerId, // Actor (User doing the following)
+                NotificationType.FOLLOW,
+                ResourceType.USER,
+                followerId // Resource ID (Usually the profile of the new follower)
+        );
     }
 
     // Unfollows a user and updates follower/following counts
     @Transactional
     public void unfollowUser(Long followerId, Long followingId) {
-        User follower = userRepository.findById(followerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Follower not found"));
-        User following = userRepository.findById(followingId)
-                .orElseThrow(() -> new ResourceNotFoundException("User to unfollow not found"));
+        User follower = userService.getUserIfExistsById(followerId);
+        User following = userService.getUserIfExistsById(followingId);
 
         Optional<Follow> followOpt = followRepository.findByFollowerAndFollowing(follower, following);
         if (followOpt.isPresent()) {
@@ -76,10 +91,9 @@ public class FollowService {
 
     // Retrieves paginated list of followers for a user
     public Page<UserFollowDto> getFollowers(Long userId, Long currentUserId, Pageable pageable) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        User user = userService.getUserIfExistsById(userId);
 
-        User currentUser = currentUserId != null ? userRepository.findById(currentUserId).orElse(null) : null;
+        User currentUser = resolveCurrentUser(currentUserId);
 
         return followRepository.findByFollowing(user, pageable)
                 .map(follow -> {
@@ -93,10 +107,9 @@ public class FollowService {
 
     // Retrieves paginated list of users followed by a user
     public Page<UserFollowDto> getFollowing(Long userId, Long currentUserId, Pageable pageable) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        User user = userService.getUserIfExistsById(userId);
 
-        User currentUser = currentUserId != null ? userRepository.findById(currentUserId).orElse(null) : null;
+        User currentUser = resolveCurrentUser(currentUserId);
 
         return followRepository.findByFollower(user, pageable)
                 .map(follow -> {
@@ -106,5 +119,16 @@ public class FollowService {
                     boolean isFollowing = currentUser != null && followRepository.existsByFollowerAndFollowing(currentUser, following);
                     return dto.toBuilder().isFollowing(isFollowing).build();
                 });
+    }
+
+    private User resolveCurrentUser(Long currentUserId) {
+        if (currentUserId == null) {
+            return null;
+        }
+        try {
+            return userService.getUserIfExistsById(currentUserId);
+        } catch (ResourceNotFoundException ex) {
+            return null;
+        }
     }
 }

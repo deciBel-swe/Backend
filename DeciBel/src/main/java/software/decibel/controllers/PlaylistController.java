@@ -1,5 +1,7 @@
 package software.decibel.controllers;
 
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -16,16 +18,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.playlist.CreatePlaylistRequest;
 import software.decibel.dtos.playlist.PatchPlaylistRequest;
 import software.decibel.dtos.playlist.PlaylistResponse;
 import software.decibel.dtos.playlist.PlaylistTokenResponse;
 import software.decibel.dtos.playlist.ReorderTracksRequest;
-import software.decibel.dtos.track.LikeResponse;
-import software.decibel.dtos.track.RepostResponse;
+import software.decibel.dtos.track.responses.LikeResponse;
+import software.decibel.dtos.track.responses.RepostResponse;
 import software.decibel.services.JwtService;
 import software.decibel.services.engagement.LikeService;
 import software.decibel.services.engagement.RepostService;

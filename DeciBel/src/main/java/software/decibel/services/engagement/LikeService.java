@@ -3,7 +3,7 @@ package software.decibel.services.engagement;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
-
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -11,16 +11,17 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-
-import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.playlist.PlaylistResponse;
-import software.decibel.dtos.track.LikeResponse;
+import software.decibel.dtos.track.responses.LikeResponse;
 import software.decibel.dtos.user.UserProfile;
 import software.decibel.entities.Playlist;
 import software.decibel.entities.PlaylistLike;
 import software.decibel.entities.Track;
 import software.decibel.entities.TrackLike;
 import software.decibel.entities.User;
+import software.decibel.enums.AccountTier;
+import software.decibel.enums.NotificationType;
+import software.decibel.enums.ResourceType;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.LikeMapper;
 import software.decibel.mappers.PlaylistMapper;
@@ -32,8 +33,8 @@ import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
-import software.decibel.repositories.UserRepository;
 import software.decibel.services.JwtService;
+import software.decibel.services.notification.InAppNotificationService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.UserMappingUtility;
 
@@ -46,6 +47,7 @@ public class LikeService {
     private final TrackRepostRepository trackRepostRepository;
     private final TrackRepository trackRepository;
     private final UserService userService;
+    private final InAppNotificationService inAppNotificationService;
     private final LikeMapper likeMapper;
     private final UserMapper userMapper;
     private final FollowRepository followRepository;
@@ -53,7 +55,6 @@ public class LikeService {
 
     private final PlaylistLikeRepository playlistLikeRepository;
     private final PlaylistRepository playlistRepository;
-    private final UserRepository userRepository;
     private final PlaylistMapper playlistMapper;
     private final UserMappingUtility userMappingUtility;
 
@@ -75,6 +76,15 @@ public class LikeService {
 
         track.setLikeCount(track.getLikeCount() + 1);
         trackRepository.save(track);
+        if (track.getUploader() != null) {
+            inAppNotificationService.createNotification(
+                    track.getUploader().getId(), // Recipient (Track Owner)
+                    userId, // Actor (User who liked)
+                    NotificationType.LIKE,
+                    ResourceType.TRACK,
+                    track.getId() // Resource ID
+            );
+        }
 
         return likeMapper.toLikeResponse(true);
     }
@@ -124,6 +134,16 @@ public class LikeService {
 
         playlist.setLikeCount(playlist.getLikeCount() + 1);
         playlistRepository.save(playlist);
+        // Notify the owner of the playlist that someone liked it
+        if (playlist.getUser() != null) {
+            inAppNotificationService.createNotification(
+                    playlist.getUser().getId(), // Recipient (Playlist Owner)
+                    userId, // Actor (User who liked)
+                    NotificationType.LIKE,
+                    ResourceType.PLAYLIST,
+                    playlist.getId() // Resource ID
+            );
+        }
         return likeMapper.toLikeResponse(true);
     }
 
@@ -142,8 +162,7 @@ public class LikeService {
 
     public Page<PlaylistResponse> getLikedPlaylists(String username, Pageable playlistPageable) {
         Long currentUserId = JwtService.getCurrentUserId();
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + username));
+        User user = userService.getUserIfExistsByUsername(username);
 
         //check if user has been blocked 
         if (currentUserId != null && !currentUserId.equals(user.getId())) {
@@ -168,14 +187,21 @@ public class LikeService {
                 ? trackRepostRepository.findTrackIdsByUserId(currentUserId)
                 : Collections.emptySet();
 
-        return likedPlaylists.map(playlist
-                -> playlistMapper.toResponse(playlist, trackLikes, trackReposts, trackPageable)
-        );
+        AccountTier currentViewerTier = currentUserId != null
+                ? userService.getUserIfExistsById(currentUserId).getTier()
+                : AccountTier.FREE;
+
+        return likedPlaylists.map(
+                playlist -> playlistMapper.toResponse(
+                        playlist,
+                        trackLikes,
+                        trackReposts,
+                        trackPageable,
+                        currentViewerTier));
     }
 
     private User findUser(Long userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User with id " + userId + " not found"));
+        return userService.getUserIfExistsById(userId);
     }
 
     private Playlist findPlaylist(Long playlistId) {
@@ -207,7 +233,7 @@ public class LikeService {
     private User resolveCurrentViewer() {
         try {
             Long currentUserId = JwtService.getCurrentUserId();
-            return userRepository.findById(currentUserId).orElse(null);
+            return userService.getUserIfExistsById(currentUserId);
         } catch (Exception e) {
             return null;
         }

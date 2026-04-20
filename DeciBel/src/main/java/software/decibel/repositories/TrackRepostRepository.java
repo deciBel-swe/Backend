@@ -1,5 +1,6 @@
 package software.decibel.repositories;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -37,4 +38,7 @@ public interface TrackRepostRepository extends JpaRepository<TrackRepost, Long> 
 
     @Query("SELECT tr.user FROM TrackRepost tr WHERE tr.track.id = :trackId")
     Page<User> findUsersByTrackId(@Param("trackId") Long trackId, Pageable pageable);
+
+    @Query("SELECT tr FROM TrackRepost tr WHERE tr.user.id IN :userIds ORDER BY tr.repostedAt DESC")
+    Page<TrackRepost> findByUserIdIn(@Param("userIds") List<Long> userIds, Pageable pageable);
 }

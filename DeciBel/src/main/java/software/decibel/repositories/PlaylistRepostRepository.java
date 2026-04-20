@@ -1,5 +1,6 @@
 package software.decibel.repositories;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -32,4 +33,7 @@ public interface PlaylistRepostRepository extends JpaRepository<PlaylistRepost, 
 
     @Query("SELECT pr.user FROM PlaylistRepost pr WHERE pr.playlist.id = :playlistId")
     Page<User> findUsersByPlaylistId(@Param("playlistId") Long playlistId, Pageable pageable);
+
+    @Query("SELECT pr FROM PlaylistRepost pr WHERE pr.user.id IN :userIds ORDER BY pr.repostedAt DESC")
+    Page<PlaylistRepost> findByUserIdIn(@Param("userIds") List<Long> userIds, Pageable pageable);
 }

@@ -3,11 +3,13 @@ package software.decibel.repositories;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 import software.decibel.entities.Follow;
 import software.decibel.entities.User;
 
 import java.util.Optional;
+import java.util.List;
 
 // Repository for Follow entity operations
 @Repository
@@ -18,6 +20,9 @@ public interface FollowRepository extends JpaRepository<Follow, Long> {
 
     // Finds a specific follow relationship
     Optional<Follow> findByFollowerAndFollowing(User follower, User following);
+
+    // Checks if a follow relationship exists using just the User IDs
+    boolean existsByFollowerIdAndFollowingId(Long followerId, Long followingId);
 
     // Retrieves followers of a user
     Page<Follow> findByFollowing(User following, Pageable pageable);
@@ -30,4 +35,7 @@ public interface FollowRepository extends JpaRepository<Follow, Long> {
 
     // Counts users followed by a user
     long countByFollower(User follower);
+
+    @Query("SELECT f.following.id FROM Follow f WHERE f.follower.id = :followerId")
+    List<Long> findFollowingIdsByFollowerId(Long followerId);
 }

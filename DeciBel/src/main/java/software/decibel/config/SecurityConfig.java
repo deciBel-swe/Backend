@@ -21,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
+    private final AdminJwtAuthenticationFilter adminJwtAuthFilter;
 
     @org.springframework.beans.factory.annotation.Value("${app.cors.allowed-origins:*}")
     private String allowedOrigins;
@@ -35,6 +36,7 @@ public class SecurityConfig {
                 // Define endpoint accessibility: /auth/** is public, all others require authentication
                 .authorizeHttpRequests(
                         auth -> auth.requestMatchers("/auth/**").permitAll()
+                                .requestMatchers("/admin/login").permitAll()
                                 .requestMatchers("/ws/**").permitAll()
                                 .requestMatchers("/oauth/**").permitAll()
                                 .requestMatchers("/login/**").permitAll()
@@ -44,8 +46,8 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/users/username/**").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/profile/token/**").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/playlists/{playlistId}").permitAll()
-                                .requestMatchers(HttpMethod.GET, "/tracks/{trackId}").permitAll()
                                 .requestMatchers(HttpMethod.POST, "/auth/refreshtoken").permitAll()
+                                .requestMatchers(HttpMethod.POST, "/tracks/upload").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{userId}/tracks").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/playlists/token/{token}").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/tracks/{trackId}/like").permitAll()
@@ -57,9 +59,12 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/users/{username}/followers").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{username}/following").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/tracks/{trackId}/comments").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/explore/trending").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/comments/{commentId}/replies").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/search").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{username}/liked-tracks").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{username}/reposted-tracks").permitAll()
+                                .requestMatchers("/webhook/**").permitAll()
                                 //needed for api docs
                                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                                 .anyRequest().authenticated())
@@ -67,6 +72,7 @@ public class SecurityConfig {
                 .sessionManagement(
                         session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // Register JWT filter before the standard authentication filter
+                .addFilterBefore(adminJwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 // Harden security headers
                 .headers(

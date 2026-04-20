@@ -13,8 +13,11 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -52,6 +55,10 @@ class AuthControllerTest {
     void setUp() {
         AuthController controller = new AuthController(authService, "local");
         AuthController productionController = new AuthController(authService, "prod");
+        ReflectionTestUtils.setField(controller, "googleClientId", "web-client-id");
+        ReflectionTestUtils.setField(controller, "googleRedirectUri", "https://web.example/callback");
+        ReflectionTestUtils.setField(productionController, "googleClientId", "web-client-id");
+        ReflectionTestUtils.setField(productionController, "googleRedirectUri", "https://web.example/callback");
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
 
@@ -93,7 +100,7 @@ class AuthControllerTest {
         LoginLocalResponse response = new LoginLocalResponse(
                 "access-token",
                 1800L,
-                new LoginLocalResponse.UserInfo(2L, "pro-user", AccountTier.PRO, null,
+                new LoginLocalResponse.UserInfo(2L, "pro-user", "pro-user", AccountTier.PRO, null,
                         "avatar.png", false));
         when(authService.loginLocal(any(LoginLocalRequest.class)))
                 .thenReturn(new AuthLoginResult(response, "refresh-token", 2592000L));
@@ -117,7 +124,7 @@ class AuthControllerTest {
         LoginLocalResponse response = new LoginLocalResponse(
                 "access-token",
                 1800L,
-                new LoginLocalResponse.UserInfo(2L, "pro-user", AccountTier.PRO, null,
+                new LoginLocalResponse.UserInfo(2L, "pro-user", "pro-user", AccountTier.PRO, null,
                         "avatar.png", false));
         when(authService.loginLocal(any(LoginLocalRequest.class)))
                 .thenReturn(new AuthLoginResult(response, "refresh-token", 2592000L));
@@ -212,7 +219,7 @@ class AuthControllerTest {
         LoginLocalResponse response = new LoginLocalResponse(
                 "google-access-token",
                 1800L,
-                new LoginLocalResponse.UserInfo(3L, "google-user", AccountTier.FREE,
+                new LoginLocalResponse.UserInfo(3L, "google-user", "google-user", AccountTier.FREE,
                         "/users/google-user", "avatar.png", true));
         when(authService.loginWithGoogle(any(GoogleOauthRequest.class)))
                 .thenReturn(new AuthLoginResult(response, "google-refresh-token",
@@ -231,6 +238,24 @@ class AuthControllerTest {
     }
 
     @Test
+    void exchangeGoogleOauthToken_whenRunningInProduction_setsSecureRefreshCookie() throws Exception {
+        LoginLocalResponse response = new LoginLocalResponse(
+                "google-access-token",
+                1800L,
+                new LoginLocalResponse.UserInfo(3L, "google-user", "google-user", AccountTier.FREE,
+                        "/users/google-user", "avatar.png", false));
+        when(authService.loginWithGoogle(any(GoogleOauthRequest.class)))
+                .thenReturn(new AuthLoginResult(response, "google-refresh-token",
+                        2592000L));
+
+        productionMockMvc.perform(post("/auth/oauth/google")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(googleOauthRequest())))
+                .andExpect(status().isOk())
+                .andExpect(cookie().secure("refreshToken", true));
+    }
+
+    @Test
     void exchangeGoogleOauthToken_whenBodyIsInvalid_returnsBadRequest() throws Exception {
         mockMvc.perform(post("/auth/oauth/google")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -238,6 +263,37 @@ class AuthControllerTest {
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(authService);
+    }
+
+    @Test
+    void exchangeGoogleOauthToken_whenNestedDeviceInfoIsInvalid_returnsBadRequest() throws Exception {
+        mockMvc.perform(post("/auth/oauth/google")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {
+                          "authTokenDto": "google-id-token",
+                          "deviceInfo": {
+                            "deviceType": "DESKTOP",
+                            "fingerPrint": "",
+                            "deviceName": ""
+                          }
+                        }
+                        """))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(authService);
+    }
+
+    @Test
+    void redirectToGoogle_whenCalled_redirectsToConfiguredGoogleAuthUrl() throws Exception {
+        mockMvc.perform(get("/auth/login/oauth2/code/google"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl(
+                        "https://accounts.google.com/o/oauth2/v2/auth?client_id=web-client-id"
+                        + "&redirect_uri=https://web.example/callback"
+                        + "&response_type=code"
+                        + "&scope=openid%20email%20profile"
+                        + "&access_type=offline"));
     }
 
     private RegisterLocalRequest registerRequest() {
