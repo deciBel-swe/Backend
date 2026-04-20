@@ -50,6 +50,12 @@ public class TrackAsyncProcessor {
     @Async
     public void processTrackUploadAsync(Long trackId, String uploadId, TrackUploadRequest request, byte[] audioBytes,
             String audioOriginalFilename, byte[] coverBytes, String coverOriginalFilename, Long userId) {
+        processTrackUploadSync(trackId, uploadId, request, audioBytes, audioOriginalFilename, coverBytes, coverOriginalFilename, userId);
+    }
+
+    // 2. Create the synchronous version that returns the TrackResponse
+    public TrackResponse processTrackUploadSync(Long trackId, String uploadId, TrackUploadRequest request, byte[] audioBytes,
+            String audioOriginalFilename, byte[] coverBytes, String coverOriginalFilename, Long userId) {
         try {
             int audioWeight = 50;
             int coverWeight = 15;
@@ -87,7 +93,6 @@ public class TrackAsyncProcessor {
             int durationSeconds = audioUtility.getAudioFileDurationInSeconds(audioBytes, audioOriginalFilename, request.title());
             broadcastProgress(trackId, uploadId, TrackState.PROCESSING, audioWeight + coverWeight + waveformWeight + durationWeight, "Duration extracted");
 
-            // --- MISSING PREVIEW LOGIC RESTORED HERE ---
             String previewUrl;
             if (durationSeconds > PREVIEW_SECONDS) {
                 broadcastProgress(trackId, uploadId, TrackState.PROCESSING, audioWeight + coverWeight + waveformWeight + durationWeight, "Generating preview");
@@ -97,14 +102,15 @@ public class TrackAsyncProcessor {
             }
 
             final String finalCoverUrl = coverUrl;
-            final String finalPreviewUrl = previewUrl; // Need to make it final for the lambda
+            final String finalPreviewUrl = previewUrl;
 
-            transactionTemplate.execute(status -> {
+            // RETURN the result from the transaction template
+            return transactionTemplate.execute(status -> {
                 Track track = trackRepository.findById(trackId).orElseThrow();
                 track.setTrackUrl(trackUrl);
                 track.setCoverUrl(finalCoverUrl);
                 track.setWaveformUrl(waveformUrl);
-                track.setTrackPreviewUrl(finalPreviewUrl); // <-- PREVIEW URL IS NOW SAVED
+                track.setTrackPreviewUrl(finalPreviewUrl);
                 track.setDurationSeconds(durationSeconds);
                 track.setState(TrackState.FINISHED);
                 track.getTags().size();
@@ -116,22 +122,21 @@ public class TrackAsyncProcessor {
                 user.setTrackCount(user.getTrackCount() + 1);
                 userRepository.save(user);
 
-                // Note: I added user.getTier() here to match the fix we did earlier!
                 TrackResponse finalResponse = trackMapper.toTrackResponseSingle(track, user.getTier(), false, false);
 
-                // Broadcast the final success message with the populated URLs
                 messagingTemplate.convertAndSend(
                         "/topic/track-status/" + uploadId,
                         new TrackStatusResponse(TrackState.FINISHED, trackId, 100, "Done", null, finalResponse));
 
-                return null;
+                return finalResponse; // <-- Changed from returning null
             });
         } catch (Exception e) {
             String errorMessage = (e.getMessage() != null && !e.getMessage().isBlank())
                     ? e.getMessage()
                     : "An unexpected error occurred during track processing";
-            log.error("Error during async upload for trackId: {}", trackId, e);
+            log.error("Error during upload for trackId: {}", trackId, e);
             updateDbAndBroadcast(trackId, uploadId, TrackState.FAILED, null, null, errorMessage, null);
+            throw new RuntimeException(errorMessage, e); // Throw so the sync controller can handle the HTTP 500 error
         }
     }
 

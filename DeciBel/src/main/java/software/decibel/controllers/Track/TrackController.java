@@ -35,10 +35,18 @@ public class TrackController {
     // For uploading a track
     // Endpoint accepts multipart form data (files)
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<InitialTrackResponse> uploadTrack(
+    public ResponseEntity<TrackResponse> uploadTrack(
             @Valid @ModelAttribute TrackUploadRequest request) {
 
-        TrackUploadResponse response = trackService.uploadTrack(request, request.uploadId());
+        TrackResponse response = trackService.uploadTrack(request, request.uploadId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping(value = "/upload/v2", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<InitialTrackResponse> uploadTrackAsync(
+            @Valid @ModelAttribute TrackUploadRequest request) {
+
+        TrackUploadResponse response = trackService.uploadTrackAsync(request, request.uploadId());
         InitialTrackResponse minimalResponse = new InitialTrackResponse(
                 response.id(),
                 request.title(),
