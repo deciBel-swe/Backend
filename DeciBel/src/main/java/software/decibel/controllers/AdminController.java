@@ -48,6 +48,11 @@ public class AdminController {
         return ResponseEntity.ok(adminModerationService.getAllReports(request.page(), request.size()));
     }
 
+    @GetMapping("/reports/{id}")
+    public ResponseEntity<ReportResponse> getReportById(@PathVariable Long id) {
+        return ResponseEntity.ok(adminModerationService.getReportById(id));
+    }
+
     @PatchMapping("/reports/{id}")
     public ResponseEntity<MessageResponse> updateReportStatus(
             @PathVariable Long id,

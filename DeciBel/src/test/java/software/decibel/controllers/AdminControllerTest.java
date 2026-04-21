@@ -169,6 +169,21 @@ class AdminControllerTest {
     }
 
     @Test
+    void getReportById_returnsOkAndJson() throws Exception {
+        ReportResponse report = ReportResponse.builder()
+                .id(1L)
+                .reporterId(100L)
+                .status(ReportStatus.OPEN)
+                .build();
+        when(adminModerationService.getReportById(1L)).thenReturn(report);
+
+        mockMvc.perform(get("/admin/reports/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.status").value("OPEN"));
+    }
+
+    @Test
     void updateReportStatus_whenValidRequest_returnsOk() throws Exception {
         UpdateReportStatusRequest request = new UpdateReportStatusRequest(ReportStatus.RESOLVED);
         when(adminModerationService.updateReportStatus(eq(1L), any())).thenReturn(new MessageResponse("Success"));

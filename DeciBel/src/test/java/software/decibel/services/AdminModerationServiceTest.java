@@ -38,6 +38,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -100,6 +101,17 @@ class AdminModerationServiceTest {
     }
 
     @Test
+    void getReportById_whenReportExists_returnsMappedResponse() {
+        ReportResponse response = ReportResponse.builder().id(1L).build();
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(report));
+        when(reportMapper.toReportResponse(report)).thenReturn(response);
+
+        ReportResponse result = adminModerationService.getReportById(1L);
+
+        assertEquals(1L, result.id());
+    }
+
+    @Test
     void updateReportStatus_whenReportExists_updatesAndReturnsSuccess() {
         UpdateReportStatusRequest request = new UpdateReportStatusRequest(ReportStatus.RESOLVED);
         when(reportRepository.findById(1L)).thenReturn(Optional.of(report));
@@ -109,6 +121,19 @@ class AdminModerationServiceTest {
         assertEquals("Report status updated successfully", response.message());
         assertEquals(ReportStatus.RESOLVED, report.getStatus());
         verify(reportRepository).save(report);
+    }
+
+    @Test
+    void updateReportStatus_whenRequestedStatusMatchesCurrent_throwsConflict() {
+        UpdateReportStatusRequest request = new UpdateReportStatusRequest(ReportStatus.OPEN);
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(report));
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> adminModerationService.updateReportStatus(1L, request));
+
+        assertEquals(409, exception.getStatusCode().value());
+        verify(reportRepository, never()).save(any());
     }
 
     @Test
