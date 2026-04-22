@@ -214,6 +214,27 @@ class AuthServiceTest {
     }
 
     @Test
+    void loginLocal_whenUserIsBanned_throwsForbiddenAndDoesNotIssueTokens() {
+        LoginLocalRequest request = loginRequest();
+        User user = verifiedUser();
+        user.setBanned(true);
+        AuthIdentity identity = verifiedIdentity(user);
+
+        when(authIdentityRepository.findByEmailIgnoreCaseAndProviderAndType(anyString(), any(), any()))
+                .thenReturn(Optional.of(identity));
+        when(passwordEncoder.matches(request.password(), identity.getPasswordHash())).thenReturn(true);
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> authService.loginLocal(request));
+
+        assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+        assertEquals("Your account is banned", exception.getReason());
+        verify(tokenService, never()).createRefreshToken(any());
+        verify(jwtService, never()).buildAccessToken(any(), anyString());
+        verify(sessionService, never()).createSession(any(), any(), any());
+    }
+
+    @Test
     void loginLocal_whenIdentityDoesNotExist_throwsUnauthorized() {
         LoginLocalRequest request = loginRequest();
         when(authIdentityRepository.findByEmailIgnoreCaseAndProviderAndType(anyString(), any(), any()))
@@ -526,6 +547,40 @@ class AuthServiceTest {
         verify(sessionService).createSession(user, refreshToken, request.deviceInfo());
         verify(authIdentityRepository, never()).existsByEmailIgnoreCase(anyString());
         verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void loginWithGoogle_whenExistingUserIsBanned_throwsForbiddenAndDoesNotIssueTokens() {
+        GoogleOauthRequest request = new GoogleOauthRequest(
+                "google-token",
+                new DeviceInfo(DeviceType.DESKTOP, "fp-google", "Chrome"));
+        User user = User.builder().id(11L).username("google-user").tier(AccountTier.FREE).build();
+        user.setBanned(true);
+        AuthIdentity identity = AuthIdentity.builder()
+                .user(user)
+                .email("google@example.com")
+                .providerUserId("google-subject")
+                .emailVerified(true)
+                .provider(AuthProvider.GOOGLE)
+                .type(AuthType.OAUTH)
+                .build();
+
+        when(googleTokenVerificationService.verifyAuthCode("google-token", request.deviceInfo()))
+                .thenReturn(new VerifiedGoogleToken(
+                        "google-subject", "google@example.com", true, "Google User",
+                        "avatar.png"));
+        when(authIdentityRepository.findByProviderUserIdAndProviderAndType(
+                "google-subject", AuthProvider.GOOGLE, AuthType.OAUTH))
+                .thenReturn(Optional.of(identity));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> authService.loginWithGoogle(request));
+
+        assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+        assertEquals("Your account is banned", exception.getReason());
+        verify(tokenService, never()).createRefreshToken(any());
+        verify(jwtService, never()).buildAccessToken(any(), anyString());
+        verify(sessionService, never()).createSession(any(), any(), any());
     }
 
     @Test

@@ -114,6 +114,8 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Email is not verified");
         }
 
+        ensureUserIsNotBanned(identity.getUser());
+
         return issueLoginTokens(identity, request.deviceInfo(), false);
     }
 
@@ -151,6 +153,8 @@ public class AuthService {
                     isNew[0] = true;
                     return registerGoogleIdentity(verifiedToken);
                 });
+
+        ensureUserIsNotBanned(identity.getUser());
 
         return issueLoginTokens(identity, request.deviceInfo(), isNew[0]);
     }
@@ -282,6 +286,12 @@ public class AuthService {
     private AuthRefreshTokenResult issueRefreshToken(User user) {
         IssuedToken issuedToken = tokenService.createRefreshToken(user);
         return new AuthRefreshTokenResult(issuedToken.rawToken(), REFRESH_TOKEN_EXPIRES_IN_SECONDS);
+    }
+
+    private void ensureUserIsNotBanned(User user) {
+        if (Boolean.TRUE.equals(user.isBanned())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Your account is banned");
+        }
     }
 
     private AuthIdentity registerGoogleIdentity(VerifiedGoogleToken verifiedToken) {
