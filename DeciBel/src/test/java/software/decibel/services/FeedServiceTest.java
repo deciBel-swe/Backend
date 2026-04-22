@@ -140,7 +140,8 @@ class FeedServiceTest {
                 LocalDate.now().minusDays(1),
                 "desc",
                 "token",
-                TrackAccess.PLAYABLE
+                TrackAccess.PLAYABLE,
+                "track-slug"
         );
         when(trackMapper.toTrackResponse(any(), any(), any(), any())).thenReturn(trackResponse);
 

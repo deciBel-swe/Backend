@@ -27,6 +27,7 @@ public record TrackResponse(
         LocalDate uploadDate,
         String description,
         String secretToken,
-        TrackAccess access) {
+        TrackAccess access,
+        String trackSlug) {
 
 }
