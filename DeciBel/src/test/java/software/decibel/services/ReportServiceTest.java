@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -116,7 +117,8 @@ class ReportServiceTest {
         when(userService.getUserIfExistsById(anyLong())).thenReturn(
                 User.builder().id(7L).username("listener").tier(AccountTier.FREE).build());
         when(trackService.getTrackIfExistsById(15L)).thenReturn(Track.builder().id(15L).build());
-        when(reportRepository.existsByReporterIdAndTargetIdAndTargetTypeAndStatus(7L, 15L, ReportTargetType.TRACK, ReportStatus.OPEN))
+        when(reportRepository.existsByReporterIdAndTargetIdAndTargetTypeAndStatus(
+                anyLong(), eq(15L), eq(ReportTargetType.TRACK), eq(ReportStatus.OPEN)))
                 .thenReturn(false);
         when(reportSubmissionMapper.toTrackReportSubmittedResponse())
                 .thenReturn(new MessageResponse("Track reported successfully"));
