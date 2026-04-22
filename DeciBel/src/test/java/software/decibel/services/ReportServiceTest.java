@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -112,7 +113,7 @@ class ReportServiceTest {
         ReportRequest request = new ReportRequest("  Spam  ", "Misleading metadata");
         ArgumentCaptor<Report> reportCaptor = ArgumentCaptor.forClass(Report.class);
 
-        when(userService.getUserIfExistsById(7L)).thenReturn(
+        when(userService.getUserIfExistsById(anyLong())).thenReturn(
                 User.builder().id(7L).username("listener").tier(AccountTier.FREE).build());
         when(trackService.getTrackIfExistsById(15L)).thenReturn(Track.builder().id(15L).build());
         when(reportRepository.existsByReporterIdAndTargetIdAndTargetTypeAndStatus(7L, 15L, ReportTargetType.TRACK, ReportStatus.OPEN))
