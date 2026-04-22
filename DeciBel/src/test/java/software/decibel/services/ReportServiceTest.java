@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -68,8 +69,8 @@ class ReportServiceTest {
         MessageResponse mapperResponse = new MessageResponse("Track reported successfully");
         ArgumentCaptor<Report> reportCaptor = ArgumentCaptor.forClass(Report.class);
 
-        when(userService.getUserIfExistsById(7L)).thenReturn(user);
-        when(trackService.getTrackIfExistsById(15L)).thenReturn(track);
+        doReturn(user).when(userService).getUserIfExistsById(7L);
+        doReturn(track).when(trackService).getTrackIfExistsById(15L);
         when(reportRepository.existsByReporterIdAndTargetIdAndTargetTypeAndStatus(7L, 15L, ReportTargetType.TRACK, ReportStatus.OPEN))
                 .thenReturn(false);
         when(reportSubmissionMapper.toTrackReportSubmittedResponse()).thenReturn(mapperResponse);
@@ -92,9 +93,9 @@ class ReportServiceTest {
         ReportRequest request = new ReportRequest("Spam", null);
         ArgumentCaptor<Report> reportCaptor = ArgumentCaptor.forClass(Report.class);
 
-        when(userService.getUserIfExistsById(7L)).thenReturn(
-                User.builder().id(7L).username("listener").tier(AccountTier.FREE).build());
-        when(trackService.getTrackIfExistsById(15L)).thenReturn(Track.builder().id(15L).build());
+        doReturn(User.builder().id(7L).username("listener").tier(AccountTier.FREE).build())
+                .when(userService).getUserIfExistsById(7L);
+        doReturn(Track.builder().id(15L).build()).when(trackService).getTrackIfExistsById(15L);
         when(reportRepository.existsByReporterIdAndTargetIdAndTargetTypeAndStatus(7L, 15L, ReportTargetType.TRACK, ReportStatus.OPEN))
                 .thenReturn(false);
         when(reportSubmissionMapper.toTrackReportSubmittedResponse())
@@ -112,9 +113,9 @@ class ReportServiceTest {
         ReportRequest request = new ReportRequest("  Spam  ", "Misleading metadata");
         ArgumentCaptor<Report> reportCaptor = ArgumentCaptor.forClass(Report.class);
 
-        when(userService.getUserIfExistsById(7L)).thenReturn(
-                User.builder().id(7L).username("listener").tier(AccountTier.FREE).build());
-        when(trackService.getTrackIfExistsById(15L)).thenReturn(Track.builder().id(15L).build());
+        doReturn(User.builder().id(7L).username("listener").tier(AccountTier.FREE).build())
+                .when(userService).getUserIfExistsById(7L);
+        doReturn(Track.builder().id(15L).build()).when(trackService).getTrackIfExistsById(15L);
         when(reportRepository.existsByReporterIdAndTargetIdAndTargetTypeAndStatus(7L, 15L, ReportTargetType.TRACK, ReportStatus.OPEN))
                 .thenReturn(false);
         when(reportSubmissionMapper.toTrackReportSubmittedResponse())
@@ -144,8 +145,8 @@ class ReportServiceTest {
     @Test
     void reportTrack_whenTrackDoesNotExist_propagatesNotFoundAndDoesNotPersist() {
         setAuthenticatedUser(7L);
-        when(userService.getUserIfExistsById(7L)).thenReturn(
-                User.builder().id(7L).username("listener").tier(AccountTier.FREE).build());
+        doReturn(User.builder().id(7L).username("listener").tier(AccountTier.FREE).build())
+                .when(userService).getUserIfExistsById(7L);
         when(trackService.getTrackIfExistsById(15L))
                 .thenThrow(new ResourceNotFoundException("Track with id 15 not found"));
 
@@ -183,8 +184,8 @@ class ReportServiceTest {
         MessageResponse mapperResponse = new MessageResponse("Comment reported successfully");
         ArgumentCaptor<Report> reportCaptor = ArgumentCaptor.forClass(Report.class);
 
-        when(userService.getUserIfExistsById(9L)).thenReturn(user);
-        when(commentService.getCommentIfExistsById(21L)).thenReturn(comment);
+        doReturn(user).when(userService).getUserIfExistsById(9L);
+        doReturn(comment).when(commentService).getCommentIfExistsById(21L);
         when(reportRepository.existsByReporterIdAndTargetIdAndTargetTypeAndStatus(9L, 21L, ReportTargetType.COMMENT, ReportStatus.OPEN))
                 .thenReturn(false);
         when(reportSubmissionMapper.toCommentReportSubmittedResponse()).thenReturn(mapperResponse);
@@ -219,8 +220,8 @@ class ReportServiceTest {
     @Test
     void reportComment_whenCommentDoesNotExist_propagatesNotFoundAndDoesNotPersist() {
         setAuthenticatedUser(9L);
-        when(userService.getUserIfExistsById(9L)).thenReturn(
-                User.builder().id(9L).username("listener").tier(AccountTier.FREE).build());
+        doReturn(User.builder().id(9L).username("listener").tier(AccountTier.FREE).build())
+                .when(userService).getUserIfExistsById(9L);
         when(commentService.getCommentIfExistsById(21L))
                 .thenThrow(new ResourceNotFoundException("Comment with id 21 not found"));
 
@@ -252,9 +253,9 @@ class ReportServiceTest {
     @Test
     void reportTrack_whenOpenReportAlreadyExists_throwsConflictAndDoesNotPersist() {
         setAuthenticatedUser(7L);
-        when(userService.getUserIfExistsById(7L)).thenReturn(
-                User.builder().id(7L).username("listener").tier(AccountTier.FREE).build());
-        when(trackService.getTrackIfExistsById(15L)).thenReturn(Track.builder().id(15L).build());
+        doReturn(User.builder().id(7L).username("listener").tier(AccountTier.FREE).build())
+                .when(userService).getUserIfExistsById(7L);
+        doReturn(Track.builder().id(15L).build()).when(trackService).getTrackIfExistsById(15L);
         when(reportRepository.existsByReporterIdAndTargetIdAndTargetTypeAndStatus(7L, 15L, ReportTargetType.TRACK, ReportStatus.OPEN))
                 .thenReturn(true);
 
@@ -270,9 +271,9 @@ class ReportServiceTest {
     @Test
     void reportComment_whenOpenReportAlreadyExists_throwsConflictAndDoesNotPersist() {
         setAuthenticatedUser(9L);
-        when(userService.getUserIfExistsById(9L)).thenReturn(
-                User.builder().id(9L).username("listener").tier(AccountTier.FREE).build());
-        when(commentService.getCommentIfExistsById(21L)).thenReturn(Comment.builder().id(21L).build());
+        doReturn(User.builder().id(9L).username("listener").tier(AccountTier.FREE).build())
+                .when(userService).getUserIfExistsById(9L);
+        doReturn(Comment.builder().id(21L).build()).when(commentService).getCommentIfExistsById(21L);
         when(reportRepository.existsByReporterIdAndTargetIdAndTargetTypeAndStatus(9L, 21L, ReportTargetType.COMMENT, ReportStatus.OPEN))
                 .thenReturn(true);
 
