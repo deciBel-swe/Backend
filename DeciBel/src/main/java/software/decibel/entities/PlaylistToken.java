@@ -22,6 +22,7 @@ public class PlaylistToken {
     private String token;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean isDeleted = false;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

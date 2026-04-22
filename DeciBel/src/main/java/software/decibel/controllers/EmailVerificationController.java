@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import software.decibel.dtos.auth.VerifyEmailRequest;
-import software.decibel.services.AuthService;
+import software.decibel.services.auth.AuthService;
 
 @RestController
 @RequestMapping("/auth")

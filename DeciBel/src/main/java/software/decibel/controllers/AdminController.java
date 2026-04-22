@@ -24,8 +24,8 @@ import software.decibel.dtos.admin.LoginAdminResponse;
 import software.decibel.dtos.admin.ReportResponse;
 import software.decibel.dtos.admin.UpdateReportStatusRequest;
 import software.decibel.dtos.auth.MessageResponse;
-import software.decibel.services.AdminAuthService;
-import software.decibel.services.AdminModerationService;
+import software.decibel.services.admin.AdminAuthService;
+import software.decibel.services.admin.AdminModerationService;
 
 @RestController
 @RequestMapping("/admin")
@@ -46,6 +46,11 @@ public class AdminController {
             @RequestParam(required = false) Integer size) {
         ListReportsRequest request = ListReportsRequest.withDefaults(page, size);
         return ResponseEntity.ok(adminModerationService.getAllReports(request.page(), request.size()));
+    }
+
+    @GetMapping("/reports/{id}")
+    public ResponseEntity<ReportResponse> getReportById(@PathVariable Long id) {
+        return ResponseEntity.ok(adminModerationService.getReportById(id));
     }
 
     @PatchMapping("/reports/{id}")

@@ -8,10 +8,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import software.decibel.dtos.discovery.FeedPageResponse;
 import software.decibel.entities.User;
-import software.decibel.exceptions.custom.ResourceNotFoundException;
-import software.decibel.repositories.UserRepository;
 import software.decibel.services.FeedService;
 import software.decibel.services.JwtService;
+import software.decibel.services.user.UserService;
 
 @RestController
 @RequestMapping("/feed")
@@ -19,7 +18,7 @@ import software.decibel.services.JwtService;
 public class FeedController {
 
     private final FeedService feedService;
-    private final UserRepository userRepository;
+    private final UserService userService;
 
     @GetMapping
     public ResponseEntity<FeedPageResponse> getFeed(Pageable pageable) {
@@ -28,8 +27,7 @@ public class FeedController {
             return ResponseEntity.status(401).build();
         }
 
-        User currentUser = userRepository.findById(currentUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        User currentUser = userService.getUserIfExistsById(currentUserId);
 
         return ResponseEntity.ok(feedService.getFeed(currentUser, pageable));
     }

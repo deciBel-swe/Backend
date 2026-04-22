@@ -11,7 +11,7 @@ import software.decibel.dtos.auth.ForgotPasswordRequest;
 import software.decibel.dtos.auth.ForgotPasswordResponse;
 import software.decibel.dtos.auth.ResetPasswordRequest;
 import software.decibel.dtos.auth.ResetPasswordResponse;
-import software.decibel.services.AccountRecoveryService;
+import software.decibel.services.auth.AccountRecoveryService;
 
 //Controller for handling account recovery operations, such as forgot password and reset password.
 @RestController

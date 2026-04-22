@@ -13,9 +13,8 @@ import software.decibel.services.notification.FcmNotificationService;
 import software.decibel.services.JwtService;
 import software.decibel.entities.FcmToken;
 import software.decibel.entities.User;
-import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.repositories.FcmTokenRepository;
-import software.decibel.repositories.UserRepository;
+import software.decibel.services.user.UserService;
 
 @RestController
 @RequestMapping("/notifications")
@@ -24,7 +23,7 @@ public class NotificationController {
 
     private final InAppNotificationService notificationService;
     private final FcmTokenRepository fcmTokenRepository;
-    private final UserRepository userRepository;
+    private final UserService userService;
     private final FcmNotificationService fcmNotificationService;
 
     // GET /notifications
@@ -71,8 +70,7 @@ public class NotificationController {
     public ResponseEntity<MessageResponse> registerDeviceToken(
             @Valid @RequestBody RegisterDeviceTokenRequest request) {
         Long userId = JwtService.getCurrentUserId();
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        User user = userService.getUserIfExistsById(userId);
 
         // Check for duplicate
         if (fcmTokenRepository.findByUserIdAndToken(userId, request.token()).isPresent()) {

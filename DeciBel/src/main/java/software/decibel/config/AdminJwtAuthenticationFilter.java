@@ -18,7 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import software.decibel.dtos.auth.AdminPrincipal;
 import software.decibel.entities.Admin;
 import software.decibel.repositories.AdminRepository;
-import software.decibel.services.AdminJwtService;
+import software.decibel.services.admin.AdminJwtService;
 
 @Component
 @RequiredArgsConstructor

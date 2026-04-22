@@ -39,7 +39,7 @@ import software.decibel.dtos.auth.RegisterLocalRequest;
 import software.decibel.dtos.auth.VerifyEmailRequest;
 import software.decibel.enums.AccountTier;
 import software.decibel.enums.DeviceType;
-import software.decibel.services.AuthService;
+import software.decibel.services.auth.AuthService;
 
 @ExtendWith(MockitoExtension.class)
 class AuthControllerTest {

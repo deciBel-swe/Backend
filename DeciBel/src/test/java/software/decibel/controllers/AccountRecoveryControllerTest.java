@@ -16,7 +16,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
-import software.decibel.services.AccountRecoveryService;
+import software.decibel.services.auth.AccountRecoveryService;
 
 @ExtendWith(MockitoExtension.class)
 class AccountRecoveryControllerTest {

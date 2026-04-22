@@ -1,9 +1,12 @@
 package software.decibel.services;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -28,6 +31,7 @@ import software.decibel.entities.Report;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
 import software.decibel.enums.AccountTier;
+import software.decibel.enums.ReportStatus;
 import software.decibel.enums.ReportTargetType;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.ReportSubmissionMapper;
@@ -68,6 +72,8 @@ class ReportServiceTest {
 
         when(userService.getUserIfExistsById(7L)).thenReturn(user);
         when(trackService.getTrackIfExistsById(15L)).thenReturn(track);
+        when(reportRepository.existsByReporterIdAndTargetIdAndTargetTypeAndStatus(7L, 15L, ReportTargetType.TRACK, ReportStatus.OPEN))
+                .thenReturn(false);
         when(reportSubmissionMapper.toTrackReportSubmittedResponse()).thenReturn(mapperResponse);
 
         MessageResponse response = reportService.reportTrack(15L, request);
@@ -91,6 +97,8 @@ class ReportServiceTest {
         when(userService.getUserIfExistsById(7L)).thenReturn(
                 User.builder().id(7L).username("listener").tier(AccountTier.FREE).build());
         when(trackService.getTrackIfExistsById(15L)).thenReturn(Track.builder().id(15L).build());
+        when(reportRepository.existsByReporterIdAndTargetIdAndTargetTypeAndStatus(7L, 15L, ReportTargetType.TRACK, ReportStatus.OPEN))
+                .thenReturn(false);
         when(reportSubmissionMapper.toTrackReportSubmittedResponse())
                 .thenReturn(new MessageResponse("Track reported successfully"));
 
@@ -106,9 +114,12 @@ class ReportServiceTest {
         ReportRequest request = new ReportRequest("  Spam  ", "Misleading metadata");
         ArgumentCaptor<Report> reportCaptor = ArgumentCaptor.forClass(Report.class);
 
-        when(userService.getUserIfExistsById(7L)).thenReturn(
+        when(userService.getUserIfExistsById(anyLong())).thenReturn(
                 User.builder().id(7L).username("listener").tier(AccountTier.FREE).build());
         when(trackService.getTrackIfExistsById(15L)).thenReturn(Track.builder().id(15L).build());
+        when(reportRepository.existsByReporterIdAndTargetIdAndTargetTypeAndStatus(
+                anyLong(), eq(15L), eq(ReportTargetType.TRACK), eq(ReportStatus.OPEN)))
+                .thenReturn(false);
         when(reportSubmissionMapper.toTrackReportSubmittedResponse())
                 .thenReturn(new MessageResponse("Track reported successfully"));
 
@@ -177,6 +188,8 @@ class ReportServiceTest {
 
         when(userService.getUserIfExistsById(9L)).thenReturn(user);
         when(commentService.getCommentIfExistsById(21L)).thenReturn(comment);
+        when(reportRepository.existsByReporterIdAndTargetIdAndTargetTypeAndStatus(9L, 21L, ReportTargetType.COMMENT, ReportStatus.OPEN))
+                .thenReturn(false);
         when(reportSubmissionMapper.toCommentReportSubmittedResponse()).thenReturn(mapperResponse);
 
         MessageResponse response = reportService.reportComment(21L, request);
@@ -237,6 +250,42 @@ class ReportServiceTest {
         verify(commentService, never()).getCommentIfExistsById(any());
         verify(reportRepository, never()).save(any());
         verify(reportSubmissionMapper, never()).toCommentReportSubmittedResponse();
+    }
+
+    @Test
+    void reportTrack_whenOpenReportAlreadyExists_throwsConflictAndDoesNotPersist() {
+        setAuthenticatedUser(7L);
+        when(userService.getUserIfExistsById(7L)).thenReturn(
+                User.builder().id(7L).username("listener").tier(AccountTier.FREE).build());
+        when(trackService.getTrackIfExistsById(15L)).thenReturn(Track.builder().id(15L).build());
+        when(reportRepository.existsByReporterIdAndTargetIdAndTargetTypeAndStatus(7L, 15L, ReportTargetType.TRACK, ReportStatus.OPEN))
+                .thenReturn(true);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> reportService.reportTrack(15L, new ReportRequest("Spam", null)));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        assertTrue(exception.getReason().contains("open report"));
+        verify(reportRepository, never()).save(any());
+    }
+
+    @Test
+    void reportComment_whenOpenReportAlreadyExists_throwsConflictAndDoesNotPersist() {
+        setAuthenticatedUser(9L);
+        when(userService.getUserIfExistsById(9L)).thenReturn(
+                User.builder().id(9L).username("listener").tier(AccountTier.FREE).build());
+        when(commentService.getCommentIfExistsById(21L)).thenReturn(Comment.builder().id(21L).build());
+        when(reportRepository.existsByReporterIdAndTargetIdAndTargetTypeAndStatus(9L, 21L, ReportTargetType.COMMENT, ReportStatus.OPEN))
+                .thenReturn(true);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> reportService.reportComment(21L, new ReportRequest("Harassment", null)));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        assertTrue(exception.getReason().contains("open report"));
+        verify(reportRepository, never()).save(any());
     }
 
     private void setAuthenticatedUser(Long userId) {

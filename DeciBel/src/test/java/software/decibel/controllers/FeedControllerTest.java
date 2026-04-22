@@ -13,13 +13,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import software.decibel.dtos.discovery.FeedPageResponse;
 import software.decibel.entities.User;
-import software.decibel.repositories.UserRepository;
 import software.decibel.services.FeedService;
 import software.decibel.services.JwtService;
+import software.decibel.services.user.UserService;
 
 import java.util.Collections;
-import java.util.Optional;
-
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mockStatic;
@@ -36,7 +34,7 @@ class FeedControllerTest {
     private FeedService feedService;
 
     @Mock
-    private UserRepository userRepository;
+    private UserService userService;
 
     @InjectMocks
     private FeedController feedController;
@@ -65,7 +63,7 @@ class FeedControllerTest {
 
             User user = new User();
             user.setId(1L);
-            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(userService.getUserIfExistsById(1L)).thenReturn(user);
 
             FeedPageResponse response = new FeedPageResponse(Collections.emptyList(), 0, 10, 0, 0, true);
             when(feedService.getFeed(eq(user), any(Pageable.class))).thenReturn(response);
