@@ -30,6 +30,7 @@ import software.decibel.mappers.ReportMapper;
 import software.decibel.repositories.ReportRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.admin.AdminModerationService;
 import software.decibel.services.track.TrackService;
 
 import java.util.Collections;

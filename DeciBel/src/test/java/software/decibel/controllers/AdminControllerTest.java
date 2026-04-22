@@ -26,8 +26,8 @@ import software.decibel.enums.DeviceType;
 import software.decibel.enums.ReportStatus;
 import software.decibel.exceptions.AdminExceptionHandler;
 import software.decibel.exceptions.custom.InvalidAdminCredentialsException;
-import software.decibel.services.AdminAuthService;
-import software.decibel.services.AdminModerationService;
+import software.decibel.services.admin.AdminAuthService;
+import software.decibel.services.admin.AdminModerationService;
 
 import java.util.List;
 

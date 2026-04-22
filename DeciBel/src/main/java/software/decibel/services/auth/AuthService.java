@@ -1,4 +1,4 @@
-package software.decibel.services;
+package software.decibel.services.auth;
 
 import java.time.LocalDateTime;
 
@@ -34,6 +34,12 @@ import software.decibel.exceptions.custom.DuplicateResourceException;
 import software.decibel.repositories.AuthIdentityRepository;
 import software.decibel.repositories.TokenRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.CaptchaService;
+import software.decibel.services.EmailService;
+import software.decibel.services.FrontendLinkService;
+import software.decibel.services.JwtService;
+import software.decibel.services.SessionService;
+import software.decibel.services.TokenService;
 import software.decibel.utils.UserProfileUtility;
 
 @Service

@@ -24,8 +24,8 @@ import software.decibel.dtos.admin.LoginAdminResponse;
 import software.decibel.dtos.admin.ReportResponse;
 import software.decibel.dtos.admin.UpdateReportStatusRequest;
 import software.decibel.dtos.auth.MessageResponse;
-import software.decibel.services.AdminAuthService;
-import software.decibel.services.AdminModerationService;
+import software.decibel.services.admin.AdminAuthService;
+import software.decibel.services.admin.AdminModerationService;
 
 @RestController
 @RequestMapping("/admin")

@@ -48,6 +48,8 @@ import software.decibel.exceptions.custom.DuplicateResourceException;
 import software.decibel.exceptions.custom.InvalidGoogleTokenException;
 import software.decibel.repositories.AuthIdentityRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.auth.AuthService;
+import software.decibel.services.auth.GoogleTokenVerificationService;
 import software.decibel.utils.UserProfileUtility;
 
 @ExtendWith(MockitoExtension.class)

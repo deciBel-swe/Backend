@@ -7,6 +7,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.security.SignatureException;
+import software.decibel.services.admin.AdminJwtService;
 
 import static org.junit.jupiter.api.Assertions.*;
 
