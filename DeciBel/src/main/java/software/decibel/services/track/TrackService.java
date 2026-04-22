@@ -184,6 +184,10 @@ public class TrackService {
             addTrackTags(track, TagUtility.parseTags(request.tags()));
         }
         track.setGenre(WordUtils.capitalize(track.getGenre().trim().toLowerCase().replaceAll("\\s+", " ")));
+        
+        // Generate unique slug
+        String slug = SlugUtility.generateUniqueSlug(track.getTitle(), s -> trackRepository.existsBySlug(s));
+        track.setSlug(slug);
 
         Track createdTrack = createUploadingTrack(track, uploadId);
 
@@ -498,6 +502,10 @@ public class TrackService {
         }
 
         track.setGenre(WordUtils.capitalize(track.getGenre().trim().toLowerCase().replaceAll("\\s+", " ")));
+        
+        // Generate unique slug
+        String slug = SlugUtility.generateUniqueSlug(track.getTitle(), s -> trackRepository.existsBySlug(s));
+        track.setSlug(slug);
 
         return createUploadingTrack(track, uploadId);
     }

@@ -33,6 +33,7 @@ public interface TrackMapper {
     @Mapping(target = "access", expression = "java(resolveAccess(userTier, track.getAccess()))")
     @Mapping(target = "trackUrl", expression = "java(resolveTrackUrl(userTier, track))")
     @Mapping(target = "trackPreviewUrl", expression = "java(resolvePreviewUrl(userTier, track))")
+    @Mapping(target = "trackSlug", source = "track.slug")
     TrackResponse toTrackResponse(
             Track track, AccountTier userTier, Set<Long> likedTrackIds, Set<Long> repostedTrackIds);
 
@@ -49,6 +50,7 @@ public interface TrackMapper {
     @Mapping(target = "access", expression = "java(track.getVisibility() == Visibility.PUBLIC ? software.decibel.enums.TrackAccess.PLAYABLE : software.decibel.enums.TrackAccess.PREVIEW)")
     @Mapping(target = "trackUrl", expression = "java(resolveTrackUrl(userTier, track))")
     @Mapping(target = "trackPreviewUrl", expression = "java(resolvePreviewUrl(userTier, track))")
+    @Mapping(target = "trackSlug", source = "track.slug")
     TrackResponse toTrackResponseSingle(Track track, AccountTier userTier, boolean isLiked, boolean isReposted);
 
     // ----------------- Page mapping ---------------------
@@ -78,6 +80,7 @@ public interface TrackMapper {
     @Mapping(target = "access", expression = "java(track.getVisibility() == Visibility.PUBLIC ? software.decibel.enums.TrackAccess.PLAYABLE : software.decibel.enums.TrackAccess.PREVIEW)")
     @Mapping(target = "secretToken", expression = "java(mapSecretToken(track))")
     @Mapping(target = "trackPreviewUrl", source = "track.trackUrl")
+    @Mapping(target = "trackSlug", source = "track.slug")
     TrackResponse toTrackResponse(Track track, boolean isLiked, boolean isReposted);
 
     default int mapCommentCount(Track track) {
@@ -117,8 +120,6 @@ public interface TrackMapper {
             }
             return access; // playable and preview same
         }
-
-      
 
         return access;
     }
