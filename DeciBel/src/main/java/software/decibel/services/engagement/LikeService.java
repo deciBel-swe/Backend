@@ -64,6 +64,15 @@ public class LikeService {
         Long userId = JwtService.getCurrentUserId();
         User user = userService.getUserIfExistsById(userId);
         Track track = getTrackIfExistsById(trackId);
+        User owner = track.getUploader();
+
+        if (owner != null && !userId.equals(owner.getId())) {
+            boolean isBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(userId, owner.getId()) ||
+                               blockRepository.existsByBlocker_IdAndBlocked_Id(owner.getId(), userId);
+            if (isBlocked) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot like track due to blocking relationship");
+            }
+        }
 
         if (trackLikeRepository.existsByUserAndTrack(user, track)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Track already liked");
@@ -122,6 +131,15 @@ public class LikeService {
     public LikeResponse likePlaylist(Long userId, Long playlistId) {
         User user = findUser(userId);
         Playlist playlist = findPlaylist(playlistId);
+        User owner = playlist.getUser();
+
+        if (owner != null && !userId.equals(owner.getId())) {
+            boolean isBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(userId, owner.getId()) ||
+                               blockRepository.existsByBlocker_IdAndBlocked_Id(owner.getId(), userId);
+            if (isBlocked) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot like playlist due to blocking relationship");
+            }
+        }
 
         if (playlistLikeRepository.existsByUserAndPlaylist(user, playlist)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Playlist already liked");
@@ -214,8 +232,9 @@ public class LikeService {
         trackRepository.findById(trackId)
                 .orElseThrow(() -> new ResourceNotFoundException("Track with id " + trackId + " not found"));
         User currentViewer = resolveCurrentViewer();
+        Long currentViewerId = currentViewer != null ? currentViewer.getId() : null;
         return trackLikeRepository
-                .findUsersByTrackId(trackId, pageable)
+                .findUsersByTrackIdWithBlocking(trackId, currentViewerId, pageable)
                 .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, blockRepository));
     }
 
@@ -224,8 +243,9 @@ public class LikeService {
         playlistRepository.findById(playlistId)
                 .orElseThrow(() -> new ResourceNotFoundException("Playlist with id " + playlistId + " not found"));
         User currentViewer = resolveCurrentViewer();
+        Long currentViewerId = currentViewer != null ? currentViewer.getId() : null;
         return playlistLikeRepository
-                .findUsersByPlaylistId(playlistId, pageable)
+                .findUsersByPlaylistIdWithBlocking(playlistId, currentViewerId, pageable)
                 .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, blockRepository));
     }
 

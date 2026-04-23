@@ -36,6 +36,17 @@ public interface TrackRepostRepository extends JpaRepository<TrackRepost, Long> 
     @Query("DELETE FROM TrackRepost r WHERE r.track.id = :trackId")
     void deleteAllByTrackId(@Param("trackId") Long trackId);
 
+    @Query("""
+        SELECT tr.user FROM TrackRepost tr 
+        WHERE tr.track.id = :trackId
+        AND (:currentUserId IS NULL OR NOT EXISTS (
+            SELECT 1 FROM Block b
+            WHERE (b.blocker.id = :currentUserId AND b.blocked.id = tr.user.id)
+            OR (b.blocker.id = tr.user.id AND b.blocked.id = :currentUserId)
+        ))
+    """)
+    Page<User> findUsersByTrackIdWithBlocking(@Param("trackId") Long trackId, @Param("currentUserId") Long currentUserId, Pageable pageable);
+
     @Query("SELECT tr.user FROM TrackRepost tr WHERE tr.track.id = :trackId")
     Page<User> findUsersByTrackId(@Param("trackId") Long trackId, Pageable pageable);
 

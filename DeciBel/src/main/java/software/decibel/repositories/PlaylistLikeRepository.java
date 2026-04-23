@@ -28,6 +28,17 @@ public interface PlaylistLikeRepository extends JpaRepository<PlaylistLike, Long
     @Query("SELECT pl.playlist FROM PlaylistLike pl WHERE pl.user.id = :userId")
     Page<Playlist> findLikedPlaylistsByUserId(@Param("userId") Long userId, Pageable pageable);
  
+    @Query("""
+        SELECT pl.user FROM PlaylistLike pl 
+        WHERE pl.playlist.id = :playlistId
+        AND (:currentUserId IS NULL OR NOT EXISTS (
+            SELECT 1 FROM Block b
+            WHERE (b.blocker.id = :currentUserId AND b.blocked.id = pl.user.id)
+            OR (b.blocker.id = pl.user.id AND b.blocked.id = :currentUserId)
+        ))
+    """)
+    Page<User> findUsersByPlaylistIdWithBlocking(@Param("playlistId") Long playlistId, @Param("currentUserId") Long currentUserId, Pageable pageable);
+
     // Returns the User entities who liked a given playlist
     @Query("SELECT pl.user FROM PlaylistLike pl WHERE pl.playlist.id = :playlistId")
     Page<User> findUsersByPlaylistId(@Param("playlistId") Long playlistId, Pageable pageable);
