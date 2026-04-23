@@ -54,6 +54,18 @@ public interface UserRepository extends JpaRepository<User, Long> {
     """)
     List<User> findPopularUsers(Long userId, Pageable pageable);
 
+    @Query("""
+        SELECT u FROM User u
+        WHERE (LOWER(u.username) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(u.displayName) LIKE LOWER(CONCAT('%', :query, '%')))
+        AND u.isPrivate = false
+        AND (:currentUserId IS NULL OR NOT EXISTS (
+            SELECT 1 FROM Block b
+            WHERE (b.blocker.id = :currentUserId AND b.blocked.id = u.id)
+            OR (b.blocker.id = u.id AND b.blocked.id = :currentUserId)
+        ))
+    """)
+    Page<User> searchPublicUsersWithBlocking(String query, Long currentUserId, Pageable pageable);
+
     @Query("SELECT u FROM User u WHERE (LOWER(u.username) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(u.displayName) LIKE LOWER(CONCAT('%', :query, '%'))) AND u.isPrivate = false")
     Page<User> searchPublicUsers(String query, Pageable pageable);
 }

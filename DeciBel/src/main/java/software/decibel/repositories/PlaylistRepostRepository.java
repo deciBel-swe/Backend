@@ -34,6 +34,18 @@ public interface PlaylistRepostRepository extends JpaRepository<PlaylistRepost, 
     @Query("SELECT pr.user FROM PlaylistRepost pr WHERE pr.playlist.id = :playlistId")
     Page<User> findUsersByPlaylistId(@Param("playlistId") Long playlistId, Pageable pageable);
 
+    @Query("""
+        SELECT pr FROM PlaylistRepost pr 
+        WHERE pr.user.id IN :userIds 
+        AND (:currentUserId IS NULL OR NOT EXISTS (
+            SELECT 1 FROM Block b 
+            WHERE (b.blocker.id = :currentUserId AND b.blocked.id = pr.playlist.user.id)
+            OR (b.blocker.id = pr.playlist.user.id AND b.blocked.id = :currentUserId)
+        ))
+        ORDER BY pr.repostedAt DESC
+    """)
+    Page<PlaylistRepost> findByUserIdInWithBlocking(@Param("userIds") List<Long> userIds, @Param("currentUserId") Long currentUserId, Pageable pageable);
+
     @Query("SELECT pr FROM PlaylistRepost pr WHERE pr.user.id IN :userIds ORDER BY pr.repostedAt DESC")
     Page<PlaylistRepost> findByUserIdIn(@Param("userIds") List<Long> userIds, Pageable pageable);
 }

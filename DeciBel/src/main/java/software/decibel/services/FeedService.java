@@ -39,6 +39,10 @@ public class FeedService {
     private final PlaylistMapper playlistMapper;
     private final software.decibel.mappers.UserMapper userMapper;
 
+    /**
+     * Personalizes the user's feed based on following activity.
+     * UPDATED: Now enforces blocking (excludes reposts of content from blocked users).
+     */
     public FeedPageResponse getFeed(User currentUser, Pageable pageable) {
         List<Long> followingIds = followRepository.findFollowingIdsByFollowerId(currentUser.getId());
 
@@ -46,14 +50,14 @@ public class FeedService {
             return new FeedPageResponse(Collections.emptyList(), pageable.getPageNumber(), pageable.getPageSize(), 0, 0, true);
         }
 
-        // Fetch reposts from followed users
-        Page<software.decibel.entities.TrackRepost> trackRepostsPage = trackRepostRepository.findByUserIdIn(followingIds, pageable);
-        Page<software.decibel.entities.PlaylistRepost> playlistRepostsPage = playlistRepostRepository.findByUserIdIn(followingIds, pageable);
+        // Fetch reposts from followed users, but exclude those from users who blocked or are blocked by current user
+        Page<software.decibel.entities.TrackRepost> trackRepostsPage = trackRepostRepository.findByUserIdInWithBlocking(followingIds, currentUser.getId(), pageable);
+        Page<software.decibel.entities.PlaylistRepost> playlistRepostsPage = playlistRepostRepository.findByUserIdInWithBlocking(followingIds, currentUser.getId(), pageable);
 
         Set<Long> likedTrackIds = likeService.getLikedTrackIds(currentUser.getId());
         Set<Long> repostedTrackIds = repostService.getRepostedTrackIds(currentUser.getId());
 
-        //  Extract to typed local variables to fix generic type inference
+        // Extract to typed local variables to fix generic type inference
         Stream<ResourceRefFullDTO> trackStream = trackRepostsPage.getContent().stream()
                 .map(tr -> ResourceRefFullDTO.of(
                 trackMapper.toTrackResponse(tr.getTrack(), currentUser.getTier(), likedTrackIds, repostedTrackIds),

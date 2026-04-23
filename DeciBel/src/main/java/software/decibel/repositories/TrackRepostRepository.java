@@ -39,6 +39,18 @@ public interface TrackRepostRepository extends JpaRepository<TrackRepost, Long> 
     @Query("SELECT tr.user FROM TrackRepost tr WHERE tr.track.id = :trackId")
     Page<User> findUsersByTrackId(@Param("trackId") Long trackId, Pageable pageable);
 
+    @Query("""
+        SELECT tr FROM TrackRepost tr 
+        WHERE tr.user.id IN :userIds 
+        AND (:currentUserId IS NULL OR NOT EXISTS (
+            SELECT 1 FROM Block b 
+            WHERE (b.blocker.id = :currentUserId AND b.blocked.id = tr.track.uploader.id)
+            OR (b.blocker.id = tr.track.uploader.id AND b.blocked.id = :currentUserId)
+        ))
+        ORDER BY tr.repostedAt DESC
+    """)
+    Page<TrackRepost> findByUserIdInWithBlocking(@Param("userIds") List<Long> userIds, @Param("currentUserId") Long currentUserId, Pageable pageable);
+
     @Query("SELECT tr FROM TrackRepost tr WHERE tr.user.id IN :userIds ORDER BY tr.repostedAt DESC")
     Page<TrackRepost> findByUserIdIn(@Param("userIds") List<Long> userIds, Pageable pageable);
 }
