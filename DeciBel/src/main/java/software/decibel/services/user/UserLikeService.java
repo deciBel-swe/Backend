@@ -55,14 +55,7 @@ public class UserLikeService {
         User targetUser = userService.getUserIfExistsByUsername(username);
 
         // 1. Check for mutual blocks
-        if (currentUserId != null && !currentUserId.equals(targetUser.getId())) {
-            boolean hasBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(currentUserId, targetUser.getId());
-            boolean isBlockedBy = blockRepository.existsByBlocker_IdAndBlocked_Id(targetUser.getId(), currentUserId);
-
-            if (hasBlocked || isBlockedBy) {
-                throw new software.decibel.exceptions.custom.ResourceNotFoundException("User not found: " + username);
-            }
-        }
+        userService.validateVisibility(currentUserId, targetUser.getId(), "User");
 
         // 2. Fetch the tracks THEY liked
         PageRequest pageable = PageRequest.of(page, size);
@@ -95,14 +88,7 @@ public class UserLikeService {
         User targetUser = userService.getUserIfExistsByUsername(username);
 
         // 1. Check for mutual blocks
-        if (currentUserId != null && !currentUserId.equals(targetUser.getId())) {
-            boolean hasBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(currentUserId, targetUser.getId());
-            boolean isBlockedBy = blockRepository.existsByBlocker_IdAndBlocked_Id(targetUser.getId(), currentUserId);
-
-            if (hasBlocked || isBlockedBy) {
-                throw new software.decibel.exceptions.custom.ResourceNotFoundException("User not found: " + username);
-            }
-        }
+        userService.validateVisibility(currentUserId, targetUser.getId(), "User");
 
         // 2. Fetch the tracks THEY reposted
         PageRequest pageable = PageRequest.of(page, size);

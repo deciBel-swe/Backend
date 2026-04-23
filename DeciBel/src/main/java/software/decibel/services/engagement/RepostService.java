@@ -63,12 +63,8 @@ public class RepostService {
         Track track = getTrackIfExistsById(trackId);
 
         // Check for mutual blocks between the reposter and the track uploader
-        if (track.getUploader() != null && !track.getUploader().getId().equals(userId)) {
-            boolean hasBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(userId, track.getUploader().getId());
-            boolean isBlockedBy = blockRepository.existsByBlocker_IdAndBlocked_Id(track.getUploader().getId(), userId);
-            if (hasBlocked || isBlockedBy) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Action blocked due to privacy settings");
-            }
+        if (track.getUploader() != null) {
+            userService.validateInteraction(userId, track.getUploader().getId());
         }
 
         if (trackRepostRepository.existsByUserAndTrack(user, track)) {
@@ -134,12 +130,8 @@ public class RepostService {
         Playlist playlist = findPlaylist(playlistId);
 
         // Check for mutual blocks between the reposter and the playlist owner
-        if (playlist.getUser() != null && !playlist.getUser().getId().equals(userId)) {
-            boolean hasBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(userId, playlist.getUser().getId());
-            boolean isBlockedBy = blockRepository.existsByBlocker_IdAndBlocked_Id(playlist.getUser().getId(), userId);
-            if (hasBlocked || isBlockedBy) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Action blocked due to privacy settings");
-            }
+        if (playlist.getUser() != null) {
+            userService.validateInteraction(userId, playlist.getUser().getId());
         }
 
         if (playlistRepostRepository.existsByUserAndPlaylist(user, playlist)) {

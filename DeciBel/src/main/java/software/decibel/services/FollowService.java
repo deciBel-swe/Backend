@@ -44,9 +44,7 @@ public class FollowService {
         User follower = userService.getUserIfExistsById(followerId);
         User following = userService.getUserIfExistsById(followingId);
 
-        if (blockRepository.existsByBlockerAndBlocked(following, follower)) {
-            throw new UnauthorizedActionException("you have been block by " + following.getDisplayName() + " please don't");
-        }
+        userService.validateInteraction(followerId, followingId);
         if (followRepository.existsByFollowerAndFollowing(follower, following)) {
             return; // Already following
         }

@@ -124,9 +124,7 @@ public class PlaylistService {
         }
 
         // Block Check: Did the playlist owner block the current user, or vice versa?
-        if (isUserBlocked(currentUserId, playlist.getUser().getId())) {
-            throw new ResourceNotFoundException("Playlist with id " + playlistId + " not found");
-        }
+        userService.validateVisibility(currentUserId, playlist.getUser().getId(), "Playlist with id " + playlistId);
 
         if (currentUserId == null) {
       // Guest viewing playlist
@@ -160,9 +158,7 @@ public class PlaylistService {
         if (track.getVisibility() != software.decibel.enums.Visibility.PUBLIC && !track.getUploader().getId().equals(userId)) {
             throw new ResourceNotFoundException("Track with id " + trackId + " not found");
         }
-        if (isUserBlocked(userId, track.getUploader().getId())) {
-            throw new ResourceNotFoundException("Track with id " + trackId + " not found");
-        }
+        userService.validateVisibility(userId, track.getUploader().getId(), "Track with id " + trackId);
 
         if (playlist.getTracks().stream().anyMatch(t -> t.getId().equals(trackId))) {
             throw new TrackAlreadyInPlaylistException(
@@ -328,9 +324,7 @@ public class PlaylistService {
         Long currentUserId = JwtService.getCurrentUserId();
 
         // Block check
-        if (isUserBlocked(currentUserId, user.getId())) {
-            throw new ResourceNotFoundException("User '" + username + "' not found");
-        }
+        userService.validateVisibility(currentUserId, user.getId(), "User '" + username + "'");
 
         // Privacy check is handled by the repository: findByUserIdAndIsPrivateFalse
         return playlistRepository
@@ -345,9 +339,7 @@ public class PlaylistService {
     User currentUser = userService.getUserIfExistsById(currentUserId);
 
         // Block checking for the profile being viewed
-        if (isUserBlocked(currentUserId, user.getId())) {
-            throw new ResourceNotFoundException("User '" + username + "' not found");
-        }
+        userService.validateVisibility(currentUserId, user.getId(), "User '" + username + "'");
 
         Playlist playlist = findPlaylistById(playlistId);
 
@@ -401,9 +393,7 @@ public class PlaylistService {
         Long currentUserId = JwtService.getCurrentUserId();
 
         // Block check
-        if (isUserBlocked(currentUserId, user.getId())) {
-            throw new ResourceNotFoundException("User '" + username + "' not found");
-        }
+        userService.validateVisibility(currentUserId, user.getId(), "User '" + username + "'");
 
         return playlistLikeRepository
                 .findLikedPlaylistsByUserId(user.getId(), pageable)
@@ -416,9 +406,7 @@ public class PlaylistService {
         Long currentUserId = JwtService.getCurrentUserId();
 
         // Block check
-        if (isUserBlocked(currentUserId, user.getId())) {
-            throw new ResourceNotFoundException("User '" + username + "' not found");
-        }
+        userService.validateVisibility(currentUserId, user.getId(), "User '" + username + "'");
 
         return playlistRepostRepository
                 .findRepostedPlaylistsByUserId(user.getId(), pageable)
@@ -442,15 +430,6 @@ public class PlaylistService {
 
     private User getUserByUsername(String username) {
         return userService.getUserIfExistsByUsername(username);
-    }
-
-    private boolean isUserBlocked(Long currentUserId, Long targetUserId) {
-        if (currentUserId == null) {
-            return false; // Guests can't be blocked in the traditional sense
-        }
-        boolean hasBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(currentUserId, targetUserId);
-        boolean isBlockedBy = blockRepository.existsByBlocker_IdAndBlocked_Id(targetUserId, currentUserId);
-        return hasBlocked || isBlockedBy;
     }
 
     @Transactional

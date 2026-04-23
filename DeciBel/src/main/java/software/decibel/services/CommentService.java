@@ -48,9 +48,7 @@ public class CommentService {
         Track track = trackService.getTrackIfExistsById(trackId);
 
         // Block check: user cannot comment if there is a block relationship with track owner
-        if (isUserBlocked(userId, track.getUploader().getId())) {
-            throw new ResourceNotFoundException("Track with id " + trackId + " not found");
-        }
+        userService.validateVisibility(userId, track.getUploader().getId(), "Track with id " + trackId);
 
         // check that timestamp (if given) is not greater than track duration
         if (request.timestampSeconds() != null
@@ -97,9 +95,7 @@ public class CommentService {
         Comment parentComment = getCommentIfExistsById(commentId);
 
         // Block check: user cannot reply if there is a block relationship with parent comment owner
-        if (isUserBlocked(userId, parentComment.getUser().getId())) {
-            throw new ResourceNotFoundException("Comment with id " + commentId + " not found");
-        }
+        userService.validateVisibility(userId, parentComment.getUser().getId(), "Comment with id " + commentId);
 
         // to disable replying to a reply (according to docs one level replies are only allowed)
         if (parentComment.getParentComment() != null) {
@@ -155,18 +151,8 @@ public class CommentService {
         } catch (Exception ignored) {
         }
 
-        if (isUserBlocked(currentUserId, comment.getUser().getId())) {
-            throw new ResourceNotFoundException("Comment with id " + commentId + " not found");
-        }
+        userService.validateVisibility(currentUserId, comment.getUser().getId(), "Comment with id " + commentId);
 
         return comment;
-    }
-
-    private boolean isUserBlocked(Long currentUserId, Long targetUserId) {
-        if (currentUserId == null || targetUserId == null) {
-            return false;
-        }
-        return blockRepository.existsByBlocker_IdAndBlocked_Id(currentUserId, targetUserId)
-                || blockRepository.existsByBlocker_IdAndBlocked_Id(targetUserId, currentUserId);
     }
 }

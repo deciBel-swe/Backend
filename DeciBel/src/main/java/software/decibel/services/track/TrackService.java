@@ -459,9 +459,7 @@ public class TrackService {
         Track track = trackRepository.findById(trackId)
                 .orElseThrow(() -> new ResourceNotFoundException("Track with id " + trackId + " not found"));
 
-        if (isUserBlocked(currentUserId, track.getUploader().getId())) {
-            throw new ResourceNotFoundException("Track with id " + trackId + " not found");
-        }
+        userService.validateVisibility(currentUserId, track.getUploader().getId(), "Track with id " + trackId);
         checkTrackVisibility(track, currentUserId);
         return track;
     }
@@ -472,15 +470,6 @@ public class TrackService {
                 throw new ResourceNotFoundException("Track with id " + track.getId() + " not found");
             }
         }
-    }
-
-    private boolean isUserBlocked(Long currentUserId, Long targetUserId) {
-        if (currentUserId == null) {
-            return false;
-        }
-        boolean hasBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(currentUserId, targetUserId);
-        boolean isBlockedBy = blockRepository.existsByBlocker_IdAndBlocked_Id(targetUserId, currentUserId);
-        return hasBlocked || isBlockedBy;
     }
 
     private Track initializeTrackUpload(TrackUploadRequest request, String uploadId) {
