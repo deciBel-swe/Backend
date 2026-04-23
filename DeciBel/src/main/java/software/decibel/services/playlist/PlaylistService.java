@@ -156,6 +156,14 @@ public class PlaylistService {
         Track track = trackRepository.findById(trackId)
                 .orElseThrow(() -> new ResourceNotFoundException("Track with id " + trackId + " not found"));
 
+        // Privacy/Block Check: Cannot add non-public tracks of others, or tracks of users who blocked you (or vice versa)
+        if (track.getVisibility() != software.decibel.enums.Visibility.PUBLIC && !track.getUploader().getId().equals(userId)) {
+            throw new ResourceNotFoundException("Track with id " + trackId + " not found");
+        }
+        if (isUserBlocked(userId, track.getUploader().getId())) {
+            throw new ResourceNotFoundException("Track with id " + trackId + " not found");
+        }
+
         if (playlist.getTracks().stream().anyMatch(t -> t.getId().equals(trackId))) {
             throw new TrackAlreadyInPlaylistException(
                     "Track with ID " + trackId + " is already in this playlist.");
