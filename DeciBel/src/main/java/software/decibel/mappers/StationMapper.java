@@ -45,9 +45,9 @@ public interface StationMapper {
                                             dto.likeCount(),
                                             dto.repostCount(),
                                             dto.commentCount(),
-                                            likedIds.contains(track.getId()),
-                                            repostedIds.contains(track.getId()),
-                                            tokenMap.getOrDefault(track.getId(), null), // secretToken
+                                            likedIds != null && likedIds.contains(track.getId()),
+                                            repostedIds != null && repostedIds.contains(track.getId()),
+                                            tokenMap.getOrDefault(track.getId(), null),
                                             dto.access()
                                     );
                                 })
@@ -75,7 +75,7 @@ public interface StationMapper {
                 track.getUploader().getUsername(),
                 track.getUploader().getDisplayName(),
                 track.getUploader().getAvatarUrl(),
-                followingArtistIds.contains(track.getUploader().getId()),
+                followingArtistIds != null && followingArtistIds.contains(track.getUploader().getId()),
                 track.getUploader().getFollowerCount(),
                 track.getUploader().getTrackCount());
     }

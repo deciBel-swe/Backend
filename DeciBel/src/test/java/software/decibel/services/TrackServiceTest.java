@@ -44,7 +44,6 @@ import software.decibel.enums.Visibility;
 import software.decibel.exceptions.custom.CooldownActiveException;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.TrackMapper;
-import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.CommentRepository;
 import software.decibel.repositories.ListeningHistoryRepository;
 import software.decibel.repositories.TrackLikeRepository;
@@ -56,6 +55,7 @@ import software.decibel.services.track.TrackService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.AudioUtility;
 import software.decibel.utils.FileUtilityAzure;
+import software.decibel.utils.TrackChecksUtil;
 import software.decibel.utils.WaveFormUtility;
 import tools.jackson.databind.ObjectMapper;
 
@@ -71,8 +71,6 @@ class TrackServiceTest {
     private TrackRepository trackRepository;
 
     @Mock
-    private BlockRepository blockRepository;
-    @Mock
     private ListeningHistoryRepository listeningHistoryRepository;
 
     @Mock
@@ -80,15 +78,9 @@ class TrackServiceTest {
     @Mock
     private FileUtilityAzure fileUtilityAzure;
     @Mock
-    private WaveFormUtility waveFormUtility;
-    @Mock
-    private AudioUtility audioUtility;
-    @Mock
     private TrackMapper trackMapper;
     @Mock
     private TagService tagService;
-    @Mock
-    private ObjectMapper objectMapper;
     @Mock
     private SimpMessagingTemplate messagingTemplate;
 
@@ -97,6 +89,9 @@ class TrackServiceTest {
 
     @Mock
     private RepostService repostService;
+
+    @Mock
+    private TrackChecksUtil trackChecksUtil;
 
     @InjectMocks
     private TrackService trackService;
@@ -276,10 +271,10 @@ class TrackServiceTest {
     void shouldReturnTrack_whenTrackExists() {
         // Arrange
         Track track = createTrack(1L);
-        when(trackRepository.findById(1L)).thenReturn(Optional.of(track));
+        when(trackChecksUtil.getTrackIfExistsById(1L)).thenReturn(track);
 
         // Act
-        Track result = trackService.getTrackIfExistsById(1L);
+        Track result = trackChecksUtil.getTrackIfExistsById(1L);
 
         // Assert
         assertEquals(1L, result.getId());
@@ -288,20 +283,20 @@ class TrackServiceTest {
     @Test
     void shouldThrowException_whenTrackNotFound() {
         // Arrange
-        when(trackRepository.findById(1L)).thenReturn(Optional.empty());
+        when(trackChecksUtil.getTrackIfExistsById(1L)).thenThrow(new ResourceNotFoundException("not found"));
 
         // Act & Assert
-        assertThrows(ResourceNotFoundException.class, () -> trackService.getTrackIfExistsById(1L));
+        ResourceNotFoundException ex1 = assertThrows(ResourceNotFoundException.class, () -> trackChecksUtil.getTrackIfExistsById(1L));
     }
 
     @Test
     void shouldThrow_whenTrackNotFound_updateTrack() {
         // Arrange
-        when(trackRepository.findById(1L)).thenReturn(Optional.empty());
+        when(trackChecksUtil.getTrackIfExistsById(1L)).thenThrow(new ResourceNotFoundException("not found"));
         TrackPatchRequest request = mock(TrackPatchRequest.class);
 
         // Act Assert
-        assertThrows(ResourceNotFoundException.class, () -> trackService.updateTrack(1L, request));
+        ResourceNotFoundException ex2 = assertThrows(ResourceNotFoundException.class, () -> trackService.updateTrack(1L, request));
     }
 
     // createUploadingTrack
@@ -340,7 +335,7 @@ class TrackServiceTest {
         // Arrange
         Track track = createTrack(1L);
         track.setCoverUrl("cover-url");
-        when(trackRepository.findById(1L)).thenReturn(Optional.of(track));
+        when(trackChecksUtil.getTrackIfExistsById(1L)).thenReturn(track);
 
         // Act
         trackService.deleteTrackCover(1L);
@@ -355,7 +350,7 @@ class TrackServiceTest {
         // Arrange
         Track track = createTrack(1L);
         track.setCoverUrl(null);
-        when(trackRepository.findById(1L)).thenReturn(Optional.of(track));
+        when(trackChecksUtil.getTrackIfExistsById(1L)).thenReturn(track);
 
         // Act
         trackService.deleteTrackCover(1L);
@@ -367,10 +362,10 @@ class TrackServiceTest {
     @Test
     void shouldThrow_whenTrackNotFound_deleteCover() {
         // Arrange
-        when(trackRepository.findById(1L)).thenReturn(Optional.empty());
+        when(trackChecksUtil.getTrackIfExistsById(1L)).thenThrow(new ResourceNotFoundException("not found"));
 
         // Act & Assert
-        assertThrows(ResourceNotFoundException.class, () -> trackService.deleteTrackCover(1L));
+        ResourceNotFoundException ex3 = assertThrows(ResourceNotFoundException.class, () -> trackService.deleteTrackCover(1L));
     }
 
     // deleteTrackAudio
@@ -380,7 +375,7 @@ class TrackServiceTest {
         // Arrange
         Track track = createTrack(1L);
         track.setTrackUrl("audio-url");
-        when(trackRepository.findById(1L)).thenReturn(Optional.of(track));
+        when(trackChecksUtil.getTrackIfExistsById(1L)).thenReturn(track);
 
         // Act
         trackService.deleteTrackAudio(1L);
@@ -395,7 +390,7 @@ class TrackServiceTest {
         // Arrange
         Track track = createTrack(1L);
         track.setTrackUrl(null);
-        when(trackRepository.findById(1L)).thenReturn(Optional.of(track));
+        when(trackChecksUtil.getTrackIfExistsById(1L)).thenReturn(track);
 
         // Act
         trackService.deleteTrackAudio(1L);
@@ -411,7 +406,7 @@ class TrackServiceTest {
         // Arrange
         Track track = createTrack(1L);
         track.setWaveformUrl("wave-url");
-        when(trackRepository.findById(1L)).thenReturn(Optional.of(track));
+        when(trackChecksUtil.getTrackIfExistsById(1L)).thenReturn(track);
 
         // Act
         trackService.deleteTrackWaveformData(1L);
@@ -458,7 +453,7 @@ class TrackServiceTest {
         when(request.coverImage()).thenReturn(null);
         when(request.tags()).thenReturn(null);
 
-        when(trackRepository.findById(1L)).thenReturn(Optional.of(track));
+        when(trackChecksUtil.getTrackIfExistsById(1L)).thenReturn(track);
         when(trackRepository.save(track)).thenReturn(track);
 
         // Act
@@ -498,10 +493,10 @@ class TrackServiceTest {
     @Test
     void shouldThrow_whenTrackNotFound_deleteAudio() {
         // Arrange
-        when(trackRepository.findById(1L)).thenReturn(Optional.empty());
+        when(trackChecksUtil.getTrackIfExistsById(1L)).thenThrow(new ResourceNotFoundException("not found"));
 
         // Act & Assert
-        assertThrows(ResourceNotFoundException.class, () -> trackService.deleteTrackAudio(1L));
+        ResourceNotFoundException ex4 = assertThrows(ResourceNotFoundException.class, () -> trackService.deleteTrackAudio(1L));
     }
 
     @Test
@@ -535,7 +530,7 @@ class TrackServiceTest {
         User user = new User();
         user.setTrackCount(0);
 
-        when(trackRepository.findById(1L)).thenReturn(Optional.of(track));
+        when(trackChecksUtil.getTrackIfExistsById(1L)).thenReturn(track);
         when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
 
         // Act

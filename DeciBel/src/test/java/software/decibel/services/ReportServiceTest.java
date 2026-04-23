@@ -1,22 +1,21 @@
 package software.decibel.services;
 
+import org.junit.jupiter.api.AfterEach;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import org.junit.jupiter.api.AfterEach;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -38,6 +37,7 @@ import software.decibel.mappers.ReportSubmissionMapper;
 import software.decibel.repositories.ReportRepository;
 import software.decibel.services.track.TrackService;
 import software.decibel.services.user.UserService;
+import software.decibel.utils.TrackChecksUtil;
 
 @ExtendWith(MockitoExtension.class)
 class ReportServiceTest {
@@ -52,6 +52,9 @@ class ReportServiceTest {
     private CommentService commentService;
     @Mock
     private ReportSubmissionMapper reportSubmissionMapper;
+
+    @Mock
+    private TrackChecksUtil trackChecksUtil;
 
     @InjectMocks
     private ReportService reportService;
@@ -71,7 +74,7 @@ class ReportServiceTest {
         ArgumentCaptor<Report> reportCaptor = ArgumentCaptor.forClass(Report.class);
 
         when(userService.getUserIfExistsById(7L)).thenReturn(user);
-        when(trackService.getTrackIfExistsById(15L)).thenReturn(track);
+        when(trackChecksUtil.getTrackIfExistsById(15L)).thenReturn(track);
         when(reportRepository.existsByReporterIdAndTargetIdAndTargetTypeAndStatus(7L, 15L, ReportTargetType.TRACK, ReportStatus.OPEN))
                 .thenReturn(false);
         when(reportSubmissionMapper.toTrackReportSubmittedResponse()).thenReturn(mapperResponse);
@@ -96,7 +99,7 @@ class ReportServiceTest {
 
         when(userService.getUserIfExistsById(7L)).thenReturn(
                 User.builder().id(7L).username("listener").tier(AccountTier.FREE).build());
-        when(trackService.getTrackIfExistsById(15L)).thenReturn(Track.builder().id(15L).build());
+        when(trackChecksUtil.getTrackIfExistsById(15L)).thenReturn(Track.builder().id(15L).build());
         when(reportRepository.existsByReporterIdAndTargetIdAndTargetTypeAndStatus(7L, 15L, ReportTargetType.TRACK, ReportStatus.OPEN))
                 .thenReturn(false);
         when(reportSubmissionMapper.toTrackReportSubmittedResponse())
@@ -116,7 +119,7 @@ class ReportServiceTest {
 
         when(userService.getUserIfExistsById(anyLong())).thenReturn(
                 User.builder().id(7L).username("listener").tier(AccountTier.FREE).build());
-        when(trackService.getTrackIfExistsById(15L)).thenReturn(Track.builder().id(15L).build());
+        when(trackChecksUtil.getTrackIfExistsById(15L)).thenReturn(Track.builder().id(15L).build());
         when(reportRepository.existsByReporterIdAndTargetIdAndTargetTypeAndStatus(
                 anyLong(), eq(15L), eq(ReportTargetType.TRACK), eq(ReportStatus.OPEN)))
                 .thenReturn(false);
@@ -140,7 +143,7 @@ class ReportServiceTest {
         assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatusCode());
         assertEquals("Authentication token is missing", exception.getReason());
         verify(userService, never()).getUserIfExistsById(any());
-        verify(trackService, never()).getTrackIfExistsById(any());
+        verify(trackChecksUtil, never()).getTrackIfExistsById(any());
         verify(reportRepository, never()).save(any());
     }
 
@@ -149,7 +152,7 @@ class ReportServiceTest {
         setAuthenticatedUser(7L);
         when(userService.getUserIfExistsById(7L)).thenReturn(
                 User.builder().id(7L).username("listener").tier(AccountTier.FREE).build());
-        when(trackService.getTrackIfExistsById(15L))
+        when(trackChecksUtil.getTrackIfExistsById(15L))
                 .thenThrow(new ResourceNotFoundException("Track with id 15 not found"));
 
         ResourceNotFoundException exception = assertThrows(
@@ -172,7 +175,7 @@ class ReportServiceTest {
                 () -> reportService.reportTrack(15L, new ReportRequest("Spam", null)));
 
         assertEquals("User with id 7 not found", exception.getMessage());
-        verify(trackService, never()).getTrackIfExistsById(any());
+        verify(trackChecksUtil, never()).getTrackIfExistsById(any());
         verify(reportRepository, never()).save(any());
         verify(reportSubmissionMapper, never()).toTrackReportSubmittedResponse();
     }
@@ -257,7 +260,7 @@ class ReportServiceTest {
         setAuthenticatedUser(7L);
         when(userService.getUserIfExistsById(7L)).thenReturn(
                 User.builder().id(7L).username("listener").tier(AccountTier.FREE).build());
-        when(trackService.getTrackIfExistsById(15L)).thenReturn(Track.builder().id(15L).build());
+        when(trackChecksUtil.getTrackIfExistsById(15L)).thenReturn(Track.builder().id(15L).build());
         when(reportRepository.existsByReporterIdAndTargetIdAndTargetTypeAndStatus(7L, 15L, ReportTargetType.TRACK, ReportStatus.OPEN))
                 .thenReturn(true);
 
