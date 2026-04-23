@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import software.decibel.dtos.track.responses.TrackPageResponse;
 import software.decibel.entities.Track;
+import software.decibel.entities.User;
+import software.decibel.repositories.BlockRepository;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
@@ -24,12 +26,13 @@ public class UserLikeService {
     private final TrackRepostRepository repostRepository;
     private final TrackMapper trackMapper;
     private final UserService userService;
+    private final BlockRepository blockRepository;
 
     // Get all tracks liked by user
     @Transactional
     public TrackPageResponse getLikedTracks(int page, int size) {
         Long userId = JwtService.getCurrentUserId();
-        userService.getUserIfExistsById(userId);
+        User currentUser = userService.getUserIfExistsById(userId);
 
         PageRequest pageable = PageRequest.of(page, size);
         Page<Track> result = likeRepository.findLikedTracksByUserId(userId, pageable);
@@ -39,7 +42,7 @@ public class UserLikeService {
 
         return trackMapper.toPageResponse(
                 result,
-                userService.getUserIfExistsById(JwtService.getCurrentUserId()).getTier(),
+                currentUser.getTier(),
                 likedTrackIds,
                 repostedTrackIds);
     }
@@ -48,31 +51,38 @@ public class UserLikeService {
     // Get all tracks liked by a specific user (by username)
     @Transactional(readOnly = true)
     public TrackPageResponse getLikedTracksByUsername(String username, int page, int size) {
-        Long userId = JwtService.getCurrentUserId();
-        userService.getUserIfExistsById(userId);
+        Long currentUserId = JwtService.getCurrentUserId();
+        User targetUser = userService.getUserIfExistsByUsername(username);
 
-        // 1. Get the target user whose profile we are viewing
-        Long targetUserId = userService.getUserIfExistsByUsername(username).getId();
+        // 1. Check for mutual blocks
+        if (currentUserId != null && !currentUserId.equals(targetUser.getId())) {
+            boolean hasBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(currentUserId, targetUser.getId());
+            boolean isBlockedBy = blockRepository.existsByBlocker_IdAndBlocked_Id(targetUser.getId(), currentUserId);
+
+            if (hasBlocked || isBlockedBy) {
+                throw new software.decibel.exceptions.custom.ResourceNotFoundException("User not found: " + username);
+            }
+        }
 
         // 2. Fetch the tracks THEY liked
         PageRequest pageable = PageRequest.of(page, size);
-        Page<Track> result = likeRepository.findLikedTracksByUserId(targetUserId, pageable);
+        Page<Track> result = likeRepository.findLikedTracksByUserId(targetUser.getId(), pageable);
 
-        // 3. Get the CURRENT logged-in user's state for UI flags (isLiked / isReposted)
-        Long currentUserId = JwtService.getCurrentUserId();
-
+        // 3. Get the CURRENT logged-in user's state for UI flags
         Set<Long> likedTrackIds = new HashSet<>();
         Set<Long> repostedTrackIds = new HashSet<>();
+        software.decibel.enums.AccountTier currentTier = software.decibel.enums.AccountTier.FREE;
 
-        // If the viewer is logged in, fetch their specific likes/reposts.
-        // If they are a guest, the sets remain empty (all UI icons will show as false).
         if (currentUserId != null) {
+            User currentUser = userService.getUserIfExistsById(currentUserId);
+            currentTier = currentUser.getTier();
             likedTrackIds.addAll(likeRepository.findTrackIdsByUserId(currentUserId));
             repostedTrackIds.addAll(repostRepository.findTrackIdsByUserId(currentUserId));
         }
+
         return trackMapper.toPageResponse(
                 result,
-                userService.getUserIfExistsById(JwtService.getCurrentUserId()).getTier(),
+                currentTier,
                 likedTrackIds,
                 repostedTrackIds);
     }
@@ -81,30 +91,38 @@ public class UserLikeService {
     // Get all tracks reposted by a specific user (by username)
     @Transactional(readOnly = true)
     public TrackPageResponse getRepostedTracksByUsername(String username, int page, int size) {
-        Long userId = JwtService.getCurrentUserId();
-        userService.getUserIfExistsById(userId);
+        Long currentUserId = JwtService.getCurrentUserId();
+        User targetUser = userService.getUserIfExistsByUsername(username);
 
-        // 1. Get the target user whose profile we are viewing
-        Long targetUserId = userService.getUserIfExistsByUsername(username).getId();
+        // 1. Check for mutual blocks
+        if (currentUserId != null && !currentUserId.equals(targetUser.getId())) {
+            boolean hasBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(currentUserId, targetUser.getId());
+            boolean isBlockedBy = blockRepository.existsByBlocker_IdAndBlocked_Id(targetUser.getId(), currentUserId);
+
+            if (hasBlocked || isBlockedBy) {
+                throw new software.decibel.exceptions.custom.ResourceNotFoundException("User not found: " + username);
+            }
+        }
 
         // 2. Fetch the tracks THEY reposted
         PageRequest pageable = PageRequest.of(page, size);
-        Page<Track> result = repostRepository.findRepostedTracksByUserId(targetUserId, pageable);
+        Page<Track> result = repostRepository.findRepostedTracksByUserId(targetUser.getId(), pageable);
 
         // 3. Get the CURRENT logged-in user's state for UI flags
-        Long currentUserId = JwtService.getCurrentUserId();
-
         Set<Long> likedTrackIds = new HashSet<>();
         Set<Long> repostedTrackIds = new HashSet<>();
+        software.decibel.enums.AccountTier currentTier = software.decibel.enums.AccountTier.FREE;
 
         if (currentUserId != null) {
+            User currentUser = userService.getUserIfExistsById(currentUserId);
+            currentTier = currentUser.getTier();
             likedTrackIds.addAll(likeRepository.findTrackIdsByUserId(currentUserId));
             repostedTrackIds.addAll(repostRepository.findTrackIdsByUserId(currentUserId));
         }
 
         return trackMapper.toPageResponse(
                 result,
-                userService.getUserIfExistsById(JwtService.getCurrentUserId()).getTier(),
+                currentTier,
                 likedTrackIds,
                 repostedTrackIds);
     }

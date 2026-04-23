@@ -62,6 +62,15 @@ public class RepostService {
         User user = userService.getUserIfExistsById(userId);
         Track track = getTrackIfExistsById(trackId);
 
+        // Check for mutual blocks between the reposter and the track uploader
+        if (track.getUploader() != null && !track.getUploader().getId().equals(userId)) {
+            boolean hasBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(userId, track.getUploader().getId());
+            boolean isBlockedBy = blockRepository.existsByBlocker_IdAndBlocked_Id(track.getUploader().getId(), userId);
+            if (hasBlocked || isBlockedBy) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Action blocked due to privacy settings");
+            }
+        }
+
         if (trackRepostRepository.existsByUserAndTrack(user, track)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Track already reposted");
         }
@@ -124,6 +133,15 @@ public class RepostService {
         User user = findUser(userId);
         Playlist playlist = findPlaylist(playlistId);
 
+        // Check for mutual blocks between the reposter and the playlist owner
+        if (playlist.getUser() != null && !playlist.getUser().getId().equals(userId)) {
+            boolean hasBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(userId, playlist.getUser().getId());
+            boolean isBlockedBy = blockRepository.existsByBlocker_IdAndBlocked_Id(playlist.getUser().getId(), userId);
+            if (hasBlocked || isBlockedBy) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Action blocked due to privacy settings");
+            }
+        }
+
         if (playlistRepostRepository.existsByUserAndPlaylist(user, playlist)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Playlist already reposted");
         }
@@ -144,7 +162,7 @@ public class RepostService {
                     playlist.getId() // Resource ID
             );
         }
-        return ResponseEntity.ok(repostMapper.toRepostResponse(true)).getBody();
+        return repostMapper.toRepostResponse(true);
     }
 
     @Transactional
@@ -167,12 +185,23 @@ public class RepostService {
 
     // Mixed feed of track + playlist reposts in chronological order
     public Page<RepostItemResponse> getUserReposts(String username, Pageable pageable) {
-        User user = userService.getUserIfExistsByUsername(username);
+        Long currentUserId = JwtService.getCurrentUserId();
+        User targetUser = userService.getUserIfExistsByUsername(username);
+
+        // Check for mutual blocks
+        if (currentUserId != null && !currentUserId.equals(targetUser.getId())) {
+            boolean hasBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(currentUserId, targetUser.getId());
+            boolean isBlockedBy = blockRepository.existsByBlocker_IdAndBlocked_Id(targetUser.getId(), currentUserId);
+
+            if (hasBlocked || isBlockedBy) {
+                throw new ResourceNotFoundException("User not found: " + username);
+            }
+        }
 
         List<RepostItemResponse> all = new ArrayList<>();
 
         // Add playlist reposts
-        playlistRepostRepository.findByUser(user, Pageable.unpaged())
+        playlistRepostRepository.findByUser(targetUser, Pageable.unpaged())
                 .forEach(r -> all.add(new RepostItemResponse(
                 "PLAYLIST",
                 r.getPlaylist().getId(),
@@ -182,7 +211,7 @@ public class RepostService {
         )));
 
         // Add track reposts
-        trackRepostRepository.findByUser(user, Pageable.unpaged())
+        trackRepostRepository.findByUser(targetUser, Pageable.unpaged())
                 .forEach(r -> all.add(new RepostItemResponse(
                 "TRACK",
                 r.getTrack().getId(),

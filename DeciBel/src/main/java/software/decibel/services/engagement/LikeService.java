@@ -65,6 +65,15 @@ public class LikeService {
         User user = userService.getUserIfExistsById(userId);
         Track track = getTrackIfExistsById(trackId);
 
+        // Check for mutual blocks between the liker and the track uploader
+        if (track.getUploader() != null && !track.getUploader().getId().equals(userId)) {
+            boolean hasBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(userId, track.getUploader().getId());
+            boolean isBlockedBy = blockRepository.existsByBlocker_IdAndBlocked_Id(track.getUploader().getId(), userId);
+            if (hasBlocked || isBlockedBy) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Action blocked due to privacy settings");
+            }
+        }
+
         if (trackLikeRepository.existsByUserAndTrack(user, track)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Track already liked");
         }
@@ -122,6 +131,15 @@ public class LikeService {
     public LikeResponse likePlaylist(Long userId, Long playlistId) {
         User user = findUser(userId);
         Playlist playlist = findPlaylist(playlistId);
+
+        // Check for mutual blocks between the liker and the playlist owner
+        if (playlist.getUser() != null && !playlist.getUser().getId().equals(userId)) {
+            boolean hasBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(userId, playlist.getUser().getId());
+            boolean isBlockedBy = blockRepository.existsByBlocker_IdAndBlocked_Id(playlist.getUser().getId(), userId);
+            if (hasBlocked || isBlockedBy) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Action blocked due to privacy settings");
+            }
+        }
 
         if (playlistLikeRepository.existsByUserAndPlaylist(user, playlist)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Playlist already liked");
