@@ -75,4 +75,33 @@ class TrackControllerTest {
                 .andExpect(status().isTooManyRequests())
                 .andExpect(jsonPath("$.message").value("Please wait 10 seconds before recording another play."));
     }
+
+    @Test
+    void completeTrackListen_whenRequestIsValid_returnsOk() throws Exception {
+        when(trackService.recordTrackCompletion(5L)).thenReturn(new MessageResponse("Full listen recorded"));
+
+        mockMvc.perform(post("/tracks/5/complete"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Full listen recorded"));
+
+        verify(trackService).recordTrackCompletion(5L);
+    }
+
+    @Test
+    void completeTrackListen_whenTrackIdIsInvalidType_returnsBadRequest() throws Exception {
+        mockMvc.perform(post("/tracks/not-a-number/complete"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(trackService);
+    }
+
+    @Test
+    void completeTrackListen_whenTrackDoesNotExist_returnsNotFound() throws Exception {
+        when(trackService.recordTrackCompletion(5L))
+                .thenThrow(new ResourceNotFoundException("Track with id 5 not found"));
+
+        mockMvc.perform(post("/tracks/5/complete"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Track with id 5 not found"));
+    }
 }

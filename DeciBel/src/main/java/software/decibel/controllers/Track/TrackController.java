@@ -100,6 +100,11 @@ public class TrackController {
         return ResponseEntity.ok(trackService.recordTrackPlay(trackId));
     }
 
+    @PostMapping("/{trackId}/complete")
+    public ResponseEntity<MessageResponse> completeTrackListen(@PathVariable Long trackId) {
+        return ResponseEntity.ok(trackService.recordTrackCompletion(trackId));
+    }
+
     // GET /tracks/{trackId} to get track data
     @GetMapping("/{trackId}")
     public ResponseEntity<TrackResponse> getTrack(@PathVariable Long trackId) {

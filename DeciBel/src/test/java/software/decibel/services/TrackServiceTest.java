@@ -195,6 +195,47 @@ class TrackServiceTest {
         verify(listeningHistoryRepository, never()).save(any(ListeningHistory.class));
     }
 
+    @Test
+    void recordTrackCompletion_incrementsCompletedCountAndUpdatesPlayThroughRate() {
+        Track track = createTrack(5L);
+        track.setPlayCount(4);
+        track.setCompletedPlayCount(1);
+        User user = new User();
+        user.setId(mockUserId);
+
+        when(trackRepository.findById(5L)).thenReturn(Optional.of(track));
+        when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
+        when(trackRepository.save(track)).thenReturn(track);
+
+        MessageResponse result = trackService.recordTrackCompletion(5L);
+
+        assertEquals("Full listen recorded", result.message());
+        assertEquals(2, track.getCompletedPlayCount());
+        assertEquals(0.5, track.getPlayThroughRate());
+        verify(trackRepository).save(track);
+    }
+
+    @Test
+    void recordTrackCompletion_whenPlayCountIsZero_doesNotDivideByZero() {
+        Track track = createTrack(5L);
+        track.setPlayCount(0);
+        track.setCompletedPlayCount(0);
+        track.setPlayThroughRate(0.0);
+        User user = new User();
+        user.setId(mockUserId);
+
+        when(trackRepository.findById(5L)).thenReturn(Optional.of(track));
+        when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
+        when(trackRepository.save(track)).thenReturn(track);
+
+        MessageResponse result = trackService.recordTrackCompletion(5L);
+
+        assertEquals("Full listen recorded", result.message());
+        assertEquals(1, track.getCompletedPlayCount());
+        assertEquals(0.0, track.getPlayThroughRate());
+        verify(trackRepository).save(track);
+    }
+
     // getTrackIfExistsById
     // -------------------------------
     @Test

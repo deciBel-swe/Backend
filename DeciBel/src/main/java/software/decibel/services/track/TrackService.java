@@ -117,6 +117,22 @@ public class TrackService {
         return new MessageResponse("Play recorded");
     }
 
+    @Transactional
+    public MessageResponse recordTrackCompletion(Long trackId) {
+        Long currentUserId = JwtService.getCurrentUserId();
+        userService.getUserIfExistsById(currentUserId);
+
+        Track track = getTrackIfExistsById(trackId);
+        track.setCompletedPlayCount(track.getCompletedPlayCount() + 1);
+
+        if (track.getPlayCount() > 0) {
+            track.setPlayThroughRate((double) track.getCompletedPlayCount() / track.getPlayCount());
+        }
+
+        trackRepository.save(track);
+        return new MessageResponse("Full listen recorded");
+    }
+
     //delete track
     @Transactional
     public void deleteTrack(Long trackId) {
