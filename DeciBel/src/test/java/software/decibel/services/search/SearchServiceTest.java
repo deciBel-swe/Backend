@@ -65,7 +65,7 @@ class SearchServiceTest {
 
         when(trackRepository.searchPublicTracks(anyString(), any(Pageable.class))).thenReturn(trackPage);
         when(trackMapper.toTrackResponse(any(), any(Boolean.class), any(Boolean.class)))
-                .thenReturn(new TrackResponse(1L, "Test Track", null, null, null, null, null, null, false, false, null, null, 0, 0, 0, 0, false, 0, null, null, null, null, "test-track"));
+                .thenReturn(new TrackResponse(1L, "Test Track", null, null, null, null, null, null, false, false, null, null, 0, 0, 0, 0, 0, false, 0, null, null, null, null, "test-track"));
 
         SearchResponse response = searchService.search("test", "track", 0, 10);
 

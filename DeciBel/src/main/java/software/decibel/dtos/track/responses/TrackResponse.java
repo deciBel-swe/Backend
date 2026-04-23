@@ -19,6 +19,7 @@ public record TrackResponse(
         List<String> tags,
         LocalDate releaseDate,
         int playCount,
+        int completedPlayCount,
         int likeCount,
         int repostCount,
         int commentCount,

@@ -2,7 +2,9 @@ package software.decibel.dtos.playlist;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import software.decibel.dtos.track.responses.TrackPageResponse;
+
+import software.decibel.dtos.track.TrackSummaryDTO;
+import software.decibel.dtos.user.UserSummaryDTO;
 import software.decibel.enums.PlaylistType;
 
 public record PlaylistResponse(
@@ -13,11 +15,14 @@ public record PlaylistResponse(
         String description,
         boolean isPrivate,
         String coverArtUrl,
+        String playlistSlug,
         int totalDurationSeconds,
         int trackCount,
-        OwnerDto owner,
+        UserSummaryDTO owner,
         List<String> genres,
         LocalDateTime createdAt,
-        TrackPageResponse tracks) {
+        List<TrackSummaryDTO> trackSummaryDto, // first 5 tracks as summaries
+        String firstTrackWaveformUrl
+        ) {
 
 }

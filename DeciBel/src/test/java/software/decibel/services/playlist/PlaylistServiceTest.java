@@ -1,29 +1,30 @@
 package software.decibel.services.playlist;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mapstruct.factory.Mappers;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
+
 import software.decibel.dtos.playlist.CreatePlaylistRequest;
 import software.decibel.dtos.playlist.PatchPlaylistRequest;
 import software.decibel.dtos.playlist.PlaylistResponse;
@@ -37,6 +38,7 @@ import software.decibel.exceptions.custom.PlaylistAccessDeniedException;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.PlaylistMapper;
 import software.decibel.mappers.TrackMapper;
+import software.decibel.mappers.UserMapper;
 import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.TrackRepository;
@@ -78,9 +80,13 @@ class PlaylistServiceTest {
     @InjectMocks
     private PlaylistService playlistService;
 
+    @Mock
+    private PlaylistTokenService playlistTokenService;
+
     @BeforeEach
     void setUp() {
-        playlistMapper = new PlaylistMapper(trackMapper);
+        UserMapper userMapper = Mappers.getMapper(UserMapper.class);
+        playlistMapper = new PlaylistMapper(trackMapper, userMapper);
         ReflectionTestUtils.setField(playlistService, "playlistMapper", playlistMapper);
     }
 
@@ -135,6 +141,8 @@ class PlaylistServiceTest {
             p.setId(11L);
             return p;
         });
+        when(playlistTokenService.issueNewToken(any(Playlist.class)))
+                .thenReturn("mock-token");
 
         PlaylistResponse response = playlistService.createPlaylist(1L, request);
 
@@ -175,19 +183,19 @@ class PlaylistServiceTest {
     @Test
     void getPlaylist_whenExists_returnsPlaylistResponse() {
         User user = user(1L);
-    user.setTier(AccountTier.FREE);
+        user.setTier(AccountTier.FREE);
         Playlist playlist = playlist(user);
         when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
-    when(userService.getUserIfExistsById(1L)).thenReturn(user);
 
         // Mock current user so visibility checks pass
         try (MockedStatic<JwtService> mockedJwt = mockStatic(JwtService.class)) {
             mockedJwt.when(JwtService::getCurrentUserId).thenReturn(1L);
 
-            PlaylistResponse response = playlistService.getPlaylist(10L, PageRequest.of(0, 20));
+            // FIX: Pass 1L (currentUserId) instead of PageRequest!
+            PlaylistResponse response = playlistService.getPlaylist(10L, 1L);
 
             assertEquals(10L, response.id());
-            assertEquals(1L, response.owner().userId());
+            assertEquals(1L, response.owner().id());
         }
     }
 
@@ -234,8 +242,8 @@ class PlaylistServiceTest {
     // ── removeTrack ───────────────────────────────────────────────────────────
     @Test
     void removeTrack_whenValid_removesTrackAndUpdatesCounts() {
-        User user = user(1L); // FIX: Passed ID
-        Track track = track(100L, "Hip Hop", 180, user); // FIX: Passed User
+        User user = user(1L);
+        Track track = track(100L, "Hip Hop", 180, user);
         Playlist playlist = playlist(user);
         playlist.getTracks().add(track);
         playlist.setTrackCount(1);
@@ -246,11 +254,13 @@ class PlaylistServiceTest {
         when(trackRepository.findById(100L)).thenReturn(Optional.of(track));
         when(playlistRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        PlaylistResponse response = playlistService.removeTrack(1L, 10L, 100L);
+        // FIX: Just call the method. Don't assign it to a response variable.
+        playlistService.removeTrack(1L, 10L, 100L);
 
-        assertEquals(0, response.trackCount());
-        assertEquals(0, response.totalDurationSeconds());
-        assertTrue(response.genres().isEmpty());
+        // FIX: Assert against the modified 'playlist' entity instead of a response DTO!
+        assertEquals(0, playlist.getTrackCount());
+        assertEquals(0, playlist.getTotalDurationSeconds());
+        assertTrue(playlist.getGenres().isEmpty());
         verify(playlistRepository).save(any());
     }
 

@@ -13,8 +13,8 @@ import software.decibel.enums.ReportStatus;
 import software.decibel.enums.ReportTargetType;
 import software.decibel.mappers.ReportSubmissionMapper;
 import software.decibel.repositories.ReportRepository;
-import software.decibel.services.track.TrackService;
 import software.decibel.services.user.UserService;
+import software.decibel.utils.TrackChecksUtil;
 
 @Service
 @RequiredArgsConstructor
@@ -22,7 +22,7 @@ public class ReportService {
 
     private final ReportRepository reportRepository;
     private final UserService userService;
-    private final TrackService trackService;
+    private final TrackChecksUtil trackChecksUtil;
     private final CommentService commentService;
     private final ReportSubmissionMapper reportSubmissionMapper;
 
@@ -30,7 +30,7 @@ public class ReportService {
     public MessageResponse reportTrack(Long trackId, ReportRequest request) {
         Long reporterId = requireAuthenticatedUserId();
         userService.getUserIfExistsById(reporterId);
-        trackService.getTrackIfExistsById(trackId);
+        trackChecksUtil.getTrackIfExistsById(trackId);
         ensureNoOpenReportExists(reporterId, trackId, ReportTargetType.TRACK);
 
         reportRepository.save(buildReport(reporterId, trackId, ReportTargetType.TRACK, request));

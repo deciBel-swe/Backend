@@ -27,7 +27,8 @@ public interface TrackMapper {
     @Mapping(target = "isReposted", expression = "java(repostedTrackIds.contains(track.getId()))")
     @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
     @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
-    @Mapping(target = "playCount", source = "track.playCount") // Assuming completedPlayCount is same as playCount for now
+    @Mapping(target = "playCount", source = "track.playCount")
+    @Mapping(target = "completedPlayCount", source = "track.completedPlayCount")
     @Mapping(target = "commentCount", expression = "java(mapCommentCount(track))")
     @Mapping(target = "secretToken", expression = "java(mapSecretToken(track))")
     @Mapping(target = "access", expression = "java(resolveAccess(userTier, track.getAccess()))")
@@ -45,6 +46,7 @@ public interface TrackMapper {
     @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
     @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
     @Mapping(target = "playCount", source = "track.playCount")
+    @Mapping(target = "completedPlayCount", source = "track.completedPlayCount")
     @Mapping(target = "commentCount", expression = "java(mapCommentCount(track))")
     @Mapping(target = "secretToken", expression = "java(mapSecretToken(track))")
     @Mapping(target = "access", expression = "java(track.getVisibility() == Visibility.PUBLIC ? software.decibel.enums.TrackAccess.PLAYABLE : software.decibel.enums.TrackAccess.PREVIEW)")
@@ -202,9 +204,18 @@ public interface TrackMapper {
 
     // --------------------TrackSummary DTOs -----------------
     // track -> track summary
-    @Mapping(target = "trackSlug", source = "slug")
-    @Mapping(target = "artist", source = "uploader")
-    @Mapping(target = "isLiked", ignore = true)
-    @Mapping(target = "isReposted", ignore = true)
-    TrackSummaryDTO toTrackSummary(Track track);
+    @Mapping(target = "trackSlug", source = "track.slug")
+    @Mapping(target = "trackPreviewUrl", source = "track.trackUrl")
+    @Mapping(target = "artist", source = "track.uploader")
+    @Mapping(target = "secretToken", expression = "java(mapSecretToken(track))")
+    @Mapping(target = "commentCount", expression = "java(mapCommentCount(track))")
+    @Mapping(target = "access", expression = "java(track.getVisibility() == software.decibel.enums.Visibility.PUBLIC ? \"PLAYABLE\" : \"PREVIEW\")")
+    @Mapping(target = "isLiked", expression = "java(likedTrackIds != null && likedTrackIds.contains(track.getId()))")
+    @Mapping(target = "isReposted", expression = "java(repostedTrackIds != null && repostedTrackIds.contains(track.getId()))")
+    TrackSummaryDTO toTrackSummaryDTO(
+            Track track,
+            Set<Long> likedTrackIds,
+            Set<Long> repostedTrackIds,
+            AccountTier accountTier
+    );
 }

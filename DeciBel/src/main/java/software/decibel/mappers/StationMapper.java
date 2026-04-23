@@ -34,14 +34,16 @@ public interface StationMapper {
                                             dto.trackSlug(),
                                             dto.coverUrl(),
                                             dto.trackUrl(),
+                                            dto.trackPreviewUrl(),
                                             dto.artist(),
                                             dto.playCount(),
                                             dto.likeCount(),
                                             dto.repostCount(),
                                             dto.commentCount(),
-                                            likedIds.contains(track.getId()),
-                                            repostedIds.contains(track.getId()),
-                                            tokenMap.getOrDefault(track.getId(), null) // secretToken
+                                            likedIds != null && likedIds.contains(track.getId()),
+                                            repostedIds != null && repostedIds.contains(track.getId()),
+                                            tokenMap.getOrDefault(track.getId(), null),// secretToken
+                                            dto.access()
                                     );
                                 })
                         .toList();
