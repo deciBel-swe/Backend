@@ -134,7 +134,7 @@ class TrackServiceTest {
         track.setPlayCount(3);
 
         jwtMock.when(JwtService::getCurrentUserId).thenReturn(null);
-        when(trackRepository.findById(5L)).thenReturn(Optional.of(track));
+        when(trackChecksUtil.getTrackIfExistsById(5L)).thenReturn(track);
         when(trackRepository.save(track)).thenReturn(track);
 
         MessageResponse result = trackService.recordTrackPlay(5L);
@@ -153,7 +153,7 @@ class TrackServiceTest {
         User user = new User();
         user.setId(mockUserId);
 
-        when(trackRepository.findById(5L)).thenReturn(Optional.of(track));
+        when(trackChecksUtil.getTrackIfExistsById(5L)).thenReturn(track);
         when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
         when(listeningHistoryRepository.findTopByUserIdAndTrackIdOrderByPlayedAtDesc(mockUserId, 5L))
                 .thenReturn(Optional.empty());
@@ -179,7 +179,7 @@ class TrackServiceTest {
                 .playedAt(LocalDateTime.now().minusSeconds(30))
                 .build();
 
-        when(trackRepository.findById(5L)).thenReturn(Optional.of(track));
+        when(trackChecksUtil.getTrackIfExistsById(5L)).thenReturn(track);
         when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
         when(listeningHistoryRepository.findTopByUserIdAndTrackIdOrderByPlayedAtDesc(mockUserId, 5L))
                 .thenReturn(Optional.of(lastPlay));
@@ -203,7 +203,7 @@ class TrackServiceTest {
                 .completed(false)
                 .build();
 
-        when(trackRepository.findById(5L)).thenReturn(Optional.of(track));
+        when(trackChecksUtil.getTrackIfExistsById(5L)).thenReturn(track);
         when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
         when(listeningHistoryRepository.findTopByUserIdAndTrackIdAndCompletedFalseOrderByPlayedAtDesc(mockUserId, 5L))
                 .thenReturn(Optional.of(history));
@@ -227,7 +227,7 @@ class TrackServiceTest {
         User user = new User();
         user.setId(mockUserId);
 
-        when(trackRepository.findById(5L)).thenReturn(Optional.of(track));
+        when(trackChecksUtil.getTrackIfExistsById(5L)).thenReturn(track);
         when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
         when(listeningHistoryRepository.findTopByUserIdAndTrackIdAndCompletedFalseOrderByPlayedAtDesc(mockUserId, 5L))
                 .thenReturn(Optional.empty());
@@ -250,7 +250,7 @@ class TrackServiceTest {
         User user = new User();
         user.setId(mockUserId);
 
-        when(trackRepository.findById(5L)).thenReturn(Optional.of(track));
+        when(trackChecksUtil.getTrackIfExistsById(5L)).thenReturn(track);
         when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
         when(listeningHistoryRepository.findTopByUserIdAndTrackIdAndCompletedFalseOrderByPlayedAtDesc(mockUserId, 5L))
                 .thenReturn(Optional.empty());

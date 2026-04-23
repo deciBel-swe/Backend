@@ -544,6 +544,10 @@ public class TrackService {
         return createUploadingTrack(track, uploadId);
     }
 
+    private Track getTrackIfExistsById(Long trackId) {
+        return trackChecksUtil.getTrackIfExistsById(trackId);
+    }
+
     private void enforcePlayCooldown(Long userId, Track track) {
         listeningHistoryRepository.findTopByUserIdAndTrackIdOrderByPlayedAtDesc(userId, track.getId())
                 .ifPresent(lastPlay -> {

@@ -211,4 +211,32 @@ public interface TrackMapper {
     @Mapping(target = "isReposted", ignore = true)
     @Mapping(target = "secretToken", ignore = true)
     TrackSummaryDTO toTrackSummary(Track track);
+
+    default TrackSummaryDTO toTrackSummaryDTO(
+            Track track,
+            Set<Long> likedTrackIds,
+            Set<Long> repostedTrackIds,
+            AccountTier accountTier) {
+        TrackSummaryDTO dto = toTrackSummary(track);
+        if (dto == null) {
+            return null;
+        }
+
+        return new TrackSummaryDTO(
+                dto.id(),
+                dto.title(),
+                dto.trackSlug(),
+                dto.coverUrl(),
+                resolveTrackUrl(accountTier, track),
+                resolvePreviewUrl(accountTier, track),
+                dto.artist(),
+                dto.playCount(),
+                dto.likeCount(),
+                dto.repostCount(),
+                dto.commentCount(),
+                likedTrackIds != null && likedTrackIds.contains(track.getId()),
+                repostedTrackIds != null && repostedTrackIds.contains(track.getId()),
+                mapSecretToken(track),
+                resolveAccess(accountTier, track.getAccess()));
+    }
 }

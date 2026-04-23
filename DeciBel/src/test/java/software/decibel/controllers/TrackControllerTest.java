@@ -85,14 +85,16 @@ class TrackControllerTest {
     }
 
     @Test
-    void playTrack_whenBodyIsNotEmpty_returnsBadRequest() throws Exception {
+    void playTrack_whenBodyIsNotEmpty_stillProcessesRequest() throws Exception {
+        when(trackService.recordTrackPlay(5L)).thenReturn(new MessageResponse("Play recorded"));
+
         mockMvc.perform(post("/tracks/5/play")
                 .contentType("application/json")
                 .content("{\"unexpected\":\"value\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Request body must be empty."));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Play recorded"));
 
-        verifyNoInteractions(trackService);
+        verify(trackService).recordTrackPlay(5L);
     }
 
     @Test
@@ -131,13 +133,15 @@ class TrackControllerTest {
     }
 
     @Test
-    void completeTrackListen_whenBodyIsNotEmpty_returnsBadRequest() throws Exception {
+    void completeTrackListen_whenBodyIsNotEmpty_stillProcessesRequest() throws Exception {
+        when(trackService.recordTrackCompletion(5L)).thenReturn(new MessageResponse("Full listen recorded"));
+
         mockMvc.perform(post("/tracks/5/complete")
                 .contentType("application/json")
                 .content("{\"unexpected\":\"value\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Request body must be empty."));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Full listen recorded"));
 
-        verifyNoInteractions(trackService);
+        verify(trackService).recordTrackCompletion(5L);
     }
 }
