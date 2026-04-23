@@ -203,7 +203,9 @@ public interface TrackMapper {
     // track -> track summary
     @Mapping(target = "trackSlug", source = "slug")
     @Mapping(target = "artist", source = "uploader")
+    @Mapping(target = "trackPreviewUrl", source = "trackPreviewUrl")
     @Mapping(target = "isLiked", ignore = true)
     @Mapping(target = "isReposted", ignore = true)
+    @Mapping(target = "secretToken", ignore = true)
     TrackSummaryDTO toTrackSummary(Track track);
 }

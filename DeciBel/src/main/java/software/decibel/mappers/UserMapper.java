@@ -7,6 +7,7 @@ import software.decibel.dtos.user.BlockedUserDto;
 import software.decibel.dtos.user.UserFollowDto;
 import software.decibel.dtos.user.UserProfile;
 import software.decibel.dtos.user.UserSummary;
+import software.decibel.dtos.user.UserSummaryDTO;
 import software.decibel.entities.User;
 import software.decibel.utils.UserMappingUtility;
 
@@ -40,4 +41,7 @@ public interface UserMapper {
     }
 
   UserSummary toUserSummary(User user);
+
+  @Mapping(target = "isFollowing", ignore = true)
+  UserSummaryDTO toUserSummaryDto(User user);
 }

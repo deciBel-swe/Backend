@@ -29,6 +29,7 @@ import software.decibel.entities.ListeningHistory;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
 import software.decibel.mappers.StationMapper;
+import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.ListeningHistoryRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepostRepository;
@@ -47,6 +48,8 @@ class UserHistoryServiceTest {
     private TrackRepostRepository trackRepostRepository;
     @Mock
     private TrackTokenRepository trackTokenRepository;
+    @Mock
+    private FollowRepository followRepository;
     @Mock
     private StationMapper stationMapper;
     @Mock
@@ -85,8 +88,9 @@ class UserHistoryServiceTest {
                 .thenReturn(historyPage);
         when(trackLikeRepository.findTrackIdsByUserId(USER_ID)).thenReturn(likedIds);
         when(trackRepostRepository.findTrackIdsByUserId(USER_ID)).thenReturn(repostedIds);
+        when(followRepository.findFollowingIdsByFollowerId(USER_ID)).thenReturn(List.of(3L));
         when(trackTokenRepository.findActiveTokensByTrackIds(Set.of(15L))).thenReturn(tokenMap);
-        when(stationMapper.toPageResponse(any(Page.class), eq(likedIds), eq(repostedIds), eq(tokenMap)))
+        when(stationMapper.toPageResponse(any(Page.class), eq(likedIds), eq(repostedIds), eq(tokenMap), eq(Set.of(3L))))
                 .thenReturn(expected);
 
         StationPageResponse result = userHistoryService.getMyListeningHistory(0, 20);
@@ -108,7 +112,8 @@ class UserHistoryServiceTest {
                 .thenReturn(historyPage);
         when(trackLikeRepository.findTrackIdsByUserId(USER_ID)).thenReturn(Set.of());
         when(trackRepostRepository.findTrackIdsByUserId(USER_ID)).thenReturn(Set.of());
-        when(stationMapper.toPageResponse(any(Page.class), eq(Set.of()), eq(Set.of()), eq(Map.of())))
+        when(followRepository.findFollowingIdsByFollowerId(USER_ID)).thenReturn(List.of());
+        when(stationMapper.toPageResponse(any(Page.class), eq(Set.of()), eq(Set.of()), eq(Map.of()), eq(Set.of())))
                 .thenReturn(expected);
 
         StationPageResponse result = userHistoryService.getMyListeningHistory(0, 20);

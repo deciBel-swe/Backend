@@ -103,6 +103,7 @@ public class TrackService {
                     ListeningHistory.builder()
                             .user(user)
                             .track(track)
+                            .completed(false)
                             .build());
         }
         /*
@@ -123,10 +124,19 @@ public class TrackService {
         userService.getUserIfExistsById(currentUserId);
 
         Track track = getTrackIfExistsById(trackId);
-        track.setCompletedPlayCount(track.getCompletedPlayCount() + 1);
+        listeningHistoryRepository.findTopByUserIdAndTrackIdAndCompletedFalseOrderByPlayedAtDesc(currentUserId, trackId)
+                .ifPresent(history -> {
+                    history.setCompleted(true);
+                    listeningHistoryRepository.save(history);
+                    if (track.getCompletedPlayCount() < track.getPlayCount()) {
+                        track.setCompletedPlayCount(track.getCompletedPlayCount() + 1);
+                    }
+                });
 
         if (track.getPlayCount() > 0) {
             track.setPlayThroughRate((double) track.getCompletedPlayCount() / track.getPlayCount());
+        } else {
+            track.setPlayThroughRate(0.0);
         }
 
         trackRepository.save(track);

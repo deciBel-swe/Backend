@@ -12,4 +12,6 @@ public interface ListeningHistoryRepository extends JpaRepository<ListeningHisto
     Page<ListeningHistory> findByUserIdOrderByPlayedAtDesc(Long userId, Pageable pageable);
 
     Optional<ListeningHistory> findTopByUserIdAndTrackIdOrderByPlayedAtDesc(Long userId, Long trackId);
+
+    Optional<ListeningHistory> findTopByUserIdAndTrackIdAndCompletedFalseOrderByPlayedAtDesc(Long userId, Long trackId);
 }

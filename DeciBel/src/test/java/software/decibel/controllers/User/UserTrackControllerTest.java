@@ -21,7 +21,8 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 import software.decibel.dtos.discovery.StationPageResponse;
 import software.decibel.dtos.track.TrackSummaryDTO;
-import software.decibel.dtos.user.UserSummary;
+import software.decibel.dtos.user.UserSummaryDTO;
+import software.decibel.enums.TrackAccess;
 import software.decibel.exceptions.GlobalExceptionHandler;
 import software.decibel.services.engagement.LikeService;
 import software.decibel.services.engagement.RepostService;
@@ -62,14 +63,16 @@ class UserTrackControllerTest {
                 "track-title",
                 "cover.jpg",
                 "track.mp3",
-                new UserSummary(3L, "artist", "Artist Name", "artist.jpg"),
+                "preview.mp3",
+                new UserSummaryDTO(3L, "artist", "Artist Name", "artist.jpg", true, 12, 7),
                 10,
                 4,
                 1,
                 2,
                 true,
                 false,
-                "secret-token");
+                "secret-token",
+                TrackAccess.PLAYABLE);
         StationPageResponse response = new StationPageResponse(List.of(summary), 0, 20, 1, 1, true);
 
         when(userHistoryService.getMyListeningHistory(0, 20)).thenReturn(response);
@@ -82,6 +85,8 @@ class UserTrackControllerTest {
                 .andExpect(jsonPath("$.content[0].id").value(15))
                 .andExpect(jsonPath("$.content[0].title").value("Track Title"))
                 .andExpect(jsonPath("$.content[0].artist.username").value("artist"))
+                .andExpect(jsonPath("$.content[0].trackPreviewUrl").value("preview.mp3"))
+                .andExpect(jsonPath("$.content[0].access").value("PLAYABLE"))
                 .andExpect(jsonPath("$.pageNumber").value(0))
                 .andExpect(jsonPath("$.pageSize").value(20))
                 .andExpect(jsonPath("$.totalElements").value(1))

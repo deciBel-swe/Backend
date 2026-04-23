@@ -40,6 +40,9 @@ public class ListeningHistory {
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Track track;
 
+    @Builder.Default
+    private boolean completed = false;
+
     @CreationTimestamp
     private LocalDateTime playedAt;
 }

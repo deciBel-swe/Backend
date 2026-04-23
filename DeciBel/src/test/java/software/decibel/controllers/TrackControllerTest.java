@@ -41,7 +41,9 @@ class TrackControllerTest {
     void playTrack_whenRequestIsValid_returnsOk() throws Exception {
         when(trackService.recordTrackPlay(5L)).thenReturn(new MessageResponse("Play recorded"));
 
-        mockMvc.perform(post("/tracks/5/play"))
+        mockMvc.perform(post("/tracks/5/play")
+                .contentType("application/json")
+                .content("{}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Play recorded"));
 
@@ -50,7 +52,9 @@ class TrackControllerTest {
 
     @Test
     void playTrack_whenTrackIdIsInvalidType_returnsBadRequest() throws Exception {
-        mockMvc.perform(post("/tracks/not-a-number/play"))
+        mockMvc.perform(post("/tracks/not-a-number/play")
+                .contentType("application/json")
+                .content("{}"))
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(trackService);
@@ -61,7 +65,9 @@ class TrackControllerTest {
         when(trackService.recordTrackPlay(5L))
                 .thenThrow(new ResourceNotFoundException("Track with id 5 not found"));
 
-        mockMvc.perform(post("/tracks/5/play"))
+        mockMvc.perform(post("/tracks/5/play")
+                .contentType("application/json")
+                .content("{}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Track with id 5 not found"));
     }
@@ -71,16 +77,31 @@ class TrackControllerTest {
         when(trackService.recordTrackPlay(5L))
                 .thenThrow(new CooldownActiveException("Please wait 10 seconds before recording another play."));
 
-        mockMvc.perform(post("/tracks/5/play"))
+        mockMvc.perform(post("/tracks/5/play")
+                .contentType("application/json")
+                .content("{}"))
                 .andExpect(status().isTooManyRequests())
                 .andExpect(jsonPath("$.message").value("Please wait 10 seconds before recording another play."));
+    }
+
+    @Test
+    void playTrack_whenBodyIsNotEmpty_returnsBadRequest() throws Exception {
+        mockMvc.perform(post("/tracks/5/play")
+                .contentType("application/json")
+                .content("{\"unexpected\":\"value\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Request body must be empty."));
+
+        verifyNoInteractions(trackService);
     }
 
     @Test
     void completeTrackListen_whenRequestIsValid_returnsOk() throws Exception {
         when(trackService.recordTrackCompletion(5L)).thenReturn(new MessageResponse("Full listen recorded"));
 
-        mockMvc.perform(post("/tracks/5/complete"))
+        mockMvc.perform(post("/tracks/5/complete")
+                .contentType("application/json")
+                .content("{}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Full listen recorded"));
 
@@ -89,7 +110,9 @@ class TrackControllerTest {
 
     @Test
     void completeTrackListen_whenTrackIdIsInvalidType_returnsBadRequest() throws Exception {
-        mockMvc.perform(post("/tracks/not-a-number/complete"))
+        mockMvc.perform(post("/tracks/not-a-number/complete")
+                .contentType("application/json")
+                .content("{}"))
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(trackService);
@@ -100,8 +123,21 @@ class TrackControllerTest {
         when(trackService.recordTrackCompletion(5L))
                 .thenThrow(new ResourceNotFoundException("Track with id 5 not found"));
 
-        mockMvc.perform(post("/tracks/5/complete"))
+        mockMvc.perform(post("/tracks/5/complete")
+                .contentType("application/json")
+                .content("{}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Track with id 5 not found"));
+    }
+
+    @Test
+    void completeTrackListen_whenBodyIsNotEmpty_returnsBadRequest() throws Exception {
+        mockMvc.perform(post("/tracks/5/complete")
+                .contentType("application/json")
+                .content("{\"unexpected\":\"value\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Request body must be empty."));
+
+        verifyNoInteractions(trackService);
     }
 }

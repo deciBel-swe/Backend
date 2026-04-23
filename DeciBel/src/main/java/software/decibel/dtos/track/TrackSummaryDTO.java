@@ -1,6 +1,7 @@
 package software.decibel.dtos.track;
 
-import software.decibel.dtos.user.UserSummary;
+import software.decibel.dtos.user.UserSummaryDTO;
+import software.decibel.enums.TrackAccess;
 
 public record TrackSummaryDTO(
     Long id,
@@ -8,13 +9,14 @@ public record TrackSummaryDTO(
     String trackSlug,
     String coverUrl,
     String trackUrl,
-    UserSummary artist,
+    String trackPreviewUrl,
+    UserSummaryDTO artist,
     int playCount,
     int likeCount,
     int repostCount,
     int commentCount,
     boolean isLiked,
     boolean isReposted,
-    String secretToken
-    // ENUM ACCESS - to be added when logic is implemented
+    String secretToken,
+    TrackAccess access
     ) {}

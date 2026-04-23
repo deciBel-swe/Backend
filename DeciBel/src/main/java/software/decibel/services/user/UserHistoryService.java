@@ -13,6 +13,7 @@ import software.decibel.dtos.discovery.StationPageResponse;
 import software.decibel.entities.ListeningHistory;
 import software.decibel.entities.Track;
 import software.decibel.mappers.StationMapper;
+import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.ListeningHistoryRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepostRepository;
@@ -27,6 +28,7 @@ public class UserHistoryService {
     private final TrackLikeRepository trackLikeRepository;
     private final TrackRepostRepository trackRepostRepository;
     private final TrackTokenRepository trackTokenRepository;
+    private final FollowRepository followRepository;
     private final StationMapper stationMapper;
     private final UserService userService;
 
@@ -43,10 +45,11 @@ public class UserHistoryService {
         Set<Long> trackIds = tracks.getContent().stream().map(Track::getId).collect(Collectors.toSet());
         Set<Long> likedIds = trackLikeRepository.findTrackIdsByUserId(userId);
         Set<Long> repostedIds = trackRepostRepository.findTrackIdsByUserId(userId);
+        Set<Long> followingArtistIds = Set.copyOf(followRepository.findFollowingIdsByFollowerId(userId));
         Map<Long, String> tokenMap = trackIds.isEmpty()
                 ? Map.of()
                 : trackTokenRepository.findActiveTokensByTrackIds(trackIds);
 
-        return stationMapper.toPageResponse(tracks, likedIds, repostedIds, tokenMap);
+        return stationMapper.toPageResponse(tracks, likedIds, repostedIds, tokenMap, followingArtistIds);
     }
 }
