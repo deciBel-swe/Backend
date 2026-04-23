@@ -61,15 +61,6 @@ public class RepostService {
         Long userId = JwtService.getCurrentUserId();
         User user = userService.getUserIfExistsById(userId);
         Track track = getTrackIfExistsById(trackId);
-        User owner = track.getUploader();
-
-        if (owner != null && !userId.equals(owner.getId())) {
-            boolean isBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(userId, owner.getId()) ||
-                               blockRepository.existsByBlocker_IdAndBlocked_Id(owner.getId(), userId);
-            if (isBlocked) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot repost track due to blocking relationship");
-            }
-        }
 
         if (trackRepostRepository.existsByUserAndTrack(user, track)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Track already reposted");
@@ -132,15 +123,6 @@ public class RepostService {
     public RepostResponse repostPlaylist(Long userId, Long playlistId) {
         User user = findUser(userId);
         Playlist playlist = findPlaylist(playlistId);
-        User owner = playlist.getUser();
-
-        if (owner != null && !userId.equals(owner.getId())) {
-            boolean isBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(userId, owner.getId()) ||
-                               blockRepository.existsByBlocker_IdAndBlocked_Id(owner.getId(), userId);
-            if (isBlocked) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot repost playlist due to blocking relationship");
-            }
-        }
 
         if (playlistRepostRepository.existsByUserAndPlaylist(user, playlist)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Playlist already reposted");
@@ -185,18 +167,7 @@ public class RepostService {
 
     // Mixed feed of track + playlist reposts in chronological order
     public Page<RepostItemResponse> getUserReposts(String username, Pageable pageable) {
-        Long currentUserId = JwtService.getCurrentUserId();
         User user = userService.getUserIfExistsByUsername(username);
-
-        // Check if user has been blocked
-        if (currentUserId != null && !currentUserId.equals(user.getId())) {
-            boolean isBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(currentUserId, user.getId()) ||
-                               blockRepository.existsByBlocker_IdAndBlocked_Id(user.getId(), currentUserId);
-
-            if (isBlocked) {
-                throw new ResourceNotFoundException("User not found: " + username);
-            }
-        }
 
         List<RepostItemResponse> all = new ArrayList<>();
 
@@ -236,9 +207,8 @@ public class RepostService {
         trackRepository.findById(trackId)
                 .orElseThrow(() -> new ResourceNotFoundException("Track with id " + trackId + " not found"));
         User currentViewer = resolveCurrentViewer();
-        Long currentViewerId = currentViewer != null ? currentViewer.getId() : null;
         return trackRepostRepository
-                .findUsersByTrackIdWithBlocking(trackId, currentViewerId, pageable)
+                .findUsersByTrackId(trackId, pageable)
                 .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, blockRepository));
     }
 
@@ -247,9 +217,8 @@ public class RepostService {
         playlistRepository.findById(playlistId)
                 .orElseThrow(() -> new ResourceNotFoundException("Playlist with id " + playlistId + " not found"));
         User currentViewer = resolveCurrentViewer();
-        Long currentViewerId = currentViewer != null ? currentViewer.getId() : null;
         return playlistRepostRepository
-                .findUsersByPlaylistIdWithBlocking(playlistId, currentViewerId, pageable)
+                .findUsersByPlaylistId(playlistId, pageable)
                 .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, blockRepository));
     }
 

@@ -33,17 +33,6 @@ public interface TrackLikeRepository extends JpaRepository<TrackLike, Long> {
 
     boolean existsByUserIdAndTrackId(Long userId, Long trackId);
 
-    @Query("""
-        SELECT tl.user FROM TrackLike tl 
-        WHERE tl.track.id = :trackId
-        AND (:currentUserId IS NULL OR NOT EXISTS (
-            SELECT 1 FROM Block b
-            WHERE (b.blocker.id = :currentUserId AND b.blocked.id = tl.user.id)
-            OR (b.blocker.id = tl.user.id AND b.blocked.id = :currentUserId)
-        ))
-    """)
-    Page<User> findUsersByTrackIdWithBlocking(@Param("trackId") Long trackId, @Param("currentUserId") Long currentUserId, Pageable pageable);
-
     @Query("SELECT tl.user FROM TrackLike tl WHERE tl.track.id = :trackId")
     Page<User> findUsersByTrackId(@Param("trackId") Long trackId, Pageable pageable);
 }

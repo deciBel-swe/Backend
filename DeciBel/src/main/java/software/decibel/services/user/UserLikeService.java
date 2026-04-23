@@ -9,9 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import software.decibel.dtos.track.responses.TrackPageResponse;
 import software.decibel.entities.Track;
-import software.decibel.entities.User;
 import software.decibel.mappers.TrackMapper;
-import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
@@ -26,7 +24,6 @@ public class UserLikeService {
     private final TrackRepostRepository repostRepository;
     private final TrackMapper trackMapper;
     private final UserService userService;
-    private final BlockRepository blockRepository;
 
     // Get all tracks liked by user
     @Transactional
@@ -51,22 +48,18 @@ public class UserLikeService {
     // Get all tracks liked by a specific user (by username)
     @Transactional(readOnly = true)
     public TrackPageResponse getLikedTracksByUsername(String username, int page, int size) {
-        Long currentUserId = JwtService.getCurrentUserId();
-        User targetUser = userService.getUserIfExistsByUsername(username);
+        Long userId = JwtService.getCurrentUserId();
+        userService.getUserIfExistsById(userId);
 
-        // Check if user has been blocked
-        if (currentUserId != null && !currentUserId.equals(targetUser.getId())) {
-            boolean isBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(currentUserId, targetUser.getId()) ||
-                               blockRepository.existsByBlocker_IdAndBlocked_Id(targetUser.getId(), currentUserId);
-
-            if (isBlocked) {
-                throw new software.decibel.exceptions.custom.ResourceNotFoundException("User not found: " + username);
-            }
-        }
+        // 1. Get the target user whose profile we are viewing
+        Long targetUserId = userService.getUserIfExistsByUsername(username).getId();
 
         // 2. Fetch the tracks THEY liked
         PageRequest pageable = PageRequest.of(page, size);
-        Page<Track> result = likeRepository.findLikedTracksByUserId(targetUser.getId(), pageable);
+        Page<Track> result = likeRepository.findLikedTracksByUserId(targetUserId, pageable);
+
+        // 3. Get the CURRENT logged-in user's state for UI flags (isLiked / isReposted)
+        Long currentUserId = JwtService.getCurrentUserId();
 
         Set<Long> likedTrackIds = new HashSet<>();
         Set<Long> repostedTrackIds = new HashSet<>();
@@ -88,22 +81,18 @@ public class UserLikeService {
     // Get all tracks reposted by a specific user (by username)
     @Transactional(readOnly = true)
     public TrackPageResponse getRepostedTracksByUsername(String username, int page, int size) {
-        Long currentUserId = JwtService.getCurrentUserId();
-        User targetUser = userService.getUserIfExistsByUsername(username);
+        Long userId = JwtService.getCurrentUserId();
+        userService.getUserIfExistsById(userId);
 
-        // Check if user has been blocked
-        if (currentUserId != null && !currentUserId.equals(targetUser.getId())) {
-            boolean isBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(currentUserId, targetUser.getId()) ||
-                               blockRepository.existsByBlocker_IdAndBlocked_Id(targetUser.getId(), currentUserId);
-
-            if (isBlocked) {
-                throw new software.decibel.exceptions.custom.ResourceNotFoundException("User not found: " + username);
-            }
-        }
+        // 1. Get the target user whose profile we are viewing
+        Long targetUserId = userService.getUserIfExistsByUsername(username).getId();
 
         // 2. Fetch the tracks THEY reposted
         PageRequest pageable = PageRequest.of(page, size);
-        Page<Track> result = repostRepository.findRepostedTracksByUserId(targetUser.getId(), pageable);
+        Page<Track> result = repostRepository.findRepostedTracksByUserId(targetUserId, pageable);
+
+        // 3. Get the CURRENT logged-in user's state for UI flags
+        Long currentUserId = JwtService.getCurrentUserId();
 
         Set<Long> likedTrackIds = new HashSet<>();
         Set<Long> repostedTrackIds = new HashSet<>();
