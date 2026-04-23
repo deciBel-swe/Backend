@@ -29,6 +29,7 @@ import software.decibel.mappers.TrackTokenMapper;
 import software.decibel.repositories.TrackTokenRepository;
 import software.decibel.services.track.TrackService;
 import software.decibel.services.track.TrackTokenService;
+import software.decibel.utils.TrackChecksUtil;
 
 class TrackTokenServiceTest {
 
@@ -40,6 +41,9 @@ class TrackTokenServiceTest {
     private TrackTokenMapper trackTokenMapper;
     @Mock
     private TrackMapper trackMapper;
+
+    @Mock
+    private TrackChecksUtil trackChecksUtil;
 
     @InjectMocks
     private TrackTokenService trackTokenService;
@@ -60,7 +64,7 @@ class TrackTokenServiceTest {
         TrackTokenResponse tokenResponse = mock(TrackTokenResponse.class);
 
         // mock track exists
-        when(trackService.getTrackIfExistsById(trackId)).thenReturn(track);
+        when(trackChecksUtil.getTrackIfExistsById(trackId)).thenReturn(track);
 
         // moke repo returns token
         when(trackTokenRepository.findByTrackIdAndIsDeletedFalse(trackId))
@@ -83,7 +87,7 @@ class TrackTokenServiceTest {
         Track track = new Track();
 
         // track exists
-        when(trackService.getTrackIfExistsById(trackId)).thenReturn(track);
+        when(trackChecksUtil.getTrackIfExistsById(trackId)).thenReturn(track);
 
         // repo returns empty
         when(trackTokenRepository.findByTrackIdAndIsDeletedFalse(trackId)).thenReturn(Optional.empty());
@@ -118,7 +122,7 @@ class TrackTokenServiceTest {
         TrackTokenResponse newTokenResponse = mock(TrackTokenResponse.class);
 
         // track exists
-        when(trackService.getTrackIfExistsById(trackId)).thenReturn(track);
+        when(trackChecksUtil.getTrackIfExistsById(trackId)).thenReturn(track);
 
         // old token
         when(trackTokenRepository.findByTrackIdAndIsDeletedFalse(trackId))
