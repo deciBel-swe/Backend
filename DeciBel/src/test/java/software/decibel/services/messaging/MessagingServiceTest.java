@@ -2,7 +2,6 @@ package software.decibel.services.messaging;
 
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -44,10 +43,12 @@ import software.decibel.dtos.messaging.ConversationPageResponse;
 import software.decibel.dtos.messaging.ConversationResponse;
 import software.decibel.dtos.messaging.MessageResponse;
 import software.decibel.dtos.messaging.SendMessageRequest;
+import software.decibel.dtos.user.UserSummaryDTO;
 import software.decibel.entities.User;
 import software.decibel.enums.AccountTier;
 import software.decibel.enums.NotificationType;
 import software.decibel.enums.ResourceType;
+import software.decibel.mappers.UserMapper;
 import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.notification.FcmNotificationService;
@@ -73,16 +74,21 @@ class MessagingServiceTest {
     private Authentication authentication;
     @Mock
     private FcmNotificationService fcmNotificationService;
+    @Mock
+    private UserMapper userMapper; // Added UserMapper mock
 
     @InjectMocks
     private MessagingService messagingService;
 
     private UserPrincipal senderPrincipal;
     private User recipient;
+    private UserSummaryDTO senderSummary;
+    private UserSummaryDTO recipientSummary;
 
     @BeforeEach
     void setUp() {
         lenient().when(firestoreProvider.getObject()).thenReturn(firestore);
+
         senderPrincipal = UserPrincipal.builder()
                 .id(1L)
                 .username("sender")
@@ -94,6 +100,10 @@ class MessagingServiceTest {
                 .username("recipient")
                 .isPrivate(false)
                 .build();
+
+        // Setup mock DTOs for mapping
+        senderSummary = new UserSummaryDTO(1L, "sender", "Sender Display", null, false, 0, 0);
+        recipientSummary = new UserSummaryDTO(2L, "recipient", "Recipient Display", null, false, 0, 0);
     }
 
     @Test
@@ -165,12 +175,14 @@ class MessagingServiceTest {
 
         when(mockSender.getUsername()).thenReturn("testuser");
 
+        // Mock the UserMapper call
+        when(userMapper.toUserSummaryDto(mockSender)).thenReturn(senderSummary);
+
         when(blockRepository.existsByBlocker_IdAndBlocked_Id(senderId, 2L)).thenReturn(false);
         when(blockRepository.existsByBlocker_IdAndBlocked_Id(2L, senderId)).thenReturn(false);
 
         SendMessageRequest request = new SendMessageRequest(2L, "hello");
 
-        // Mock Firestore (Your existing logic)
         CollectionReference conversations = mock(CollectionReference.class);
         DocumentReference conversationDoc = mock(DocumentReference.class);
         CollectionReference messages = mock(CollectionReference.class);
@@ -190,7 +202,7 @@ class MessagingServiceTest {
 
         assertEquals("msgId", response.id());
         assertEquals("hello", response.content());
-
+        assertEquals(1L, response.senderDto().id());
         verify(inAppNotificationService).createNotification(
                 eq(2L),
                 eq(senderId),
@@ -201,14 +213,15 @@ class MessagingServiceTest {
 
         verify(fcmNotificationService).sendRealTimeChatMessage(
                 eq(2L),
-                eq("testuser"), // Matches the mocked username above
-                eq("hello") // Matches the message content
+                eq("testuser"),
+                eq("hello")
         );
     }
 
     @Test
     void startConversation_toPrivateUser_throwsForbidden() {
         when(authentication.getPrincipal()).thenReturn(senderPrincipal);
+        lenient().when(userService.getUserIfExistsById(1L)).thenReturn(User.builder().id(1L).build());
         recipient.setPrivate(true);
         when(userService.getUserIfExistsById(2L)).thenReturn(recipient);
 
@@ -222,7 +235,16 @@ class MessagingServiceTest {
     @Test
     void startConversation_success_returnsConversation() throws ExecutionException, InterruptedException {
         when(authentication.getPrincipal()).thenReturn(senderPrincipal);
+
+        User senderUser = User.builder().id(1L).build();
+
+        lenient().when(userService.getUserIfExistsById(1L)).thenReturn(senderUser);
+
+        lenient().when(userMapper.toUserSummaryDto(senderUser)).thenReturn(senderSummary);
+
         when(userService.getUserIfExistsById(2L)).thenReturn(recipient);
+        when(userMapper.toUserSummaryDto(recipient)).thenReturn(recipientSummary);
+
         when(blockRepository.existsByBlocker_IdAndBlocked_Id(1L, 2L)).thenReturn(false);
         when(blockRepository.existsByBlocker_IdAndBlocked_Id(2L, 1L)).thenReturn(false);
 
@@ -242,13 +264,17 @@ class MessagingServiceTest {
         ConversationResponse response = messagingService.startConversation(authentication, 2L);
 
         assertEquals("1_2", response.id());
-        assertEquals(2, response.participants().size());
+        assertEquals(2L, response.senderDto().id());
+        assertEquals(0L, response.unreadCount());
         verify(conversationDoc).set(anyMap());
     }
 
     @Test
     void getConversations_success() throws ExecutionException, InterruptedException {
         when(authentication.getPrincipal()).thenReturn(senderPrincipal);
+
+        when(userService.getUserIfExistsById(2L)).thenReturn(recipient);
+        when(userMapper.toUserSummaryDto(recipient)).thenReturn(recipientSummary);
 
         CollectionReference conversations = mock(CollectionReference.class);
         Query query = mock(Query.class);
@@ -273,16 +299,35 @@ class MessagingServiceTest {
         when(doc1.getString("lastMessage")).thenReturn("hello");
         when(doc1.getTimestamp("lastTimestamp")).thenReturn(null);
 
-        when(conversations.whereArrayContains("participants", 1L)).thenReturn(query); // Re-called for count
+        when(conversations.whereArrayContains("participants", 1L)).thenReturn(query);
         when(query.count()).thenReturn(aggregateQuery);
         when(aggregateQuery.get()).thenReturn(aggregateQuerySnapshotFuture);
         when(aggregateQuerySnapshotFuture.get()).thenReturn(aggregateQuerySnapshot);
         when(aggregateQuerySnapshot.getCount()).thenReturn(1L);
 
+        // Mocking the inner unread count query
+        DocumentReference docRef = mock(DocumentReference.class);
+        CollectionReference messagesRef = mock(CollectionReference.class);
+        Query unreadQ1 = mock(Query.class);
+        Query unreadQ2 = mock(Query.class);
+        AggregateQuery unreadAgg = mock(AggregateQuery.class);
+        ApiFuture<AggregateQuerySnapshot> unreadAggFut = mock(ApiFuture.class);
+        AggregateQuerySnapshot unreadSnap = mock(AggregateQuerySnapshot.class);
+
+        when(conversations.document("1_2")).thenReturn(docRef);
+        when(docRef.collection("messages")).thenReturn(messagesRef);
+        when(messagesRef.whereEqualTo("recipientId", 1L)).thenReturn(unreadQ1);
+        when(unreadQ1.whereEqualTo("isRead", false)).thenReturn(unreadQ2);
+        when(unreadQ2.count()).thenReturn(unreadAgg);
+        when(unreadAgg.get()).thenReturn(unreadAggFut);
+        when(unreadAggFut.get()).thenReturn(unreadSnap);
+        when(unreadSnap.getCount()).thenReturn(5L);
         ConversationPageResponse response = messagingService.getConversations(authentication, 0, 10);
 
         assertEquals(1, response.content().size());
         assertEquals("1_2", response.content().get(0).id());
         assertEquals(1L, response.totalElements());
+        assertEquals(2L, response.content().get(0).senderDto().id());
+        assertEquals(5L, response.content().get(0).unreadCount());
     }
 }

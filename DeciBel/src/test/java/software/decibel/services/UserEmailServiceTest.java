@@ -80,6 +80,10 @@ class UserEmailServiceTest {
                 .expiresAt(LocalDateTime.now().plusMinutes(30))
                 .build();
 
+        // ---> ADD THIS LINE <---
+        // This stops the NullPointerException by mapping the principal "1" to your mock user
+        when(userService.getUserIfExistsByUsername("1")).thenReturn(user);
+
         when(userService.getUserIfExistsById(1L)).thenReturn(user);
         when(authIdentityRepository.findByUserAndProviderAndType(user, AuthProvider.LOCAL, AuthType.PASSWORD))
                 .thenReturn(Optional.of(currentIdentity));
@@ -107,6 +111,7 @@ class UserEmailServiceTest {
     void requestMyEmailChange_whenEmailAlreadyExists_throwsConflict() {
         Authentication authentication = authenticatedUser("1");
         User user = User.builder().id(1L).username("user").build();
+        when(userService.getUserIfExistsByUsername("1")).thenReturn(user);
         AuthIdentity currentIdentity = AuthIdentity.builder()
                 .user(user)
                 .email("old@example.com")
@@ -131,6 +136,7 @@ class UserEmailServiceTest {
     void verifyMyEmailChange_whenTokenIsValid_updatesEmailAndMarksTokenUsed() {
         Authentication authentication = authenticatedUser("1");
         User user = User.builder().id(1L).username("user").build();
+        when(userService.getUserIfExistsByUsername("1")).thenReturn(user);
         Token token = Token.builder()
                 .tokenId(8L)
                 .user(user)
@@ -176,6 +182,7 @@ class UserEmailServiceTest {
         Authentication authentication = authenticatedUser("1");
         User currentUser = User.builder().id(1L).username("user").build();
         User anotherUser = User.builder().id(2L).username("another").build();
+        when(userService.getUserIfExistsByUsername("1")).thenReturn(currentUser);
         Token token = Token.builder()
                 .tokenId(8L)
                 .user(anotherUser)

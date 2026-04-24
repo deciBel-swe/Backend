@@ -48,11 +48,11 @@ public class TrackTokenService {
     }
 
     @Transactional
-    public TrackToken generateToken(Long trackId) {
+    public TrackToken generateToken(Long trackId, Long userId) {
         Track track = trackChecksUtil.getTrackIfExistsById(trackId);
 
         // Check user trying to regenerate token is the uploader
-        if (!track.getUploader().getId().equals(JwtService.getCurrentUserId())) {
+        if (!track.getUploader().getId().equals(userId)) {
             throw new UnauthorizedActionException("You are not allowed to modify this track.");
         }
 
@@ -69,6 +69,7 @@ public class TrackTokenService {
         String tokenString = UUID.randomUUID().toString();
         TrackToken newToken = TrackToken.builder().track(track).token(tokenString).build();
 
+        trackTokenMapper.toTrackTokenResponse(trackTokenRepository.save(newToken));
         return newToken;
     }
 

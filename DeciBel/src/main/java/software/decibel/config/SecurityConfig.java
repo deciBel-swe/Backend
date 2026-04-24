@@ -53,8 +53,12 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.POST, "/tracks/upload").permitAll()
                                 .requestMatchers(HttpMethod.POST, "/tracks/{trackId}/play").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{userId}/tracks").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/tracks/{trackId}").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/playlists/token/{token}").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/tracks/token/{token}").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/tracks/resolve/{trackSlug}").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/tracks/{trackId}/like").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/playlists/resolve/{playlistSlug}").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/tracks/{trackId}/reposters").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/playlists/{playlistId}/like").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/playlists/{playlistId}/reposters").permitAll()
@@ -123,3 +127,4 @@ public class SecurityConfig {
         return source;
     }
 }
+//ba69457a-1c6c-4af4-b6e0-57a641af384f      ba69457a-1c6c-4af4-b6e0-57a641af384f

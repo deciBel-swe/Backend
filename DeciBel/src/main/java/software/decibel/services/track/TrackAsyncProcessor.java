@@ -111,7 +111,7 @@ public class TrackAsyncProcessor {
             // RETURN the result from the transaction template
             return transactionTemplate.execute(status -> {
                 Track track = trackRepository.findById(trackId).orElseThrow();
-                TrackToken secretToken = trackTokenService.generateToken(trackId);
+                TrackToken secretToken = trackTokenService.generateToken(trackId, userId);
                 track.getTokens().add(secretToken);
                 secretToken.setTrack(track);
                 track.setTrackUrl(trackUrl);

@@ -18,11 +18,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import software.decibel.dtos.Resource;
 import software.decibel.dtos.playlist.CreatePlaylistRequest;
 import software.decibel.dtos.playlist.PatchPlaylistRequest;
 import software.decibel.dtos.playlist.PlaylistResponse;
 import software.decibel.dtos.playlist.PlaylistTokenResponse;
-import software.decibel.dtos.Resource;
 import software.decibel.dtos.playlist.ReorderTracksRequest;
 import software.decibel.dtos.track.responses.LikeResponse;
 import software.decibel.dtos.track.responses.RepostResponse;
