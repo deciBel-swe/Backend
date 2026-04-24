@@ -28,21 +28,21 @@ public class StationService {
   private final StationMapper stationMapper;
   private final UserService userService;
 
-  public StationPageResponse getGenreStation(String genre, int page, int size) {
+  // Tracks with same genres as ones you liked + filtering
+  public StationPageResponse getGenreStation(int page, int size) {
     Long userId = JwtService.getCurrentUserId();
-    Page<Track> tracks =
-        trackRepository.findGenreStation(genre, userId, PageRequest.of(page, size));
+    Page<Track> tracks = trackRepository.findGenreStation(userId, PageRequest.of(page, size));
     return buildStationResponse(tracks, userId);
   }
 
-  public StationPageResponse getArtistStation(Long artistId, int page, int size) {
+  // Tracks with same genres as ones posted by artists you follow + filtering
+  public StationPageResponse getArtistStation(int page, int size) {
     Long userId = JwtService.getCurrentUserId();
-    userService.getUserIfExistsById(artistId);
-    Page<Track> tracks =
-        trackRepository.findArtistStation(artistId, userId, PageRequest.of(page, size));
+    Page<Track> tracks = trackRepository.findArtistStation(userId, PageRequest.of(page, size));
     return buildStationResponse(tracks, userId);
   }
 
+  // Tracks with same tags as ones you liked
   public StationPageResponse getLikesStation(int page, int size) {
     Long userId = JwtService.getCurrentUserId();
     Page<Track> tracks = trackRepository.findLikesStation(userId, PageRequest.of(page, size));
