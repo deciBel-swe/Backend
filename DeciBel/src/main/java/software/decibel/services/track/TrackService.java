@@ -1,11 +1,14 @@
 package software.decibel.services.track;
 
+import jakarta.transaction.Transactional;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.text.WordUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -16,10 +19,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
-
-import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import software.decibel.dtos.track.requests.TrackPatchRequest;
 import software.decibel.dtos.track.requests.TrackUploadRequest;
 import software.decibel.dtos.track.responses.TrackPageResponse;
@@ -90,6 +89,12 @@ public class TrackService {
     public void deleteTrack(Long trackId) {
         Track track = getTrackIfExistsById(trackId);
 
+    User uploader = track.getUploader();
+    Long currentUserId = JwtService.getCurrentUserId();
+    if (!Objects.equals(currentUserId, uploader.getId())) {
+      throw new UnauthorizedActionException("You cannot delete a track you didn't upload.");
+    }
+
         //fetch track url data before deleting
         final String audioUrl = track.getTrackUrl();
         final String coverUrl = track.getCoverUrl();
@@ -98,13 +103,13 @@ public class TrackService {
         likeRepository.deleteAllByTrackId(trackId);
         repostRepository.deleteAllByTrackId(trackId);
         commentRepository.deleteAllByTrackId(trackId);
-        User user = track.getUploader();
-        //update track count
-        user.setTrackCount(user.getTrackCount() - 1);
 
-        // if free user deleted a nn-blocked track they free a slot
-        if (track.getAccess() != TrackAccess.BLOCKED && user.getTier() == AccountTier.FREE) {
-            user.setFreeTracksLeft(user.getFreeTracksLeft() + 1);
+    // update track count
+    uploader.setTrackCount(uploader.getTrackCount() - 1);
+
+    // if free uploader deleted a nn-blocked track they free a slot
+    if (track.getAccess() != TrackAccess.BLOCKED && uploader.getTier() == AccountTier.FREE) {
+      uploader.setFreeTracksLeft(uploader.getFreeTracksLeft() + 1);
         }
 
         trackRepository.delete(track);
@@ -251,6 +256,13 @@ public class TrackService {
     @Transactional
     public void deleteTrackCover(Long trackId) {
         Track track = getTrackIfExistsById(trackId);
+
+    User uploader = track.getUploader();
+    Long currentUserId = JwtService.getCurrentUserId();
+    if (!Objects.equals(currentUserId, uploader.getId())) {
+      throw new UnauthorizedActionException(
+          "You cannot delete the cover for track you didn't upload.");
+    }
         if (track.getCoverUrl() != null) {
             fileUtilityAzure.deleteFileByUrl(track.getCoverUrl());
             track.setCoverUrl(null);
@@ -287,11 +299,17 @@ public class TrackService {
 
     @Transactional
     public TrackPatchResponse updateTrack(Long trackId, TrackPatchRequest request) {
+
+        
         Track track = getTrackIfExistsById(trackId);
         Long userId = JwtService.getCurrentUserId();
-        User uploader = userService.getUserIfExistsById(userId);
+    User user = userService.getUserIfExistsById(userId);
 
-        if (request.title() != null) {
+    // only uploader can patch
+    if (!Objects.equals(userId, track.getUploader().getId())) {
+      throw new UnauthorizedActionException("You cannot update a track you didn't upload.");
+    }
+    if (request.title() != null) {
             track.setTitle(request.title());
         }
         if (request.genre() != null) {
@@ -320,11 +338,11 @@ public class TrackService {
         }
 
         if (request.access() != null) {
-            TrackAccess finalAccess
-                    = trackPlaybackService.resolvePatchAccess(uploader, track.getAccess(), request.access());
+      TrackAccess finalAccess =
+          trackPlaybackService.resolvePatchAccess(user, track.getAccess(), request.access());
 
-            // update free tracks left based on initial access and final access
-            trackPlaybackService.updateFreeTracksLeft(uploader, track.getAccess(), finalAccess);
+      // update free tracks left based on initial access and final access
+      trackPlaybackService.updateFreeTracksLeft(user, track.getAccess(), finalAccess);
             track.setAccess(finalAccess);
         }
 
@@ -375,7 +393,8 @@ public class TrackService {
         Track track = getTrackIfExistsById(trackId);
 
         if (!track.getUploader().getId().equals(JwtService.getCurrentUserId())) {
-            throw new UnauthorizedActionException("You are not allowed to publish this track.");
+      throw new UnauthorizedActionException(
+          "You are not allowed to publish a track you didn't upload.");
         }
 
         if (track.isPublished()) {
