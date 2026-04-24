@@ -16,6 +16,7 @@ import software.decibel.exceptions.custom.*;
 import software.decibel.mappers.CommentMapper;
 import software.decibel.repositories.CommentRepository;
 import software.decibel.repositories.TrackRepository;
+import software.decibel.services.notification.InAppNotificationService;
 import software.decibel.services.track.TrackService;
 import software.decibel.services.user.UserService;
 
@@ -31,6 +32,9 @@ class CommentServiceTest {
   @Mock
   private CommentMapper commentMapper;
   @Mock private TrackRepository trackRepository;
+
+  @Mock private BlockService blockService;
+  @Mock private InAppNotificationService inAppNotificationService;
   @InjectMocks
   private CommentService commentService;
   private MockedStatic<JwtService> jwtMock;
@@ -62,6 +66,7 @@ class CommentServiceTest {
     User user = new User();
     Track track = new Track();
     track.setDurationSeconds(60);
+    track.setUploader(user);
     Comment commentEntity = new Comment();
 
     CommentResponse commentResponse = mock(CommentResponse.class);
@@ -136,6 +141,7 @@ class CommentServiceTest {
     parentComment.setTrack(track);
     Comment replyEntity = new Comment();
     replyEntity.setTrack(track);
+    track.setUploader(user);
     ReplyResponse replyResponse = mock(ReplyResponse.class);
 
     when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
