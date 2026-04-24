@@ -1,6 +1,7 @@
 package software.decibel.dtos.track;
 
 import software.decibel.dtos.user.UserSummaryDTO;
+import software.decibel.enums.TrackAccess;
 
 public record TrackSummaryDTO(
         Long id,
@@ -17,7 +18,4 @@ public record TrackSummaryDTO(
         boolean isLiked,
         boolean isReposted,
         String secretToken,
-        String access
-        ) {
-
-}
+        TrackAccess access) {}

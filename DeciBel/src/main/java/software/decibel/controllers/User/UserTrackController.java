@@ -6,26 +6,31 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import software.decibel.dtos.discovery.StationPageResponse;
 import software.decibel.dtos.track.responses.TrackPageResponse;
 import software.decibel.dtos.track.responses.TrackResponse;
 import software.decibel.dtos.user.UserProfile;
 import software.decibel.services.engagement.LikeService;
 import software.decibel.services.engagement.RepostService;
 import software.decibel.services.track.TrackService;
+import software.decibel.services.user.UserHistoryService;
 
 @RestController
 @RequestMapping("/users")
 @RequiredArgsConstructor
+@Validated
 public class UserTrackController {
 
     private final TrackService trackService;
     private final LikeService likeService;
     private final RepostService repostService;
+    private final UserHistoryService userHistoryService;
 
     // For getting all of current user's tracks (pageable)
     @GetMapping("/me/tracks")
@@ -34,6 +39,14 @@ public class UserTrackController {
             @RequestParam(defaultValue = "20") @Min(1) int size) {
 
         return ResponseEntity.status(HttpStatus.OK).body(trackService.getCurrentUserTracks(page, size));
+    }
+
+    @GetMapping("/me/history")
+    public ResponseEntity<StationPageResponse> getListeningHistory(
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) int size) {
+
+        return ResponseEntity.ok(userHistoryService.getMyListeningHistory(page, size));
     }
 
     // For getting all of another user's tracks (pageable) - only public tracks
