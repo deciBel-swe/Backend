@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.isNull;
 import org.mockito.Mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -52,7 +51,7 @@ class UserPasswordControllerTest {
 
     @Test
     void resetPassword_whenRequestIsValid_returnsOkAndBody() throws Exception {
-        when(userPasswordService.resetMyPassword(isNull(), any(ChangePasswordRequest.class)))
+        when(userPasswordService.resetMyPassword(any(Authentication.class), any(ChangePasswordRequest.class)))
                 .thenReturn(new MessageResponse("Password changed successfully"));
 
         Authentication authentication = new UsernamePasswordAuthenticationToken("1", "N/A");
