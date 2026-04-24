@@ -135,18 +135,20 @@ class FeedServiceTest {
                 0,
                 0,
                 0,
+                0,
                 false,
                 120,
                 LocalDate.now().minusDays(1),
                 "desc",
                 "token",
-                TrackAccess.PLAYABLE
+                TrackAccess.PLAYABLE,
+                "track-slug"
         );
         when(trackMapper.toTrackResponse(any(), any(), any(), any())).thenReturn(trackResponse);
 
         PlaylistResponse playlistResponse = new PlaylistResponse(
-                20L, "Playlist Title", null, false, "desc", false, "cover",
-                0, 0, null, null, LocalDateTime.now(), null
+                20L, "Playlist Title", software.decibel.enums.PlaylistType.PLAYLIST, false, "desc", false, "cover",
+                "playlist-slug", 0, 0, null, java.util.Collections.emptyList(), LocalDateTime.now(), null, null
         );
         when(playlistMapper.toResponse(playlist)).thenReturn(playlistResponse);
 

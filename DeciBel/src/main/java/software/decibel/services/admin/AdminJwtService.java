@@ -1,4 +1,4 @@
-package software.decibel.services;
+package software.decibel.services.admin;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;

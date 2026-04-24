@@ -26,6 +26,7 @@ import software.decibel.dtos.track.responses.TrackPageResponse;
 import software.decibel.dtos.track.responses.TrackPatchResponse;
 import software.decibel.dtos.track.responses.TrackPublishResponse;
 import software.decibel.dtos.track.responses.TrackResponse;
+import software.decibel.dtos.Resource;
 import software.decibel.dtos.track.responses.TrackStatusResponse;
 import software.decibel.dtos.track.responses.TrackUploadResponse;
 import software.decibel.dtos.track.responses.TrackWaveFormUrlResponse;
@@ -34,6 +35,7 @@ import software.decibel.entities.Track;
 import software.decibel.entities.User;
 import software.decibel.enums.AccountTier;
 import software.decibel.enums.FileType;
+import software.decibel.enums.ResourceType;
 import software.decibel.enums.TrackAccess;
 import software.decibel.enums.TrackState;
 import software.decibel.enums.Visibility;
@@ -41,7 +43,6 @@ import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.exceptions.custom.TrackAlreadyPublishedException;
 import software.decibel.exceptions.custom.UnauthorizedActionException;
 import software.decibel.mappers.TrackMapper;
-import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.CommentRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
@@ -54,6 +55,7 @@ import software.decibel.services.user.UserService;
 import software.decibel.utils.FileUtilityAzure;
 import software.decibel.utils.SlugUtility;
 import software.decibel.utils.TagUtility;
+import software.decibel.utils.TrackChecksUtil;
 
 @Service
 @RequiredArgsConstructor
@@ -65,7 +67,6 @@ public class TrackService {
     private final TrackRepostRepository repostRepository;
     private final CommentRepository commentRepository;
     private final UserService userService;
-    private final BlockRepository blockRepository;
 
     private final TrackPlaybackService trackPlaybackService;
 
@@ -77,18 +78,19 @@ public class TrackService {
 
     private final TagService tagService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final TrackChecksUtil trackChecksUtil;
 
     //Async Processor
     private final TrackAsyncProcessor trackAsyncProcessor;
 
     public TrackStatusResponse getTrackStatus(Long trackId) {
-        return trackMapper.toTrackStatusResponse(getTrackIfExistsById(trackId));
+        return trackMapper.toTrackStatusResponse(trackChecksUtil.getTrackIfExistsById(trackId));
     }
 
     //delete track
     @Transactional
     public void deleteTrack(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
 
         //fetch track url data before deleting
         final String audioUrl = track.getTrackUrl();
@@ -185,6 +187,10 @@ public class TrackService {
         }
         track.setGenre(WordUtils.capitalize(track.getGenre().trim().toLowerCase().replaceAll("\\s+", " ")));
 
+        // Generate unique slug
+        String slug = SlugUtility.generateUniqueSlug(track.getTitle(), s -> trackRepository.existsBySlug(s));
+        track.setSlug(slug);
+
         Track createdTrack = createUploadingTrack(track, uploadId);
 
         try {
@@ -250,7 +256,7 @@ public class TrackService {
 
     @Transactional
     public void deleteTrackCover(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
         if (track.getCoverUrl() != null) {
             fileUtilityAzure.deleteFileByUrl(track.getCoverUrl());
             track.setCoverUrl(null);
@@ -260,7 +266,7 @@ public class TrackService {
 
     @Transactional
     public void deleteTrackAudio(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
         if (track.getTrackUrl() != null) {
             fileUtilityAzure.deleteFileByUrl(track.getTrackUrl());
             track.setTrackUrl(null);
@@ -270,7 +276,7 @@ public class TrackService {
 
     @Transactional
     public void deleteTrackWaveformData(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
         if (track.getWaveformUrl() != null) {
             fileUtilityAzure.deleteFileByUrl(track.getWaveformUrl());
             track.setWaveformUrl(null);
@@ -287,7 +293,7 @@ public class TrackService {
 
     @Transactional
     public TrackPatchResponse updateTrack(Long trackId, TrackPatchRequest request) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
         Long userId = JwtService.getCurrentUserId();
         User uploader = userService.getUserIfExistsById(userId);
 
@@ -332,7 +338,7 @@ public class TrackService {
     }
 
     public TrackWaveFormUrlResponse getTrackWaveformUrl(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
         return trackMapper.toTrackWaveFormUrlResponse(track);
     }
 
@@ -372,7 +378,7 @@ public class TrackService {
 
     @Transactional
     public TrackPublishResponse publishTrack(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
 
         if (!track.getUploader().getId().equals(JwtService.getCurrentUserId())) {
             throw new UnauthorizedActionException("You are not allowed to publish this track.");
@@ -389,6 +395,14 @@ public class TrackService {
         track.setPublishedAt(LocalDateTime.now());
 
         return trackMapper.toTrackPublishResponse(trackRepository.save(track));
+    }
+
+    public Resource resolveTrackSlug(String slug) {
+        Long id = trackRepository.findTrackIdBySlug(slug)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                "No track found with slug: " + slug));
+
+        return new Resource(ResourceType.TRACK, id);
     }
 
     public TrackPageResponse getTrendingTracks(int page, int size) {
@@ -409,7 +423,7 @@ public class TrackService {
     }
 
     public TrackResponse getTrackData(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
         Long currentUserId = null;
         try {
             currentUserId = JwtService.getCurrentUserId();
@@ -424,7 +438,7 @@ public class TrackService {
     }
 
     public TrackResponse getCurrentUserTrackData(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
         Long currentUserId = JwtService.getCurrentUserId();
 
         if (!track.getUploader().getId().equals(currentUserId)) {
@@ -449,40 +463,6 @@ public class TrackService {
         return trackMapper.toTrackResponseSingle(track, tier, isLiked, isReposted);
     }
 
-    public Track getTrackIfExistsById(Long trackId) {
-        Long currentUserId = null;
-        try {
-            currentUserId = JwtService.getCurrentUserId();
-        } catch (Exception e) {
-
-        }
-        Track track = trackRepository.findById(trackId)
-                .orElseThrow(() -> new ResourceNotFoundException("Track with id " + trackId + " not found"));
-
-        if (isUserBlocked(currentUserId, track.getUploader().getId())) {
-            throw new ResourceNotFoundException("Track with id " + trackId + " not found");
-        }
-        checkTrackVisibility(track, currentUserId);
-        return track;
-    }
-
-    private void checkTrackVisibility(Track track, Long currentUserId) {
-        if (track.getVisibility() == Visibility.PRIVATE) {
-            if (currentUserId == null || !track.getUploader().getId().equals(currentUserId)) {
-                throw new ResourceNotFoundException("Track with id " + track.getId() + " not found");
-            }
-        }
-    }
-
-    private boolean isUserBlocked(Long currentUserId, Long targetUserId) {
-        if (currentUserId == null) {
-            return false;
-        }
-        boolean hasBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(currentUserId, targetUserId);
-        boolean isBlockedBy = blockRepository.existsByBlocker_IdAndBlocked_Id(targetUserId, currentUserId);
-        return hasBlocked || isBlockedBy;
-    }
-
     private Track initializeTrackUpload(TrackUploadRequest request, String uploadId) {
         Long userId = JwtService.getCurrentUserId();
         User uploader = userService.getUserIfExistsById(userId);
@@ -498,6 +478,10 @@ public class TrackService {
         }
 
         track.setGenre(WordUtils.capitalize(track.getGenre().trim().toLowerCase().replaceAll("\\s+", " ")));
+
+        // Generate unique slug
+        String slug = SlugUtility.generateUniqueSlug(track.getTitle(), s -> trackRepository.existsBySlug(s));
+        track.setSlug(slug);
 
         return createUploadingTrack(track, uploadId);
     }

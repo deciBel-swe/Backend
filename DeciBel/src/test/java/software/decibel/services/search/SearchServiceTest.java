@@ -3,15 +3,15 @@ package software.decibel.services.search;
 import java.util.Collections;
 import java.util.List;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -62,10 +62,10 @@ class SearchServiceTest {
         Track track = new Track();
         track.setTitle("Test Track");
         Page<Track> trackPage = new PageImpl<>(List.of(track));
-        
+
         when(trackRepository.searchPublicTracks(anyString(), any(Pageable.class))).thenReturn(trackPage);
         when(trackMapper.toTrackResponse(any(), any(Boolean.class), any(Boolean.class)))
-                .thenReturn(new TrackResponse(1L, "Test Track", null, null, null, null, null, null, false, false, null, null, 0, 0, 0, 0, false, 0, null, null, null, null));
+                .thenReturn(new TrackResponse(1L, "Test Track", null, null, null, null, null, null, false, false, null, null, 0, 0, 0, 0, 0, false, 0, null, null, null, null, "test-track"));
 
         SearchResponse response = searchService.search("test", "track", 0, 10);
 

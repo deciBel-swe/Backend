@@ -1,4 +1,4 @@
-package software.decibel.services;
+package software.decibel.services.auth;
 
 import java.time.Instant;
 import java.util.List;

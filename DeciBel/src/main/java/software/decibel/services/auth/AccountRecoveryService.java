@@ -1,4 +1,4 @@
-package software.decibel.services;
+package software.decibel.services.auth;
 
 import java.util.Optional;
 
@@ -17,6 +17,9 @@ import software.decibel.enums.AuthProvider;
 import software.decibel.enums.AuthType;
 import software.decibel.enums.TokenType;
 import software.decibel.repositories.AuthIdentityRepository;
+import software.decibel.services.EmailService;
+import software.decibel.services.FrontendLinkService;
+import software.decibel.services.TokenService;
 
 /**
  * Service class responsible for handling account recovery logic, including

@@ -25,7 +25,7 @@ import software.decibel.dtos.auth.RefreshTokenResponse;
 import software.decibel.dtos.auth.RegisterLocalRequest;
 import software.decibel.dtos.auth.VerifyEmailRequest;
 import software.decibel.dtos.auth.google.ResendVerificationEmailRequest;
-import software.decibel.services.AuthService;
+import software.decibel.services.auth.AuthService;
 
 @RestController
 @RequestMapping("/auth")

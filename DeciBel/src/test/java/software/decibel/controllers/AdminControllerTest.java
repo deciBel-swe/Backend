@@ -26,8 +26,8 @@ import software.decibel.enums.DeviceType;
 import software.decibel.enums.ReportStatus;
 import software.decibel.exceptions.AdminExceptionHandler;
 import software.decibel.exceptions.custom.InvalidAdminCredentialsException;
-import software.decibel.services.AdminAuthService;
-import software.decibel.services.AdminModerationService;
+import software.decibel.services.admin.AdminAuthService;
+import software.decibel.services.admin.AdminModerationService;
 
 import java.util.List;
 
@@ -166,6 +166,21 @@ class AdminControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1))
                 .andExpect(jsonPath("$[0].status").value("OPEN"));
+    }
+
+    @Test
+    void getReportById_returnsOkAndJson() throws Exception {
+        ReportResponse report = ReportResponse.builder()
+                .id(1L)
+                .reporterId(100L)
+                .status(ReportStatus.OPEN)
+                .build();
+        when(adminModerationService.getReportById(1L)).thenReturn(report);
+
+        mockMvc.perform(get("/admin/reports/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.status").value("OPEN"));
     }
 
     @Test

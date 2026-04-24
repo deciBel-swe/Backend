@@ -48,6 +48,7 @@ public class Notification {
     private Long resourceId;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean isRead = false;
 
     @CreationTimestamp

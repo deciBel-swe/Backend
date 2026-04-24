@@ -4,5 +4,9 @@ public record UserSummaryDTO(
         Long id,
         String username,
         String displayName,
-        String avatarUrl) {
+        String avatarUrl,
+        boolean isFollowing,
+        int followerCount,
+        int trackCount) {
+
 }
