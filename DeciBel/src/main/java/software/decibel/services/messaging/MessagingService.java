@@ -90,7 +90,7 @@ public class MessagingService {
         }
 
         String conversationId = getConversationId(senderId, recipientId);
-        UserSummaryDTO sendToDto = userMapper.toUserSummaryDTO(recipient);
+        UserSummaryDTO sendToDto = userMapper.toUserSummaryDto(recipient);
 
         try {
             DocumentReference docRef = firestore.collection(CONVERSATIONS_COLLECTION).document(conversationId);
@@ -234,7 +234,7 @@ public class MessagingService {
                     sender.getUsername(), // Or "User " + senderId if you don't have getUsername()
                     request.content()
             );
-            UserSummaryDTO senderDto = userMapper.toUserSummaryDTO(sender);
+            UserSummaryDTO senderDto = userMapper.toUserSummaryDto(sender);
 
             return new MessageResponse(
                     docRef.getId(),
@@ -304,8 +304,8 @@ public class MessagingService {
 
             User user1 = userService.getUserIfExistsById(id1);
             User user2 = userService.getUserIfExistsById(id2);
-            userCache.put(id1, userMapper.toUserSummaryDTO(user1));
-            userCache.put(id2, userMapper.toUserSummaryDTO(user2));
+            userCache.put(id1, userMapper.toUserSummaryDto(user1));
+            userCache.put(id2, userMapper.toUserSummaryDto(user2));
         } catch (Exception e) {
             log.error("Failed to load user summaries for conversation: {}", conversationId, e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to load participant data.");
@@ -450,7 +450,7 @@ public class MessagingService {
                                 .findFirst()
                                 .orElse(currentUserId);
                         User otherUserEntity = userService.getUserIfExistsById(otherUserId);
-                        UserSummaryDTO sendToDto = userMapper.toUserSummaryDTO(otherUserEntity);
+                        UserSummaryDTO sendToDto = userMapper.toUserSummaryDto(otherUserEntity);
 
                         return new ConversationResponse(
                                 doc.getId(),

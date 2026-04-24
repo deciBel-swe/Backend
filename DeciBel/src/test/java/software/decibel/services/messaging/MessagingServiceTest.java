@@ -176,7 +176,7 @@ class MessagingServiceTest {
         when(mockSender.getUsername()).thenReturn("testuser");
 
         // Mock the UserMapper call
-        when(userMapper.toUserSummaryDTO(mockSender)).thenReturn(senderSummary);
+        when(userMapper.toUserSummaryDto(mockSender)).thenReturn(senderSummary);
 
         when(blockRepository.existsByBlocker_IdAndBlocked_Id(senderId, 2L)).thenReturn(false);
         when(blockRepository.existsByBlocker_IdAndBlocked_Id(2L, senderId)).thenReturn(false);
@@ -240,10 +240,10 @@ class MessagingServiceTest {
 
         lenient().when(userService.getUserIfExistsById(1L)).thenReturn(senderUser);
 
-        lenient().when(userMapper.toUserSummaryDTO(senderUser)).thenReturn(senderSummary);
+        lenient().when(userMapper.toUserSummaryDto(senderUser)).thenReturn(senderSummary);
 
         when(userService.getUserIfExistsById(2L)).thenReturn(recipient);
-        when(userMapper.toUserSummaryDTO(recipient)).thenReturn(recipientSummary);
+        when(userMapper.toUserSummaryDto(recipient)).thenReturn(recipientSummary);
 
         when(blockRepository.existsByBlocker_IdAndBlocked_Id(1L, 2L)).thenReturn(false);
         when(blockRepository.existsByBlocker_IdAndBlocked_Id(2L, 1L)).thenReturn(false);
@@ -274,7 +274,7 @@ class MessagingServiceTest {
         when(authentication.getPrincipal()).thenReturn(senderPrincipal);
 
         when(userService.getUserIfExistsById(2L)).thenReturn(recipient);
-        when(userMapper.toUserSummaryDTO(recipient)).thenReturn(recipientSummary);
+        when(userMapper.toUserSummaryDto(recipient)).thenReturn(recipientSummary);
 
         CollectionReference conversations = mock(CollectionReference.class);
         Query query = mock(Query.class);
