@@ -4,15 +4,15 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.never;
-
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.any;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -27,12 +27,8 @@ import software.decibel.enums.AuthProvider;
 import software.decibel.enums.AuthType;
 import software.decibel.enums.TokenType;
 import software.decibel.repositories.AuthIdentityRepository;
-import software.decibel.services.TokenService;
 import software.decibel.services.user.UserPasswordService;
 import software.decibel.services.user.UserService;
-
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class UserPasswordServiceTest {
@@ -45,6 +41,9 @@ class UserPasswordServiceTest {
 
     @Mock
     private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private SessionService sessionService;
 
     @Mock
     private TokenService tokenService;
@@ -78,6 +77,7 @@ class UserPasswordServiceTest {
         assertEquals("Password changed successfully", response.message());
         assertEquals("hashed-new", authIdentity.getPasswordHash());
         verify(authIdentityRepository).save(authIdentity);
+        verify(sessionService).deleteAllSessionsForUser(user);
         verify(tokenService).deleteTokensForUserAndType(user, TokenType.REFRESH_TOKEN);
     }
 

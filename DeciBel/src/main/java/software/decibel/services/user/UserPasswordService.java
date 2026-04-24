@@ -16,6 +16,7 @@ import software.decibel.enums.AuthProvider;
 import software.decibel.enums.AuthType;
 import software.decibel.enums.TokenType;
 import software.decibel.repositories.AuthIdentityRepository;
+import software.decibel.services.SessionService;
 import software.decibel.services.TokenService;
 @Service
 @RequiredArgsConstructor
@@ -24,6 +25,7 @@ public class UserPasswordService {
     private final UserService userService;
     private final AuthIdentityRepository authIdentityRepository;
     private final PasswordEncoder passwordEncoder;
+    private final SessionService sessionService;
     private final TokenService tokenService;
 
     @Transactional
@@ -46,6 +48,7 @@ public class UserPasswordService {
 
         authIdentity.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         authIdentityRepository.save(authIdentity);
+        sessionService.deleteAllSessionsForUser(currentUser);
         tokenService.deleteTokensForUserAndType(currentUser, TokenType.REFRESH_TOKEN);
 
         return new MessageResponse("Password changed successfully");
