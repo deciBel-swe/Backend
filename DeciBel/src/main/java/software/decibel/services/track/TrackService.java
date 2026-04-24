@@ -408,47 +408,6 @@ public class TrackService {
         return trackMapper.toPageResponse(trendingTracks, currentTier, likedTrackIds, repostedTrackIds);
     }
 
-    public TrackPageResponse getPopularTracks(int page, int size) {
-        Long currentUserId = null;
-        try {
-            currentUserId = JwtService.getCurrentUserId();
-        } catch (Exception e) {
-        }
-
-        Pageable pageable = PageRequest.of(page, size);
-        Page<Track> popularTracks = trackRepository.findAllPopular(currentUserId, pageable);
-
-        Set<Long> likedTrackIds = (currentUserId != null) ? likeService.getLikedTrackIds(currentUserId) : Set.of();
-        Set<Long> repostedTrackIds = (currentUserId != null) ? repostService.getRepostedTrackIds(currentUserId) : Set.of();
-        AccountTier currentTier = (currentUserId != null) ? userService.getUserIfExistsById(currentUserId).getTier() : AccountTier.FREE;
-
-        return trackMapper.toPageResponse(popularTracks, currentTier, likedTrackIds, repostedTrackIds);
-    }
-
-    public TrackPageResponse getSuggestedTracks(int page, int size) {
-        Long currentUserId = null;
-        try {
-            currentUserId = JwtService.getCurrentUserId();
-        } catch (Exception e) {
-        }
-
-        Pageable pageable = PageRequest.of(page, size);
-        Page<Track> suggestedTracks;
-
-        if (currentUserId != null) {
-            suggestedTracks = trackRepository.findLikesStation(currentUserId, pageable);
-        } else {
-            // For guests, return trending tracks as suggestions (block-aware with null userId)
-            suggestedTracks = trackRepository.findAllTrending(null, pageable);
-        }
-
-        Set<Long> likedTrackIds = (currentUserId != null) ? likeService.getLikedTrackIds(currentUserId) : Set.of();
-        Set<Long> repostedTrackIds = (currentUserId != null) ? repostService.getRepostedTrackIds(currentUserId) : Set.of();
-        AccountTier currentTier = (currentUserId != null) ? userService.getUserIfExistsById(currentUserId).getTier() : AccountTier.FREE;
-
-        return trackMapper.toPageResponse(suggestedTracks, currentTier, likedTrackIds, repostedTrackIds);
-    }
-
     public TrackResponse getTrackData(Long trackId) {
         Track track = getTrackIfExistsById(trackId);
         Long currentUserId = null;

@@ -23,18 +23,4 @@ public class ExploreController {
             @RequestParam(defaultValue = "10") int size) {
         return ResponseEntity.ok(trackService.getTrendingTracks(page, size));
     }
-
-    @GetMapping("/popular")
-    public ResponseEntity<TrackPageResponse> getPopularTracks(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        return ResponseEntity.ok(trackService.getPopularTracks(page, size));
-    }
-
-    @GetMapping("/suggested")
-    public ResponseEntity<TrackPageResponse> getSuggestedTracks(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        return ResponseEntity.ok(trackService.getSuggestedTracks(page, size));
-    }
 }

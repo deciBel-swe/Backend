@@ -50,36 +50,4 @@ class ExploreControllerTest {
                 .andExpect(jsonPath("$.pageNumber").value(0))
                 .andExpect(jsonPath("$.pageSize").value(10));
     }
-
-    @Test
-    void getPopularTracks_returnsOk() throws Exception {
-        TrackPageResponse response = new TrackPageResponse(
-                List.of(), 0, 10, 0, 0, true
-        );
-
-        when(trackService.getPopularTracks(anyInt(), anyInt())).thenReturn(response);
-
-        mockMvc.perform(get("/explore/popular")
-                .param("page", "0")
-                .param("size", "10"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.pageNumber").value(0))
-                .andExpect(jsonPath("$.pageSize").value(10));
-    }
-
-    @Test
-    void getSuggestedTracks_returnsOk() throws Exception {
-        TrackPageResponse response = new TrackPageResponse(
-                List.of(), 0, 10, 0, 0, true
-        );
-
-        when(trackService.getSuggestedTracks(anyInt(), anyInt())).thenReturn(response);
-
-        mockMvc.perform(get("/explore/suggested")
-                .param("page", "0")
-                .param("size", "10"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.pageNumber").value(0))
-                .andExpect(jsonPath("$.pageSize").value(10));
-    }
 }

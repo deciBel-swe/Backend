@@ -60,8 +60,6 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/users/{username}/following").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/tracks/{trackId}/comments").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/explore/trending").permitAll()
-                                .requestMatchers(HttpMethod.GET, "/explore/popular").permitAll()
-                                .requestMatchers(HttpMethod.GET, "/explore/suggested").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/comments/{commentId}/replies").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/search").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{username}/liked-tracks").permitAll()
