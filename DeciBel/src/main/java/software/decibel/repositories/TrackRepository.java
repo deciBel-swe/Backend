@@ -211,8 +211,22 @@ public interface TrackRepository extends JpaRepository<Track, Long> {
     """)
     Page<Track> findAllTrending(@Param("currentUserId") Long currentUserId, Pageable pageable);
 
-    @Query("SELECT t FROM Track t WHERE t.uploader.id IN :uploaderIds AND t.visibility = 'PUBLIC' AND t.published = true")
-    Page<Track> findByUploaderIdInAndVisibilityPublicAndPublishedTrue(List<Long> uploaderIds, Pageable pageable);
+    @Query("""
+        SELECT t FROM Track t 
+        WHERE t.uploader.id IN :uploaderIds 
+        AND t.visibility = 'PUBLIC' 
+        AND t.published = true
+        AND (:currentUserId IS NULL OR NOT EXISTS (
+            SELECT 1 FROM Block b 
+            WHERE (b.blocker.id = :currentUserId AND b.blocked.id = t.uploader.id)
+            OR (b.blocker.id = t.uploader.id AND b.blocked.id = :currentUserId)
+        ))
+        ORDER BY t.uploadDate DESC
+    """)
+    Page<Track> findByUploaderIdInWithBlocking(@Param("uploaderIds") List<Long> uploaderIds, @Param("currentUserId") Long currentUserId, Pageable pageable);
+
+    @Query("SELECT t FROM Track t WHERE t.uploader.id IN :uploaderIds AND t.visibility = 'PUBLIC' AND t.published = true ORDER BY t.uploadDate DESC")
+    Page<Track> findByUploaderIdIn(@Param("uploaderIds") List<Long> uploaderIds, Pageable pageable);
 
     @Query("""
         SELECT t FROM Track t

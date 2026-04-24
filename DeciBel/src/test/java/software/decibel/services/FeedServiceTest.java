@@ -95,13 +95,18 @@ class FeedServiceTest {
         user2.setId(2L);
         Track track = new Track();
         track.setId(10L);
+        track.setUploadDate(LocalDateTime.now().minusDays(2));
+        Page<Track> trackUploadsPage = new PageImpl<>(List.of(track), pageable, 1);
+        when(trackRepository.findByUploaderIdInWithBlocking(eq(followingIds), eq(1L), any(Pageable.class)))
+                .thenReturn(trackUploadsPage);
+
         software.decibel.entities.TrackRepost trackRepost = software.decibel.entities.TrackRepost.builder()
                 .track(track)
                 .user(user2)
                 .repostedAt(LocalDateTime.now().minusDays(1))
                 .build();
         Page<software.decibel.entities.TrackRepost> trackRepostsPage = new PageImpl<>(List.of(trackRepost), pageable, 1);
-        when(trackRepostRepository.findByUserIdIn(eq(followingIds), any(Pageable.class)))
+        when(trackRepostRepository.findByUserIdInWithBlocking(eq(followingIds), eq(1L), any(Pageable.class)))
                 .thenReturn(trackRepostsPage);
 
         Playlist playlist = new Playlist();
@@ -112,7 +117,7 @@ class FeedServiceTest {
                 .repostedAt(LocalDateTime.now())
                 .build();
         Page<software.decibel.entities.PlaylistRepost> playlistRepostsPage = new PageImpl<>(List.of(playlistRepost), pageable, 1);
-        when(playlistRepostRepository.findByUserIdIn(eq(followingIds), any(Pageable.class)))
+        when(playlistRepostRepository.findByUserIdInWithBlocking(eq(followingIds), eq(1L), any(Pageable.class)))
                 .thenReturn(playlistRepostsPage);
 
         when(likeService.getLikedTrackIds(1L)).thenReturn(Set.of());
@@ -155,9 +160,10 @@ class FeedServiceTest {
         FeedPageResponse response = feedService.getFeed(currentUser, pageable);
 
         assertNotNull(response);
-        assertEquals(2, response.content().size());
-        assertEquals("PLAYLIST", response.content().get(0).type()); // Playlist is more recent (now vs yesterday)
-        assertEquals("TRACK", response.content().get(1).type());
-        assertEquals(2, response.totalElements());
+        assertEquals(3, response.content().size());
+        assertEquals("PLAYLIST", response.content().get(0).type()); // Playlist is most recent (now)
+        assertEquals("TRACK", response.content().get(1).type());    // Track repost is next (yesterday)
+        assertEquals("TRACK", response.content().get(2).type());    // Track upload is oldest (2 days ago)
+        assertEquals(3, response.totalElements());
     }
 }

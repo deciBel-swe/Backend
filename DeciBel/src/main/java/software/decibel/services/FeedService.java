@@ -41,7 +41,7 @@ public class FeedService {
 
     /**
      * Personalizes the user's feed based on following activity.
-     * UPDATED: Now enforces blocking (excludes reposts of content from blocked users).
+     * UPDATED: Now includes uploaded tracks and enforces blocking.
      */
     public FeedPageResponse getFeed(User currentUser, Pageable pageable) {
         List<Long> followingIds = followRepository.findFollowingIdsByFollowerId(currentUser.getId());
@@ -50,6 +50,9 @@ public class FeedService {
             return new FeedPageResponse(Collections.emptyList(), pageable.getPageNumber(), pageable.getPageSize(), 0, 0, true);
         }
 
+        // Fetch uploads from followed users, excluding blocked ones
+        Page<software.decibel.entities.Track> trackUploadsPage = trackRepository.findByUploaderIdInWithBlocking(followingIds, currentUser.getId(), pageable);
+
         // Fetch reposts from followed users, but exclude those from users who blocked or are blocked by current user
         Page<software.decibel.entities.TrackRepost> trackRepostsPage = trackRepostRepository.findByUserIdInWithBlocking(followingIds, currentUser.getId(), pageable);
         Page<software.decibel.entities.PlaylistRepost> playlistRepostsPage = playlistRepostRepository.findByUserIdInWithBlocking(followingIds, currentUser.getId(), pageable);
@@ -57,8 +60,24 @@ public class FeedService {
         Set<Long> likedTrackIds = likeService.getLikedTrackIds(currentUser.getId());
         Set<Long> repostedTrackIds = repostService.getRepostedTrackIds(currentUser.getId());
 
+        // Stream for uploads
+        Stream<ResourceRefFullDTO> uploadStream = trackUploadsPage.getContent().stream()
+                .map(t -> {
+                    ResourceRefFullDTO dto = ResourceRefFullDTO.of(
+                            trackMapper.toTrackResponse(t, currentUser.getTier(), likedTrackIds, repostedTrackIds)
+                    );
+                    return new ResourceRefFullDTO(
+                            dto.type(),
+                            dto.track(),
+                            dto.playlist(),
+                            dto.user(),
+                            dto.repostedBy(),
+                            t.getPublishedAt() != null ? t.getPublishedAt() : t.getUploadDate()
+                    );
+                });
+
         // Extract to typed local variables to fix generic type inference
-        Stream<ResourceRefFullDTO> trackStream = trackRepostsPage.getContent().stream()
+        Stream<ResourceRefFullDTO> trackRepostStream = trackRepostsPage.getContent().stream()
                 .map(tr -> ResourceRefFullDTO.of(
                 trackMapper.toTrackResponse(tr.getTrack(), currentUser.getTier(), likedTrackIds, repostedTrackIds),
                 userMapper.toUserSummary(tr.getUser()),
@@ -72,13 +91,13 @@ public class FeedService {
                 pr.getRepostedAt()
         ));
 
-        // Safely concatenate now that the compiler knows both are Stream<ResourceRefFullDTO>
-        List<ResourceRefFullDTO> feedItems = Stream.concat(trackStream, playlistStream)
+        // Interleave and sort all items
+        List<ResourceRefFullDTO> feedItems = Stream.concat(uploadStream, Stream.concat(trackRepostStream, playlistStream))
                 .sorted(Comparator.comparing(ResourceRefFullDTO::repostedAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed())
                 .limit(pageable.getPageSize())
                 .toList();
 
-        long totalElements = trackRepostsPage.getTotalElements() + playlistRepostsPage.getTotalElements();
+        long totalElements = trackUploadsPage.getTotalElements() + trackRepostsPage.getTotalElements() + playlistRepostsPage.getTotalElements();
         int totalPages = (int) Math.ceil((double) totalElements / pageable.getPageSize());
 
         return new FeedPageResponse(
