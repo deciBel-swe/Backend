@@ -1,4 +1,4 @@
-package software.decibel.services;
+package software.decibel.services.admin;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;

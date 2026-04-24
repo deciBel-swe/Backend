@@ -28,6 +28,7 @@ import software.decibel.enums.AuthProvider;
 import software.decibel.enums.AuthType;
 import software.decibel.enums.TokenType;
 import software.decibel.repositories.AuthIdentityRepository;
+import software.decibel.services.auth.AccountRecoveryService;
 
 @ExtendWith(MockitoExtension.class)
 class AccountRecoveryServiceTest {

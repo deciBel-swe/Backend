@@ -13,6 +13,7 @@ import software.decibel.dtos.auth.google.GoogleClientConfig;
 import software.decibel.dtos.auth.google.GoogleTokenInfoResponse;
 import software.decibel.enums.DeviceType;
 import software.decibel.exceptions.custom.InvalidGoogleTokenException;
+import software.decibel.services.auth.GoogleTokenVerificationService;
 
 class GoogleTokenVerificationServiceTest {
 

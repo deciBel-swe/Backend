@@ -22,6 +22,8 @@ import software.decibel.exceptions.custom.SubscriptionNotReadyException;
 import software.decibel.repositories.AuthIdentityRepository;
 import software.decibel.repositories.SubscriptionRepository;
 import software.decibel.services.user.UserService;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 @Slf4j
 @Service
@@ -115,16 +117,19 @@ public class SubscriptionService {
 
     // GET /subscription/status
     public SubscriptionStatusResponse getSubscriptionStatus(Long userId) {
-        Subscription subscription = subscriptionRepository.findByUserId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                "No subscription found for user " + userId));
-
-        return new SubscriptionStatusResponse(
+        return subscriptionRepository.findByUserId(userId)
+                .map(subscription -> new SubscriptionStatusResponse(
                 subscription.getStatus().name().toLowerCase(),
                 subscription.getPlan(),
-                subscription.getCurrentPeriodEnd(), // may be null if webhook hasn't fired
+                subscription.getCurrentPeriodEnd(),
                 subscription.isCancelAtPeriodEnd()
-        );
+        ))
+                .orElseGet(() -> new SubscriptionStatusResponse(
+                "active", // Free accounts are always active
+                "free", // Plan name
+                Instant.now().plus(365 * 100, ChronoUnit.DAYS).getEpochSecond(),// garbage date
+                false // Free tier doesn't "cancel"
+        ));
     }
 
     // POST /subscription/renew

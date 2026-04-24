@@ -3,6 +3,7 @@ package software.decibel.entities;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -38,11 +39,17 @@ public class Track {
     private String description;
     private int durationSeconds;
 
+    @Builder.Default
     private int likeCount = 0;
+    @Builder.Default
     private int repostCount = 0;
+    @Builder.Default
     private int playCount = 0;
+    @Builder.Default
     private int completedPlayCount = 0;
+    @Builder.Default
     private int commentCount = 0;
+    @Builder.Default
     private double playThroughRate = 0.0;
 
     @Enumerated(EnumType.STRING)
@@ -70,6 +77,7 @@ public class Track {
     @Column(unique = true)
     private String slug;
 
+    @Builder.Default
     private boolean published = false;
     private LocalDateTime publishedAt;
 
@@ -84,14 +92,17 @@ public class Track {
             name = "track_tags",
             joinColumns = @JoinColumn(name = "track_id"),
             inverseJoinColumns = @JoinColumn(name = "tag_id"))
-    private List<Tag> tags;
+    @Builder.Default
+    private List<Tag> tags = new ArrayList<>();
 
     // A track has many secret tokens (deleted once track is deleted)
     @OneToMany(mappedBy = "track", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<TrackToken> tokens;
+    @Builder.Default
+    private List<TrackToken> tokens = new ArrayList<>();
 
     // track can have many comments
     // purpose is to delete comments if track is deleted
     @OneToMany(mappedBy = "track", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Comment> comments;
+    @Builder.Default
+    private List<Comment> comments = new ArrayList<>();
 }

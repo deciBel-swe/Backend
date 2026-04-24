@@ -42,6 +42,7 @@ public class Subscription {
     private Long currentPeriodEnd;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean cancelAtPeriodEnd = false;
 
     @CreationTimestamp

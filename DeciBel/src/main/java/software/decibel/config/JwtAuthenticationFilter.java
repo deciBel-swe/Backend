@@ -64,6 +64,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     User user = userRepository.findById(id).orElse(null);
 
                     if (user != null) {
+                        if (Boolean.TRUE.equals(user.isBanned())) {
+                            log.debug("Blocked authentication for banned user with ID {}", userId);
+                            sendErrorResponse(response, HttpServletResponse.SC_FORBIDDEN, "Your account is banned");
+                            return;
+                        }
+
                         // Create lightweight principal instead of using JPA entity
                         UserPrincipal principal = UserPrincipal.fromUser(user);
 
@@ -77,27 +83,28 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         SecurityContextHolder.getContext().setAuthentication(authToken);
                     } else {
                         log.debug("User with ID {} not found in database", userId);
-                        sendErrorResponse(response, "User not found");
+                        sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "User not found");
                         return;
                     }
                 }
             } else {
                 log.debug("Invalid JWT token provided");
-                sendErrorResponse(response, "Invalid token");
+                sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid token");
                 return;
             }
         } catch (Exception e) {
             log.debug("JWT authentication failed: {}", e.getMessage());
-            sendErrorResponse(response, "Authentication failed");
+            sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Authentication failed");
             return;
         }
 
         filterChain.doFilter(request, response);
     }
 
-    private void sendErrorResponse(HttpServletResponse response, String message) throws IOException {
-        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+    private void sendErrorResponse(HttpServletResponse response, int status, String message) throws IOException {
+        response.setStatus(status);
         response.setContentType("application/json");
-        response.getWriter().write("{\"error\": \"Unauthorized\", \"message\": \"" + message + "\"}");
+        String error = status == HttpServletResponse.SC_FORBIDDEN ? "Forbidden" : "Unauthorized";
+        response.getWriter().write("{\"error\": \"" + error + "\", \"message\": \"" + message + "\"}");
     }
 }

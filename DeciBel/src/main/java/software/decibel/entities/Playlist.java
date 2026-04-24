@@ -53,7 +53,9 @@ public class Playlist {
     private PlaylistType type;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean isPrivate = false;
+    @Builder.Default
     private boolean isLiked = false;
 
     private String coverArtUrl;

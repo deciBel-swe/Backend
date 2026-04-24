@@ -1,4 +1,4 @@
-package software.decibel.services;
+package software.decibel.services.admin;
 
 import java.util.List;
 
@@ -49,10 +49,21 @@ public class AdminModerationService {
         return reportMapper.toReportResponseList(reports);
     }
 
+    @Transactional(readOnly = true)
+    public ReportResponse getReportById(Long reportId) {
+        Report report = reportRepository.findById(reportId)
+                .orElseThrow(() -> new ResourceNotFoundException("Report with id " + reportId + " not found"));
+        return reportMapper.toReportResponse(report);
+    }
+
     @Transactional
     public MessageResponse updateReportStatus(Long reportId, UpdateReportStatusRequest request) {
         Report report = reportRepository.findById(reportId)
                 .orElseThrow(() -> new ResourceNotFoundException("Report with id " + reportId + " not found"));
+
+        if (report.getStatus() == request.status()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Report is already in the requested status");
+        }
 
         report.setStatus(request.status());
         reportRepository.save(report);
