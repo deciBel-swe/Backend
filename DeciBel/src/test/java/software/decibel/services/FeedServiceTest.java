@@ -29,7 +29,6 @@ import software.decibel.dtos.track.responses.TrackResponse;
 import software.decibel.entities.Playlist;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
-import software.decibel.enums.TrackAccess;
 import software.decibel.mappers.PlaylistMapper;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.FollowRepository;
@@ -141,7 +140,7 @@ class FeedServiceTest {
                 LocalDate.now().minusDays(1),
                 "desc",
                 "token",
-                TrackAccess.PLAYABLE,
+                software.decibel.enums.TrackAccess.PLAYABLE,
                 "track-slug"
         );
         when(trackMapper.toTrackResponse(any(), any(), any(), any())).thenReturn(trackResponse);
@@ -152,14 +151,24 @@ class FeedServiceTest {
         );
         when(playlistMapper.toResponse(playlist)).thenReturn(playlistResponse);
 
-        when(userMapper.toUserSummary(any())).thenReturn(new software.decibel.dtos.user.UserSummary(2L, "user2", "User Two", "avatar"));
+        // FIX 1: Updated the mocked method name and returned the fully populated UserSummaryDTO
+        when(userMapper.toUserSummaryDto(any())).thenReturn(
+                new software.decibel.dtos.user.UserSummaryDTO(2L, "user2", "User Two", "avatar", false, 0, 0)
+        );
 
         FeedPageResponse response = feedService.getFeed(currentUser, pageable);
 
         assertNotNull(response);
         assertEquals(2, response.content().size());
-        assertEquals("PLAYLIST", response.content().get(0).type()); // Playlist is more recent (now vs yesterday)
-        assertEquals("TRACK", response.content().get(1).type());
+
+        // FIX 2: Updated the assertions to match the new FeedItemDto type strings
+        assertEquals("PLAYLIST_POSTED", response.content().get(0).type()); // Playlist is more recent
+        assertEquals("TRACK_POSTED", response.content().get(1).type());
+
+        // Optional: You can also verify the inner resource type works correctly
+        assertEquals("PLAYLIST", response.content().get(0).resource().type());
+        assertEquals("TRACK", response.content().get(1).resource().type());
+
         assertEquals(2, response.totalElements());
     }
 }
