@@ -1,5 +1,9 @@
 package software.decibel.config;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
@@ -16,17 +20,12 @@ import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.utils.SlugUtility;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-
 /**
- * Seeds sample tracks for the demo user for development and testing purposes.
- * Runs after DevUserSeeder to ensure the uploader exists.
+ * Seeds sample tracks for the demo user for development and testing purposes. Runs after
+ * DevUserSeeder to ensure the uploader exists.
  */
 @Component
-@Order(2)
+@Order(3)
 @RequiredArgsConstructor
 @Slf4j
 public class DevTrackSeeder implements CommandLineRunner {
