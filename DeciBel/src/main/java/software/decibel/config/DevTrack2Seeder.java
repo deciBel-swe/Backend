@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
+import software.decibel.enums.TrackAccess;
 import software.decibel.enums.TrackState;
 import software.decibel.enums.Visibility;
 import software.decibel.repositories.TagRepository;
@@ -19,10 +20,6 @@ import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.utils.SlugUtility;
 
-/**
- * Seeds sample tracks for producer_user for development and testing purposes. Runs after
- * DevTrackSeeder to ensure no conflicts.
- */
 @Component
 @Order(4)
 @RequiredArgsConstructor
@@ -35,8 +32,7 @@ public class DevTrack2Seeder implements CommandLineRunner {
 
   @Override
   @Transactional
-  public void run(String... args) throws Exception {
-    // Check if we've already seeded these tracks (count > 3 from DevTrackSeeder)
+  public void run(String... args) {
     if (trackRepository.count() > 3) {
       log.info("Additional tracks already exist. Skipping DevTrack2 seeding.");
       return;
@@ -44,15 +40,16 @@ public class DevTrack2Seeder implements CommandLineRunner {
 
     log.info("Seeding sample tracks for producer user...");
 
-    // Get or create producer user
     User producerUser = getOrCreateUser("demo_user2", "Demo User 2");
 
-    // Seed Tags
+    // 🔥 Set freeTracksLeft to 0
+    producerUser.setFreeTracksLeft(0);
+
     Tag electronic = getOrCreateTag("Electronic");
     Tag house = getOrCreateTag("House");
     Tag funkk = getOrCreateTag("Funk");
 
-    // ──  TRACKS (House, Electronic, Funk) ──────────────────
+    // ✅ PLAYABLE TRACKS (FULL ACCESS)
     seedTrack(
         producerUser,
         "Pulse Drive",
@@ -61,7 +58,9 @@ public class DevTrack2Seeder implements CommandLineRunner {
         320,
         List.of(house, electronic),
         "https://example.com/audio/pulse-drive.mp3",
-        "https://example.com/covers/pulse-drive.jpg");
+        "https://example.com/audio/previews/pulse-drive-preview.mp3",
+        "https://example.com/covers/pulse-drive.jpg",
+        TrackAccess.PLAYABLE);
 
     seedTrack(
         producerUser,
@@ -71,7 +70,9 @@ public class DevTrack2Seeder implements CommandLineRunner {
         260,
         List.of(funkk, electronic),
         "https://example.com/audio/funk-theory.mp3",
-        "https://example.com/covers/funk-theory.jpg");
+        "https://example.com/audio/previews/funk-theory-preview.mp3",
+        "https://example.com/covers/funk-theory.jpg",
+        TrackAccess.PLAYABLE);
 
     seedTrack(
         producerUser,
@@ -81,8 +82,11 @@ public class DevTrack2Seeder implements CommandLineRunner {
         380,
         List.of(electronic),
         "https://example.com/audio/synthscape.mp3",
-        "https://example.com/covers/synthscape.jpg");
+        "https://example.com/audio/previews/synthscape-preview.mp3",
+        "https://example.com/covers/synthscape.jpg",
+        TrackAccess.PREVIEW);
 
+    // 🚫 BLOCKED TRACK (PREVIEW ONLY)
     seedTrack(
         producerUser,
         "Bass Injection",
@@ -91,14 +95,14 @@ public class DevTrack2Seeder implements CommandLineRunner {
         300,
         List.of(house, electronic),
         "https://example.com/audio/bass-injection.mp3",
-        "https://example.com/covers/bass-injection.jpg");
+        "https://example.com/audio/previews/bass-injection-preview.mp3",
+        "https://example.com/covers/bass-injection.jpg",
+        TrackAccess.BLOCKED);
 
-    // Update track count for producerUser
     producerUser.setTrackCount(4);
     userRepository.save(producerUser);
 
-    log.info("Sample tracks for producer user seeded successfully.");
-    log.info("Total tracks: {} (demo_user: 3, producer_user: 4)", trackRepository.count());
+    log.info("Sample tracks seeded successfully.");
   }
 
   private void seedTrack(
@@ -109,7 +113,9 @@ public class DevTrack2Seeder implements CommandLineRunner {
       int duration,
       List<Tag> tags,
       String audioUrl,
-      String coverUrl) {
+      String previewUrl,
+      String coverUrl,
+      TrackAccess access) {
 
     String slug = SlugUtility.generateUniqueSlug(title, trackRepository::existsBySlug);
 
@@ -122,8 +128,10 @@ public class DevTrack2Seeder implements CommandLineRunner {
             .durationSeconds(duration)
             .releaseDate(LocalDate.now())
             .state(TrackState.FINISHED)
+            .access(access) // ✅ important
             .visibility(Visibility.PUBLIC)
             .trackUrl(audioUrl)
+            .trackPreviewUrl(previewUrl) // ✅ added
             .coverUrl(coverUrl)
             .waveformUrl("https://example.com/waveforms/default.json")
             .slug(slug)
@@ -150,7 +158,12 @@ public class DevTrack2Seeder implements CommandLineRunner {
         .orElseGet(
             () -> {
               User newUser =
-                  User.builder().username(username).displayName(displayName).trackCount(0).build();
+                  User.builder()
+                      .username(username)
+                      .displayName(displayName)
+                      .trackCount(0)
+                      .freeTracksLeft(0) // ✅ ensure default
+                      .build();
               return userRepository.save(newUser);
             });
   }
