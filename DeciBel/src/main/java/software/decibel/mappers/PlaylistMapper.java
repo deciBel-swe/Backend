@@ -126,7 +126,7 @@ public class PlaylistMapper {
                 playlist.getSlug(),
                 playlist.getTotalDurationSeconds(),
                 playlist.getTrackCount(),
-                userMapper.toUserSummaryDTO(playlist.getUser()),
+                userMapper.toUserSummaryDto(playlist.getUser()),
                 playlist.getGenres() != null ? playlist.getGenres() : new ArrayList<>(),
                 playlist.getCreatedAt(),
                 trackSummaries,

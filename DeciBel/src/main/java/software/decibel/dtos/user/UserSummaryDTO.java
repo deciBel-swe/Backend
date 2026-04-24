@@ -7,6 +7,4 @@ public record UserSummaryDTO(
         String avatarUrl,
         boolean isFollowing,
         int followerCount,
-        int trackCount) {
-
-}
+        int trackCount) {}

@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ "main", "Dev" ]
 
+permissions:
+  contents: write
+  packages: write
+
 env:
   JAVA_VERSION: '25'
 
@@ -32,3 +36,9 @@ jobs:
 
       - name: Run Tests and Compile
         run: ./mvnw verify
+  
+  deploy:
+    needs: test-and-verify
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/deploy.yml
+    secrets: inherit

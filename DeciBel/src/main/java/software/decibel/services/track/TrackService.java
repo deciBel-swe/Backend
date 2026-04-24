@@ -1,6 +1,7 @@
 package software.decibel.services.track;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
@@ -30,6 +31,8 @@ import software.decibel.dtos.Resource;
 import software.decibel.dtos.track.responses.TrackStatusResponse;
 import software.decibel.dtos.track.responses.TrackUploadResponse;
 import software.decibel.dtos.track.responses.TrackWaveFormUrlResponse;
+import software.decibel.dtos.auth.MessageResponse;
+import software.decibel.entities.ListeningHistory;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
@@ -42,8 +45,10 @@ import software.decibel.enums.Visibility;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.exceptions.custom.TrackAlreadyPublishedException;
 import software.decibel.exceptions.custom.UnauthorizedActionException;
+import software.decibel.exceptions.custom.CooldownActiveException;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.CommentRepository;
+import software.decibel.repositories.ListeningHistoryRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
@@ -67,6 +72,7 @@ public class TrackService {
     private final TrackRepostRepository repostRepository;
     private final CommentRepository commentRepository;
     private final UserService userService;
+    private final ListeningHistoryRepository listeningHistoryRepository;
 
     private final TrackPlaybackService trackPlaybackService;
 
@@ -85,6 +91,58 @@ public class TrackService {
 
     public TrackStatusResponse getTrackStatus(Long trackId) {
         return trackMapper.toTrackStatusResponse(trackChecksUtil.getTrackIfExistsById(trackId));
+    }
+
+    @Transactional
+    public MessageResponse recordTrackPlay(Long trackId) {
+        Track track = getTrackIfExistsById(trackId);
+        Long currentUserId = JwtService.getCurrentUserId();
+
+        if (currentUserId != null) {
+            User user = userService.getUserIfExistsById(currentUserId);
+            enforcePlayCooldown(currentUserId, track);
+            listeningHistoryRepository.save(
+                    ListeningHistory.builder()
+                            .user(user)
+                            .track(track)
+                            .completed(false)
+                            .build());
+        }
+        /*
+        Assumed that Guest users can also play tracks, but we won't record their plays in listening history 
+        (since we have no user to associate it with) 
+        and we won't enforce cooldowns on them. 
+        We will still increment the play count for the track though.
+         */
+        track.setPlayCount(track.getPlayCount() + 1);
+        trackRepository.save(track);
+
+        return new MessageResponse("Play recorded");
+    }
+
+    @Transactional
+    public MessageResponse recordTrackCompletion(Long trackId) {
+        Long currentUserId = JwtService.getCurrentUserId();
+        userService.getUserIfExistsById(currentUserId);
+
+        Track track = getTrackIfExistsById(trackId);
+        listeningHistoryRepository.findTopByUserIdAndTrackIdAndCompletedFalseOrderByPlayedAtDesc(currentUserId, trackId)
+                .ifPresent(history -> {
+                    history.setCompleted(true);
+                    listeningHistoryRepository.save(history);
+                    if (track.getCompletedPlayCount() < track.getPlayCount()) {
+                        track.setCompletedPlayCount(track.getCompletedPlayCount() + 1);
+                    }
+                });
+
+        if (track.getPlayCount() > 0) {
+            track.setPlayThroughRate((double) track.getCompletedPlayCount() / track.getPlayCount());
+        } else {
+            track.setPlayThroughRate(0.0);
+        }
+
+        trackRepository.save(track);
+        return new MessageResponse("Full listen recorded");
     }
 
     //delete track
@@ -484,5 +542,26 @@ public class TrackService {
         track.setSlug(slug);
 
         return createUploadingTrack(track, uploadId);
+    }
+
+    private Track getTrackIfExistsById(Long trackId) {
+        return trackChecksUtil.getTrackIfExistsById(trackId);
+    }
+
+    private void enforcePlayCooldown(Long userId, Track track) {
+        listeningHistoryRepository.findTopByUserIdAndTrackIdOrderByPlayedAtDesc(userId, track.getId())
+                .ifPresent(lastPlay -> {
+                    int cooldownSeconds = Math.max(track.getDurationSeconds(), 0);
+                    if (cooldownSeconds == 0 || lastPlay.getPlayedAt() == null) {
+                        return;
+                    }
+
+                    LocalDateTime nextAllowedPlayAt = lastPlay.getPlayedAt().plusSeconds(cooldownSeconds);
+                    if (nextAllowedPlayAt.isAfter(LocalDateTime.now())) {
+                        long secondsLeft = Duration.between(LocalDateTime.now(), nextAllowedPlayAt).toSeconds();
+                        throw new CooldownActiveException(
+                                "Please wait " + Math.max(secondsLeft, 1) + " seconds before recording another play.");
+                    }
+                });
     }
 }

@@ -51,6 +51,7 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/tracks/resolve/{track-slug}").permitAll()
                                 .requestMatchers(HttpMethod.POST, "/auth/refreshtoken").permitAll()
                                 .requestMatchers(HttpMethod.POST, "/tracks/upload").permitAll()
+                                .requestMatchers(HttpMethod.POST, "/tracks/{trackId}/play").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{userId}/tracks").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/tracks/{trackId}").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/playlists/token/{token}").permitAll()

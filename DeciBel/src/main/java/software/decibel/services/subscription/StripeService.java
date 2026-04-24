@@ -123,13 +123,16 @@ public class StripeService {
 
             // Map Stripe status to local enum 
             String stripeStatus = stripeSub.getStatus();
-            if ("active".equals(stripeStatus) || "trialing".equals(stripeStatus)) {
+            if ("active".equals(stripeStatus)) {
                 localSubscription.setStatus(SubscriptionStatus.ACTIVE);
+            } else if ("trialing".equals(stripeStatus)) {
+                localSubscription.setStatus(SubscriptionStatus.TRIALING);
             } else if ("past_due".equals(stripeStatus)) {
                 localSubscription.setStatus(SubscriptionStatus.PAST_DUE);
             } else if ("canceled".equals(stripeStatus)) {
                 localSubscription.setStatus(SubscriptionStatus.CANCELLED);
             } else {
+                // Catch-all for incomplete, etc.
                 localSubscription.setStatus(SubscriptionStatus.TRIALING);
             }
 

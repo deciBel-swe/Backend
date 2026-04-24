@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import java.time.LocalDateTime;
 
 import software.decibel.entities.AuthIdentity;
 import software.decibel.entities.User;
@@ -36,4 +39,7 @@ public interface AuthIdentityRepository extends JpaRepository<AuthIdentity, Long
     Optional<AuthIdentity> findFirstByUserId(Long userId);
 
     List<AuthIdentity> findAllByUser(User user);
+
+    @Query("SELECT a FROM AuthIdentity a JOIN FETCH a.user u WHERE a.emailVerified = false AND u.createdAt < :threshold")
+    List<AuthIdentity> findUnverifiedOlderThan(@Param("threshold") LocalDateTime threshold);
 }
