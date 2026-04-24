@@ -198,8 +198,8 @@ public class PlaylistMapper {
 
     private UserSummaryDTO buildOwnerSummaryDto(User user) {
         if (user == null) {
-            return new UserSummaryDTO(null, null, null, null, false, 0, 0);
+            return null;
         }
-        return new UserSummaryDTO(user.getId(), user.getUsername(), user.getDisplayName(), user.getAvatarUrl(), false, 0, user.getTrackCount());
+        return userMapper.toUserSummaryDto(user);
     }
 }
