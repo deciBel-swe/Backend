@@ -135,7 +135,7 @@ public class UserEmailService {
 
         final long userId;
         try {
-            userId = Long.parseLong(principal);
+            userId = userService.getUserIfExistsByUsername(principal).getId();
         } catch (NumberFormatException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid ID format");
         }
