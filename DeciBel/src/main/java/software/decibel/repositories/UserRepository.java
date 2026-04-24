@@ -65,7 +65,4 @@ public interface UserRepository extends JpaRepository<User, Long> {
         ))
     """)
     Page<User> searchPublicUsersWithBlocking(String query, Long currentUserId, Pageable pageable);
-
-    @Query("SELECT u FROM User u WHERE (LOWER(u.username) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(u.displayName) LIKE LOWER(CONCAT('%', :query, '%'))) AND u.isPrivate = false")
-    Page<User> searchPublicUsers(String query, Pageable pageable);
 }

@@ -29,7 +29,4 @@ public interface PlaylistRepository extends JpaRepository<Playlist, Long> {
         ))
     """)
     Page<Playlist> searchPublicPlaylistsWithBlocking(String query, Long currentUserId, Pageable pageable);
-
-    @Query("SELECT p FROM Playlist p WHERE LOWER(p.title) LIKE LOWER(CONCAT('%', :query, '%')) AND p.isPrivate = false")
-    Page<Playlist> searchPublicPlaylists(String query, Pageable pageable);
 }

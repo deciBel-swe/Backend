@@ -199,8 +199,29 @@ public interface TrackRepository extends JpaRepository<Track, Long> {
 """)
   Page<Track> findLikesStation(@Param("userId") Long userId, Pageable pageable);
     
-    @Query("SELECT t FROM Track t WHERE t.visibility = 'PUBLIC' AND t.published = true ORDER BY (t.likeCount + t.repostCount) DESC")
-    Page<Track> findAllTrending(Pageable pageable);
+    @Query("""
+        SELECT t FROM Track t
+        WHERE t.visibility = 'PUBLIC' AND t.published = true
+        AND (:currentUserId IS NULL OR NOT EXISTS (
+            SELECT 1 FROM Block b
+            WHERE (b.blocker.id = :currentUserId AND b.blocked.id = t.uploader.id)
+            OR (b.blocker.id = t.uploader.id AND b.blocked.id = :currentUserId)
+        ))
+        ORDER BY (t.likeCount + t.repostCount) DESC
+    """)
+    Page<Track> findAllTrending(@Param("currentUserId") Long currentUserId, Pageable pageable);
+
+    @Query("""
+        SELECT t FROM Track t
+        WHERE t.visibility = 'PUBLIC' AND t.published = true
+        AND (:currentUserId IS NULL OR NOT EXISTS (
+            SELECT 1 FROM Block b
+            WHERE (b.blocker.id = :currentUserId AND b.blocked.id = t.uploader.id)
+            OR (b.blocker.id = t.uploader.id AND b.blocked.id = :currentUserId)
+        ))
+        ORDER BY t.playCount DESC
+    """)
+    Page<Track> findAllPopular(@Param("currentUserId") Long currentUserId, Pageable pageable);
 
     @Query("SELECT t FROM Track t WHERE t.uploader.id IN :uploaderIds AND t.visibility = 'PUBLIC' AND t.published = true")
     Page<Track> findByUploaderIdInAndVisibilityPublicAndPublishedTrue(List<Long> uploaderIds, Pageable pageable);
@@ -216,7 +237,4 @@ public interface TrackRepository extends JpaRepository<Track, Long> {
         ))
     """)
     Page<Track> searchPublicTracksWithBlocking(String query, Long currentUserId, Pageable pageable);
-
-    @Query("SELECT t FROM Track t WHERE LOWER(t.title) LIKE LOWER(CONCAT('%', :query, '%')) AND t.visibility = 'PUBLIC' AND t.published = true")
-    Page<Track> searchPublicTracks(String query, Pageable pageable);
 }

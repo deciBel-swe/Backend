@@ -49,9 +49,13 @@ public class UserProfileService {
         if (user.isPrivate() && !Objects.equals(user.getId(), currentUserId)) {
             throw new ResourceNotFoundException("User with ID " + userId + " not found");
         }
-        //check if the current user is blocked by this profile, if so, throw a 404
-        if (currentUserId != null && blockRepository.existsByBlockerAndBlocked(user, userRepository.getReferenceById(currentUserId))) {
-            throw new ResourceNotFoundException("User with ID " + userId + " not found");
+        //check if the current user is blocked by this profile or vice versa, if so, throw a 404
+        if (currentUserId != null) {
+            User currentUser = userRepository.getReferenceById(currentUserId);
+            if (blockRepository.existsByBlockerAndBlocked(user, currentUser) || 
+                blockRepository.existsByBlockerAndBlocked(currentUser, user)) {
+                throw new ResourceNotFoundException("User with ID " + userId + " not found");
+            }
         }
         return getResponseWithFollowStatus(user, false);
     }
@@ -106,9 +110,13 @@ public class UserProfileService {
         if (user.isPrivate() && !Objects.equals(user.getId(), currentUserId)) {
             throw new ResourceNotFoundException("User with username " + username + " not found");
         }
-        //check if the current user is blocked by this profile, if so, throw a 404
-        if (currentUserId != null && blockRepository.existsByBlockerAndBlocked(user, userRepository.getReferenceById(currentUserId))) {
-            throw new ResourceNotFoundException("User with username " + username + " not found");
+        //check if the current user is blocked by this profile or vice versa, if so, throw a 404
+        if (currentUserId != null) {
+            User currentUser = userRepository.getReferenceById(currentUserId);
+            if (blockRepository.existsByBlockerAndBlocked(user, currentUser) || 
+                blockRepository.existsByBlockerAndBlocked(currentUser, user)) {
+                throw new ResourceNotFoundException("User with username " + username + " not found");
+            }
         }
         return getResponseWithFollowStatus(user, false);
     }
