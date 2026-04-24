@@ -3,6 +3,7 @@ package software.decibel.services.track;
 import java.io.ByteArrayInputStream;
 import java.util.List;
 
+import org.hibernate.validator.internal.util.stereotypes.Lazy;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -15,6 +16,7 @@ import software.decibel.dtos.track.requests.TrackUploadRequest;
 import software.decibel.dtos.track.responses.TrackResponse;
 import software.decibel.dtos.track.responses.TrackStatusResponse;
 import software.decibel.entities.Track;
+import software.decibel.entities.TrackToken;
 import software.decibel.entities.User;
 import software.decibel.enums.FileType;
 import software.decibel.enums.TrackState;
@@ -46,6 +48,9 @@ public class TrackAsyncProcessor {
     private final AudioUtility audioUtility;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
+    // Injecting TrackTokenService lazily to avoid circular dependency with TrackService
+    @Lazy
+    private final TrackTokenService trackTokenService;
 
     @Async
     public void processTrackUploadAsync(Long trackId, String uploadId, TrackUploadRequest request, byte[] audioBytes,
@@ -103,10 +108,12 @@ public class TrackAsyncProcessor {
 
             final String finalCoverUrl = coverUrl;
             final String finalPreviewUrl = previewUrl;
-
             // RETURN the result from the transaction template
             return transactionTemplate.execute(status -> {
                 Track track = trackRepository.findById(trackId).orElseThrow();
+                TrackToken secretToken = trackTokenService.generateToken(trackId);
+                track.getTokens().add(secretToken);
+                secretToken.setTrack(track);
                 track.setTrackUrl(trackUrl);
                 track.setCoverUrl(finalCoverUrl);
                 track.setWaveformUrl(waveformUrl);

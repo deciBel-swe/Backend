@@ -27,12 +27,14 @@ public interface TrackMapper {
     @Mapping(target = "isReposted", expression = "java(repostedTrackIds.contains(track.getId()))")
     @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
     @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
-    @Mapping(target = "playCount", source = "track.playCount") // Assuming completedPlayCount is same as playCount for now
+    @Mapping(target = "playCount", source = "track.playCount")
+    @Mapping(target = "completedPlayCount", source = "track.completedPlayCount")
     @Mapping(target = "commentCount", expression = "java(mapCommentCount(track))")
     @Mapping(target = "secretToken", expression = "java(mapSecretToken(track))")
     @Mapping(target = "access", expression = "java(resolveAccess(userTier, track.getAccess()))")
     @Mapping(target = "trackUrl", expression = "java(resolveTrackUrl(userTier, track))")
     @Mapping(target = "trackPreviewUrl", expression = "java(resolvePreviewUrl(userTier, track))")
+    @Mapping(target = "trackSlug", source = "track.slug")
     TrackResponse toTrackResponse(
             Track track, AccountTier userTier, Set<Long> likedTrackIds, Set<Long> repostedTrackIds);
 
@@ -44,11 +46,13 @@ public interface TrackMapper {
     @Mapping(target = "trackDurationSeconds", source = "track.durationSeconds")
     @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
     @Mapping(target = "playCount", source = "track.playCount")
+    @Mapping(target = "completedPlayCount", source = "track.completedPlayCount")
     @Mapping(target = "commentCount", expression = "java(mapCommentCount(track))")
     @Mapping(target = "secretToken", expression = "java(mapSecretToken(track))")
     @Mapping(target = "access", expression = "java(track.getVisibility() == Visibility.PUBLIC ? software.decibel.enums.TrackAccess.PLAYABLE : software.decibel.enums.TrackAccess.PREVIEW)")
     @Mapping(target = "trackUrl", expression = "java(resolveTrackUrl(userTier, track))")
     @Mapping(target = "trackPreviewUrl", expression = "java(resolvePreviewUrl(userTier, track))")
+    @Mapping(target = "trackSlug", source = "track.slug")
     TrackResponse toTrackResponseSingle(Track track, AccountTier userTier, boolean isLiked, boolean isReposted);
 
     // ----------------- Page mapping ---------------------
@@ -78,6 +82,7 @@ public interface TrackMapper {
     @Mapping(target = "access", expression = "java(track.getVisibility() == Visibility.PUBLIC ? software.decibel.enums.TrackAccess.PLAYABLE : software.decibel.enums.TrackAccess.PREVIEW)")
     @Mapping(target = "secretToken", expression = "java(mapSecretToken(track))")
     @Mapping(target = "trackPreviewUrl", source = "track.trackUrl")
+    @Mapping(target = "trackSlug", source = "track.slug")
     TrackResponse toTrackResponse(Track track, boolean isLiked, boolean isReposted);
 
     default int mapCommentCount(Track track) {
@@ -117,8 +122,6 @@ public interface TrackMapper {
             }
             return access; // playable and preview same
         }
-
-      
 
         return access;
     }
@@ -203,7 +206,37 @@ public interface TrackMapper {
     // track -> track summary
     @Mapping(target = "trackSlug", source = "slug")
     @Mapping(target = "artist", source = "uploader")
+    @Mapping(target = "trackPreviewUrl", source = "trackPreviewUrl")
     @Mapping(target = "isLiked", ignore = true)
     @Mapping(target = "isReposted", ignore = true)
+    @Mapping(target = "secretToken", ignore = true)
     TrackSummaryDTO toTrackSummary(Track track);
+
+    default TrackSummaryDTO toTrackSummaryDTO(
+            Track track,
+            Set<Long> likedTrackIds,
+            Set<Long> repostedTrackIds,
+            AccountTier accountTier) {
+        TrackSummaryDTO dto = toTrackSummary(track);
+        if (dto == null) {
+            return null;
+        }
+
+        return new TrackSummaryDTO(
+                dto.id(),
+                dto.title(),
+                dto.trackSlug(),
+                dto.coverUrl(),
+                resolveTrackUrl(accountTier, track),
+                resolvePreviewUrl(accountTier, track),
+                dto.artist(),
+                dto.playCount(),
+                dto.likeCount(),
+                dto.repostCount(),
+                dto.commentCount(),
+                likedTrackIds != null && likedTrackIds.contains(track.getId()),
+                repostedTrackIds != null && repostedTrackIds.contains(track.getId()),
+                mapSecretToken(track),
+                resolveAccess(accountTier, track.getAccess()));
+    }
 }

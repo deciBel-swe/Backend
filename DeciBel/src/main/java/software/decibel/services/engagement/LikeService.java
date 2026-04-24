@@ -3,7 +3,7 @@ package software.decibel.services.engagement;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
-import lombok.RequiredArgsConstructor;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -11,6 +11,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
+import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.playlist.PlaylistResponse;
 import software.decibel.dtos.track.responses.LikeResponse;
 import software.decibel.dtos.user.UserProfile;
@@ -206,7 +208,6 @@ public class LikeService {
                         playlist,
                         trackLikes,
                         trackReposts,
-                        trackPageable,
                         currentViewerTier));
     }
 

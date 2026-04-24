@@ -1,11 +1,12 @@
 package software.decibel.services;
 
-import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.comment.CommentPageResponse;
 import software.decibel.dtos.comment.CommentResponse;
 import software.decibel.dtos.comment.CreateCommentRequest;
@@ -23,8 +24,8 @@ import software.decibel.mappers.CommentMapper;
 import software.decibel.repositories.CommentRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.services.notification.InAppNotificationService;
-import software.decibel.services.track.TrackService;
 import software.decibel.services.user.UserService;
+import software.decibel.utils.TrackChecksUtil;
 
 @Service
 @RequiredArgsConstructor
@@ -34,7 +35,7 @@ public class CommentService {
     private final CommentRepository commentRepository;
     private final TrackRepository trackRepository;
     private final UserService userService;
-    private final TrackService trackService;
+    private final TrackChecksUtil trackChecksUtil;
     private final CommentMapper commentMapper;
     private final software.decibel.repositories.BlockRepository blockRepository;
 
@@ -77,7 +78,7 @@ public class CommentService {
 
     @Transactional
     public CommentPageResponse getTrackComments(Long trackId, int page, int size) {
-        trackService.getTrackIfExistsById(trackId);
+        trackChecksUtil.getTrackIfExistsById(trackId);
 
         PageRequest pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Page<Comment> result = commentRepository.findByTrackId(trackId, pageable);

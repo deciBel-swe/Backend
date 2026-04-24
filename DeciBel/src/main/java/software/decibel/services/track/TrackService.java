@@ -1,6 +1,7 @@
 package software.decibel.services.track;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
@@ -26,23 +27,28 @@ import software.decibel.dtos.track.responses.TrackPageResponse;
 import software.decibel.dtos.track.responses.TrackPatchResponse;
 import software.decibel.dtos.track.responses.TrackPublishResponse;
 import software.decibel.dtos.track.responses.TrackResponse;
+import software.decibel.dtos.Resource;
 import software.decibel.dtos.track.responses.TrackStatusResponse;
 import software.decibel.dtos.track.responses.TrackUploadResponse;
 import software.decibel.dtos.track.responses.TrackWaveFormUrlResponse;
+import software.decibel.dtos.auth.MessageResponse;
+import software.decibel.entities.ListeningHistory;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
 import software.decibel.enums.AccountTier;
 import software.decibel.enums.FileType;
+import software.decibel.enums.ResourceType;
 import software.decibel.enums.TrackAccess;
 import software.decibel.enums.TrackState;
 import software.decibel.enums.Visibility;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.exceptions.custom.TrackAlreadyPublishedException;
 import software.decibel.exceptions.custom.UnauthorizedActionException;
+import software.decibel.exceptions.custom.CooldownActiveException;
 import software.decibel.mappers.TrackMapper;
-import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.CommentRepository;
+import software.decibel.repositories.ListeningHistoryRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
@@ -54,6 +60,7 @@ import software.decibel.services.user.UserService;
 import software.decibel.utils.FileUtilityAzure;
 import software.decibel.utils.SlugUtility;
 import software.decibel.utils.TagUtility;
+import software.decibel.utils.TrackChecksUtil;
 
 @Service
 @RequiredArgsConstructor
@@ -65,7 +72,7 @@ public class TrackService {
     private final TrackRepostRepository repostRepository;
     private final CommentRepository commentRepository;
     private final UserService userService;
-    private final BlockRepository blockRepository;
+    private final ListeningHistoryRepository listeningHistoryRepository;
 
     private final TrackPlaybackService trackPlaybackService;
 
@@ -77,18 +84,71 @@ public class TrackService {
 
     private final TagService tagService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final TrackChecksUtil trackChecksUtil;
 
     //Async Processor
     private final TrackAsyncProcessor trackAsyncProcessor;
 
     public TrackStatusResponse getTrackStatus(Long trackId) {
-        return trackMapper.toTrackStatusResponse(getTrackIfExistsById(trackId));
+        return trackMapper.toTrackStatusResponse(trackChecksUtil.getTrackIfExistsById(trackId));
+    }
+
+    @Transactional
+    public MessageResponse recordTrackPlay(Long trackId) {
+        Track track = getTrackIfExistsById(trackId);
+        Long currentUserId = JwtService.getCurrentUserId();
+
+        if (currentUserId != null) {
+            User user = userService.getUserIfExistsById(currentUserId);
+            enforcePlayCooldown(currentUserId, track);
+            listeningHistoryRepository.save(
+                    ListeningHistory.builder()
+                            .user(user)
+                            .track(track)
+                            .completed(false)
+                            .build());
+        }
+        /*
+        Assumed that Guest users can also play tracks, but we won't record their plays in listening history 
+        (since we have no user to associate it with) 
+        and we won't enforce cooldowns on them. 
+        We will still increment the play count for the track though.
+         */
+        track.setPlayCount(track.getPlayCount() + 1);
+        trackRepository.save(track);
+
+        return new MessageResponse("Play recorded");
+    }
+
+    @Transactional
+    public MessageResponse recordTrackCompletion(Long trackId) {
+        Long currentUserId = JwtService.getCurrentUserId();
+        userService.getUserIfExistsById(currentUserId);
+
+        Track track = getTrackIfExistsById(trackId);
+        listeningHistoryRepository.findTopByUserIdAndTrackIdAndCompletedFalseOrderByPlayedAtDesc(currentUserId, trackId)
+                .ifPresent(history -> {
+                    history.setCompleted(true);
+                    listeningHistoryRepository.save(history);
+                    if (track.getCompletedPlayCount() < track.getPlayCount()) {
+                        track.setCompletedPlayCount(track.getCompletedPlayCount() + 1);
+                    }
+                });
+
+        if (track.getPlayCount() > 0) {
+            track.setPlayThroughRate((double) track.getCompletedPlayCount() / track.getPlayCount());
+        } else {
+            track.setPlayThroughRate(0.0);
+        }
+
+        trackRepository.save(track);
+        return new MessageResponse("Full listen recorded");
     }
 
     //delete track
     @Transactional
     public void deleteTrack(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
 
         //fetch track url data before deleting
         final String audioUrl = track.getTrackUrl();
@@ -185,6 +245,10 @@ public class TrackService {
         }
         track.setGenre(WordUtils.capitalize(track.getGenre().trim().toLowerCase().replaceAll("\\s+", " ")));
 
+        // Generate unique slug
+        String slug = SlugUtility.generateUniqueSlug(track.getTitle(), s -> trackRepository.existsBySlug(s));
+        track.setSlug(slug);
+
         Track createdTrack = createUploadingTrack(track, uploadId);
 
         try {
@@ -250,7 +314,7 @@ public class TrackService {
 
     @Transactional
     public void deleteTrackCover(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
         if (track.getCoverUrl() != null) {
             fileUtilityAzure.deleteFileByUrl(track.getCoverUrl());
             track.setCoverUrl(null);
@@ -260,7 +324,7 @@ public class TrackService {
 
     @Transactional
     public void deleteTrackAudio(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
         if (track.getTrackUrl() != null) {
             fileUtilityAzure.deleteFileByUrl(track.getTrackUrl());
             track.setTrackUrl(null);
@@ -270,7 +334,7 @@ public class TrackService {
 
     @Transactional
     public void deleteTrackWaveformData(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
         if (track.getWaveformUrl() != null) {
             fileUtilityAzure.deleteFileByUrl(track.getWaveformUrl());
             track.setWaveformUrl(null);
@@ -287,7 +351,7 @@ public class TrackService {
 
     @Transactional
     public TrackPatchResponse updateTrack(Long trackId, TrackPatchRequest request) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
         Long userId = JwtService.getCurrentUserId();
         User uploader = userService.getUserIfExistsById(userId);
 
@@ -332,7 +396,7 @@ public class TrackService {
     }
 
     public TrackWaveFormUrlResponse getTrackWaveformUrl(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
         return trackMapper.toTrackWaveFormUrlResponse(track);
     }
 
@@ -372,7 +436,7 @@ public class TrackService {
 
     @Transactional
     public TrackPublishResponse publishTrack(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
 
         if (!track.getUploader().getId().equals(JwtService.getCurrentUserId())) {
             throw new UnauthorizedActionException("You are not allowed to publish this track.");
@@ -389,6 +453,14 @@ public class TrackService {
         track.setPublishedAt(LocalDateTime.now());
 
         return trackMapper.toTrackPublishResponse(trackRepository.save(track));
+    }
+
+    public Resource resolveTrackSlug(String slug) {
+        Long id = trackRepository.findTrackIdBySlug(slug)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                "No track found with slug: " + slug));
+
+        return new Resource(ResourceType.TRACK, id);
     }
 
     public TrackPageResponse getTrendingTracks(int page, int size) {
@@ -409,7 +481,7 @@ public class TrackService {
     }
 
     public TrackResponse getTrackData(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
         Long currentUserId = null;
         try {
             currentUserId = JwtService.getCurrentUserId();
@@ -424,7 +496,7 @@ public class TrackService {
     }
 
     public TrackResponse getCurrentUserTrackData(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
         Long currentUserId = JwtService.getCurrentUserId();
 
         if (!track.getUploader().getId().equals(currentUserId)) {
@@ -488,6 +560,31 @@ public class TrackService {
 
         track.setGenre(WordUtils.capitalize(track.getGenre().trim().toLowerCase().replaceAll("\\s+", " ")));
 
+        // Generate unique slug
+        String slug = SlugUtility.generateUniqueSlug(track.getTitle(), s -> trackRepository.existsBySlug(s));
+        track.setSlug(slug);
+
         return createUploadingTrack(track, uploadId);
+    }
+
+    private Track getTrackIfExistsById(Long trackId) {
+        return trackChecksUtil.getTrackIfExistsById(trackId);
+    }
+
+    private void enforcePlayCooldown(Long userId, Track track) {
+        listeningHistoryRepository.findTopByUserIdAndTrackIdOrderByPlayedAtDesc(userId, track.getId())
+                .ifPresent(lastPlay -> {
+                    int cooldownSeconds = Math.max(track.getDurationSeconds(), 0);
+                    if (cooldownSeconds == 0 || lastPlay.getPlayedAt() == null) {
+                        return;
+                    }
+
+                    LocalDateTime nextAllowedPlayAt = lastPlay.getPlayedAt().plusSeconds(cooldownSeconds);
+                    if (nextAllowedPlayAt.isAfter(LocalDateTime.now())) {
+                        long secondsLeft = Duration.between(LocalDateTime.now(), nextAllowedPlayAt).toSeconds();
+                        throw new CooldownActiveException(
+                                "Please wait " + Math.max(secondsLeft, 1) + " seconds before recording another play.");
+                    }
+                });
     }
 }

@@ -13,8 +13,8 @@ import org.springframework.data.domain.*;
 import software.decibel.dtos.discovery.StationPageResponse;
 import software.decibel.entities.Track;
 import software.decibel.exceptions.custom.NoStationResultsException;
-import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.StationMapper;
+import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
@@ -29,6 +29,7 @@ class StationServiceTest {
   @Mock private TrackLikeRepository trackLikeRepository;
   @Mock private TrackRepostRepository trackRepostRepository;
   @Mock private TrackTokenRepository trackTokenRepository;
+  @Mock private FollowRepository followRepository;
   @Mock private StationMapper stationMapper;
   @Mock private UserService userService;
 
@@ -61,6 +62,7 @@ class StationServiceTest {
     when(trackLikeRepository.findTrackIdsByUserId(mockUserId)).thenReturn(Set.of());
     when(trackRepostRepository.findTrackIdsByUserId(mockUserId)).thenReturn(Set.of());
     when(trackTokenRepository.findActiveTokensByTrackIds(trackIds)).thenReturn(Map.of());
+    when(followRepository.findFollowingIdsByFollowerId(mockUserId)).thenReturn(List.of());
   }
 
   // getGenreStation
@@ -73,28 +75,26 @@ class StationServiceTest {
     Page<Track> page = pageOf(track);
     StationPageResponse mockResponse = mock(StationPageResponse.class);
 
-    when(trackRepository.findGenreStation(eq("Hip-Hop"), eq(mockUserId), any(PageRequest.class)))
-        .thenReturn(page);
+    when(trackRepository.findGenreStation(eq(mockUserId), any(PageRequest.class))).thenReturn(page);
     mockBuildDependencies(Set.of(1L));
-    when(stationMapper.toPageResponse(eq(page), any(), any(), any())).thenReturn(mockResponse);
+    when(stationMapper.toPageResponse(eq(page), any(), any(), any(), any())).thenReturn(mockResponse);
 
     // Act
-    StationPageResponse response = stationService.getGenreStation("Hip-Hop", 0, 20);
+    StationPageResponse response = stationService.getGenreStation(0, 20);
 
     // Assert
     assertThat(response).isEqualTo(mockResponse);
-    verify(trackRepository).findGenreStation(eq("Hip-Hop"), eq(mockUserId), any(PageRequest.class));
+    verify(trackRepository).findGenreStation(eq(mockUserId), any(PageRequest.class));
   }
 
   @Test
   void getGenreStation_shouldThrowNoStationResults_whenEmpty() {
     // Arrange
-    when(trackRepository.findGenreStation(eq("Hip-Hop"), eq(mockUserId), any(PageRequest.class)))
+    when(trackRepository.findGenreStation(eq(mockUserId), any(PageRequest.class)))
         .thenReturn(Page.empty());
 
     // Act & Assert
-    assertThrows(
-        NoStationResultsException.class, () -> stationService.getGenreStation("Hip-Hop", 0, 20));
+    assertThrows(NoStationResultsException.class, () -> stationService.getGenreStation(0, 20));
   }
 
   // getArtistStation
@@ -108,46 +108,31 @@ class StationServiceTest {
     Page<Track> page = pageOf(track);
     StationPageResponse mockResponse = mock(StationPageResponse.class);
 
-    when(trackRepository.findArtistStation(eq(artistId), eq(mockUserId), any(PageRequest.class)))
+    when(trackRepository.findArtistStation(eq(mockUserId), any(PageRequest.class)))
         .thenReturn(page);
     mockBuildDependencies(Set.of(10L));
-    when(stationMapper.toPageResponse(eq(page), any(), any(), any())).thenReturn(mockResponse);
+    when(stationMapper.toPageResponse(eq(page), any(), any(), any(), any())).thenReturn(mockResponse);
 
     // Act
-    StationPageResponse response = stationService.getArtistStation(artistId, 0, 20);
+    StationPageResponse response = stationService.getArtistStation(0, 20);
 
     // Assert
     assertThat(response).isEqualTo(mockResponse);
-    verify(userService).getUserIfExistsById(artistId);
-    verify(trackRepository).findArtistStation(eq(artistId), eq(mockUserId), any(PageRequest.class));
+    verify(trackRepository).findArtistStation(eq(mockUserId), any(PageRequest.class));
   }
 
   @Test
   void getArtistStation_shouldThrowNoStationResults_whenEmpty() {
     // Arrange
     Long artistId = 2L;
-    when(trackRepository.findArtistStation(eq(artistId), eq(mockUserId), any(PageRequest.class)))
+    when(trackRepository.findArtistStation(eq(mockUserId), any(PageRequest.class)))
         .thenReturn(Page.empty());
 
     // Act & Assert
-    assertThrows(
-        NoStationResultsException.class, () -> stationService.getArtistStation(artistId, 0, 20));
+    assertThrows(NoStationResultsException.class, () -> stationService.getArtistStation(0, 20));
   }
 
-  @Test
-  void getArtistStation_shouldThrowResourceNotFound_whenArtistDoesNotExist() {
-    // Arrange
-    Long artistId = 99L;
-    doThrow(new ResourceNotFoundException("User not found"))
-        .when(userService)
-        .getUserIfExistsById(artistId);
 
-    // Act & Assert
-    assertThrows(
-        ResourceNotFoundException.class, () -> stationService.getArtistStation(artistId, 0, 20));
-
-    verify(trackRepository, never()).findArtistStation(any(), any(), any());
-  }
 
   // getLikesStation
 
@@ -161,7 +146,7 @@ class StationServiceTest {
 
     when(trackRepository.findLikesStation(eq(mockUserId), any(PageRequest.class))).thenReturn(page);
     mockBuildDependencies(Set.of(5L));
-    when(stationMapper.toPageResponse(eq(page), any(), any(), any())).thenReturn(mockResponse);
+    when(stationMapper.toPageResponse(eq(page), any(), any(), any(), any())).thenReturn(mockResponse);
 
     // Act
     StationPageResponse response = stationService.getLikesStation(0, 20);

@@ -139,11 +139,19 @@ class SubscriptionServiceTest {
     }
 
     @Test
-    void getSubscriptionStatus_whenNoSubscription_throwsNotFoundException() {
+    void getSubscriptionStatus_whenNoSubscription_returnsFreeTier() {
+        // Arrange
         when(subscriptionRepository.findByUserId(1L)).thenReturn(Optional.empty());
 
-        assertThrows(ResourceNotFoundException.class,
-                () -> subscriptionService.getSubscriptionStatus(1L));
+        // Act
+        SubscriptionStatusResponse response = subscriptionService.getSubscriptionStatus(1L);
+
+        // Assert
+        assertEquals("active", response.status(), "Free tier should be active");
+        assertEquals("free", response.plan(), "Plan should default to free");
+        long ninetyNineYearsFromNow = java.time.Instant.now().plus(365 * 99, java.time.temporal.ChronoUnit.DAYS).getEpochSecond();
+        assertTrue(response.currentPeriodEnd() > ninetyNineYearsFromNow, "Should return a garbage date far in the future");
+        assertFalse(response.cancelAtPeriodEnd(), "Free tier doesn't cancel");
     }
 
     // ── renewSubscription ─────────────────────────────────────────────────────
