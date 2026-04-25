@@ -204,18 +204,39 @@ public interface TrackMapper {
 
     // --------------------TrackSummary DTOs -----------------
     // track -> track summary
-    @Mapping(target = "trackSlug", source = "track.slug")
-    @Mapping(target = "trackPreviewUrl", source = "track.trackUrl")
-    @Mapping(target = "artist", source = "track.uploader")
-    @Mapping(target = "secretToken", expression = "java(mapSecretToken(track))")
-    @Mapping(target = "commentCount", expression = "java(mapCommentCount(track))")
-    @Mapping(target = "access", expression = "java(track.getVisibility() == software.decibel.enums.Visibility.PUBLIC ? \"PLAYABLE\" : \"PREVIEW\")")
-    @Mapping(target = "isLiked", expression = "java(likedTrackIds != null && likedTrackIds.contains(track.getId()))")
-    @Mapping(target = "isReposted", expression = "java(repostedTrackIds != null && repostedTrackIds.contains(track.getId()))")
-    TrackSummaryDTO toTrackSummaryDTO(
+    @Mapping(target = "trackSlug", source = "slug")
+    @Mapping(target = "artist", source = "uploader")
+    @Mapping(target = "trackPreviewUrl", source = "trackPreviewUrl")
+    @Mapping(target = "isLiked", ignore = true)
+    @Mapping(target = "isReposted", ignore = true)
+    @Mapping(target = "secretToken", ignore = true)
+    TrackSummaryDTO toTrackSummary(Track track);
+
+    default TrackSummaryDTO toTrackSummaryDTO(
             Track track,
             Set<Long> likedTrackIds,
             Set<Long> repostedTrackIds,
-            AccountTier accountTier
-    );
+            AccountTier accountTier) {
+        TrackSummaryDTO dto = toTrackSummary(track);
+        if (dto == null) {
+            return null;
+        }
+
+        return new TrackSummaryDTO(
+                dto.id(),
+                dto.title(),
+                dto.trackSlug(),
+                dto.coverUrl(),
+                resolveTrackUrl(accountTier, track),
+                resolvePreviewUrl(accountTier, track),
+                dto.artist(),
+                dto.playCount(),
+                dto.likeCount(),
+                dto.repostCount(),
+                dto.commentCount(),
+                likedTrackIds != null && likedTrackIds.contains(track.getId()),
+                repostedTrackIds != null && repostedTrackIds.contains(track.getId()),
+                mapSecretToken(track),
+                resolveAccess(accountTier, track.getAccess()));
+    }
 }

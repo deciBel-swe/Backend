@@ -23,7 +23,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import software.decibel.dtos.search.SearchResponse;
 import software.decibel.dtos.track.responses.TrackResponse;
-import software.decibel.dtos.user.UserSummary;
+import software.decibel.dtos.user.UserSummaryDTO;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
 import software.decibel.mappers.PlaylistMapper;
@@ -82,7 +82,9 @@ class SearchServiceTest {
         Page<User> userPage = new PageImpl<>(List.of(user));
 
         when(userRepository.searchPublicUsers(anyString(), any(Pageable.class))).thenReturn(userPage);
-        when(userMapper.toUserSummary(any())).thenReturn(new UserSummary(1L, "testuser", "Test User", "avatar.png"));
+        when(userMapper.toUserSummaryDto(any(User.class))).thenReturn(
+                new UserSummaryDTO(1L, "username", "Display", "url", false, 0, 0)
+        );
 
         SearchResponse response = searchService.search("test", "user", 0, 10);
 

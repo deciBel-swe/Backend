@@ -11,6 +11,7 @@ import software.decibel.dtos.discovery.StationPageResponse;
 import software.decibel.entities.Track;
 import software.decibel.exceptions.custom.NoStationResultsException;
 import software.decibel.mappers.StationMapper;
+import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
@@ -25,24 +26,25 @@ public class StationService {
   private final TrackLikeRepository trackLikeRepository;
   private final TrackRepostRepository trackRepostRepository;
   private final TrackTokenRepository trackTokenRepository;
+  private final FollowRepository followRepository;
   private final StationMapper stationMapper;
   private final UserService userService;
 
-  public StationPageResponse getGenreStation(String genre, int page, int size) {
+  // Tracks with same genres as ones you liked + filtering
+  public StationPageResponse getGenreStation(int page, int size) {
     Long userId = JwtService.getCurrentUserId();
-    Page<Track> tracks =
-        trackRepository.findGenreStation(genre, userId, PageRequest.of(page, size));
+    Page<Track> tracks = trackRepository.findGenreStation(userId, PageRequest.of(page, size));
     return buildStationResponse(tracks, userId);
   }
 
-  public StationPageResponse getArtistStation(Long artistId, int page, int size) {
+  // Tracks with same genres as ones posted by artists you follow + filtering
+  public StationPageResponse getArtistStation(int page, int size) {
     Long userId = JwtService.getCurrentUserId();
-    userService.getUserIfExistsById(artistId);
-    Page<Track> tracks =
-        trackRepository.findArtistStation(artistId, userId, PageRequest.of(page, size));
+    Page<Track> tracks = trackRepository.findArtistStation(userId, PageRequest.of(page, size));
     return buildStationResponse(tracks, userId);
   }
 
+  // Tracks with same tags as ones you liked
   public StationPageResponse getLikesStation(int page, int size) {
     Long userId = JwtService.getCurrentUserId();
     Page<Track> tracks = trackRepository.findLikesStation(userId, PageRequest.of(page, size));
@@ -64,7 +66,8 @@ public class StationService {
     Set<Long> likedIds = trackLikeRepository.findTrackIdsByUserId(userId);
     Set<Long> repostedIds = trackRepostRepository.findTrackIdsByUserId(userId);
     Map<Long, String> tokenMap = trackTokenRepository.findActiveTokensByTrackIds(trackIds);
+    Set<Long> followingArtistIds = Set.copyOf(followRepository.findFollowingIdsByFollowerId(userId));
 
-    return stationMapper.toPageResponse(tracks, likedIds, repostedIds, tokenMap);
+    return stationMapper.toPageResponse(tracks, likedIds, repostedIds, tokenMap, followingArtistIds);
   }
 }

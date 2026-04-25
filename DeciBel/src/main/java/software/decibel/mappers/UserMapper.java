@@ -43,8 +43,7 @@ public interface UserMapper {
     UserSummary toUserSummary(User user);
 
     @Mapping(target = "isFollowing", ignore = true)
-    @Mapping(target = "followerCount", ignore = true)
-    @Mapping(target = "trackCount", ignore = true)
-    UserSummaryDTO toUserSummaryDTO(User user);
-
+    @Mapping(target = "followerCount", source = "followerCount")
+    @Mapping(target = "trackCount", source = "trackCount")
+    UserSummaryDTO toUserSummaryDto(User user);
 }

@@ -18,18 +18,16 @@ public class StationController {
 
   @GetMapping("/genre")
   public ResponseEntity<StationPageResponse> getGenreStation(
-      @RequestParam String genre,
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "20") int size) {
-    return ResponseEntity.ok(stationService.getGenreStation(genre, page, size));
+    return ResponseEntity.ok(stationService.getGenreStation(page, size));
   }
 
   @GetMapping("/artist")
   public ResponseEntity<StationPageResponse> getArtistStation(
-      @RequestParam Long artistId,
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "20") int size) {
-    return ResponseEntity.ok(stationService.getArtistStation(artistId, page, size));
+    return ResponseEntity.ok(stationService.getArtistStation(page, size));
   }
 
   @GetMapping("/likes")

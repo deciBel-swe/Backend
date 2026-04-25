@@ -1,5 +1,12 @@
 package software.decibel.services;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
+import org.junit.jupiter.api.AfterEach;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -29,17 +36,21 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import software.decibel.dtos.track.requests.TrackPatchRequest;
+import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.track.responses.TrackPageResponse;
 import software.decibel.dtos.track.responses.TrackStatusResponse;
+import software.decibel.entities.ListeningHistory;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
 import software.decibel.enums.AccountTier;
 import software.decibel.enums.TrackState;
 import software.decibel.enums.Visibility;
+import software.decibel.exceptions.custom.CooldownActiveException;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.CommentRepository;
+import software.decibel.repositories.ListeningHistoryRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
@@ -60,6 +71,9 @@ class TrackServiceTest {
     private CommentRepository commentRepository;
     @Mock
     private TrackRepository trackRepository;
+
+    @Mock
+    private ListeningHistoryRepository listeningHistoryRepository;
 
     @Mock
     private UserService userService;
@@ -114,6 +128,143 @@ class TrackServiceTest {
         track.setUploader(uploader);
         track.setVisibility(Visibility.PUBLIC);
         return track;
+    }
+
+    @Test
+    void recordTrackPlay_forGuest_incrementsPlayCountWithoutSavingHistory() {
+        Track track = createTrack(5L);
+        track.setPlayCount(3);
+
+        jwtMock.when(JwtService::getCurrentUserId).thenReturn(null);
+        when(trackChecksUtil.getTrackIfExistsById(5L)).thenReturn(track);
+        when(trackRepository.save(track)).thenReturn(track);
+
+        MessageResponse result = trackService.recordTrackPlay(5L);
+
+        assertEquals("Play recorded", result.message());
+        assertEquals(4, track.getPlayCount());
+        verify(trackRepository).save(track);
+        verify(listeningHistoryRepository, never()).save(any());
+    }
+
+    @Test
+    void recordTrackPlay_forAuthenticatedUser_savesHistoryAndIncrementsPlayCount() {
+        Track track = createTrack(5L);
+        track.setPlayCount(0);
+        track.setDurationSeconds(120);
+        User user = new User();
+        user.setId(mockUserId);
+
+        when(trackChecksUtil.getTrackIfExistsById(5L)).thenReturn(track);
+        when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
+        when(listeningHistoryRepository.findTopByUserIdAndTrackIdOrderByPlayedAtDesc(mockUserId, 5L))
+                .thenReturn(Optional.empty());
+        when(trackRepository.save(track)).thenReturn(track);
+
+        MessageResponse result = trackService.recordTrackPlay(5L);
+
+        assertEquals("Play recorded", result.message());
+        assertEquals(1, track.getPlayCount());
+        verify(listeningHistoryRepository).save(any(ListeningHistory.class));
+        verify(trackRepository).save(track);
+    }
+
+    @Test
+    void recordTrackPlay_whenCooldownIsActive_throwsException() {
+        Track track = createTrack(5L);
+        track.setDurationSeconds(120);
+        User user = new User();
+        user.setId(mockUserId);
+        ListeningHistory lastPlay = ListeningHistory.builder()
+                .track(track)
+                .user(user)
+                .playedAt(LocalDateTime.now().minusSeconds(30))
+                .build();
+
+        when(trackChecksUtil.getTrackIfExistsById(5L)).thenReturn(track);
+        when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
+        when(listeningHistoryRepository.findTopByUserIdAndTrackIdOrderByPlayedAtDesc(mockUserId, 5L))
+                .thenReturn(Optional.of(lastPlay));
+
+        assertThrows(CooldownActiveException.class, () -> trackService.recordTrackPlay(5L));
+
+        verify(trackRepository, never()).save(any(Track.class));
+        verify(listeningHistoryRepository, never()).save(any(ListeningHistory.class));
+    }
+
+    @Test
+    void recordTrackCompletion_incrementsCompletedCountAndUpdatesPlayThroughRate() {
+        Track track = createTrack(5L);
+        track.setPlayCount(4);
+        track.setCompletedPlayCount(1);
+        User user = new User();
+        user.setId(mockUserId);
+        ListeningHistory history = ListeningHistory.builder()
+                .user(user)
+                .track(track)
+                .completed(false)
+                .build();
+
+        when(trackChecksUtil.getTrackIfExistsById(5L)).thenReturn(track);
+        when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
+        when(listeningHistoryRepository.findTopByUserIdAndTrackIdAndCompletedFalseOrderByPlayedAtDesc(mockUserId, 5L))
+                .thenReturn(Optional.of(history));
+        when(trackRepository.save(track)).thenReturn(track);
+
+        MessageResponse result = trackService.recordTrackCompletion(5L);
+
+        assertEquals("Full listen recorded", result.message());
+        assertEquals(2, track.getCompletedPlayCount());
+        assertEquals(0.5, track.getPlayThroughRate());
+        verify(listeningHistoryRepository).save(history);
+        verify(trackRepository).save(track);
+    }
+
+    @Test
+    void recordTrackCompletion_whenPlayCountIsZero_doesNotDivideByZero() {
+        Track track = createTrack(5L);
+        track.setPlayCount(0);
+        track.setCompletedPlayCount(0);
+        track.setPlayThroughRate(0.0);
+        User user = new User();
+        user.setId(mockUserId);
+
+        when(trackChecksUtil.getTrackIfExistsById(5L)).thenReturn(track);
+        when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
+        when(listeningHistoryRepository.findTopByUserIdAndTrackIdAndCompletedFalseOrderByPlayedAtDesc(mockUserId, 5L))
+                .thenReturn(Optional.empty());
+        when(trackRepository.save(track)).thenReturn(track);
+
+        MessageResponse result = trackService.recordTrackCompletion(5L);
+
+        assertEquals("Full listen recorded", result.message());
+        assertEquals(0, track.getCompletedPlayCount());
+        assertEquals(0.0, track.getPlayThroughRate());
+        verify(trackRepository).save(track);
+    }
+
+    @Test
+    void recordTrackCompletion_whenNoUncompletedPlayExists_doesNotIncrementCompletedCount() {
+        Track track = createTrack(5L);
+        track.setPlayCount(3);
+        track.setCompletedPlayCount(3);
+        track.setPlayThroughRate(1.0);
+        User user = new User();
+        user.setId(mockUserId);
+
+        when(trackChecksUtil.getTrackIfExistsById(5L)).thenReturn(track);
+        when(userService.getUserIfExistsById(mockUserId)).thenReturn(user);
+        when(listeningHistoryRepository.findTopByUserIdAndTrackIdAndCompletedFalseOrderByPlayedAtDesc(mockUserId, 5L))
+                .thenReturn(Optional.empty());
+        when(trackRepository.save(track)).thenReturn(track);
+
+        MessageResponse result = trackService.recordTrackCompletion(5L);
+
+        assertEquals("Full listen recorded", result.message());
+        assertEquals(3, track.getCompletedPlayCount());
+        assertEquals(1.0, track.getPlayThroughRate());
+        verify(listeningHistoryRepository, never()).save(any(ListeningHistory.class));
+        verify(trackRepository).save(track);
     }
 
     // getTrackIfExistsById

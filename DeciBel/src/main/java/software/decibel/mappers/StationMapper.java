@@ -7,11 +7,12 @@ import org.mapstruct.Mapper;
 import org.springframework.data.domain.Page;
 import software.decibel.dtos.discovery.StationPageResponse;
 import software.decibel.dtos.track.TrackSummaryDTO;
+import software.decibel.dtos.user.UserSummaryDTO;
 import software.decibel.entities.Track;
 
 @Mapper(
         componentModel = "spring",
-        uses = {TrackMapper.class})
+        uses = {TrackMapper.class, UserMapper.class})
 // can use TrackMapper (needed in track entity -> TrackSummaryDTO)
 public interface StationMapper {
 
@@ -19,7 +20,11 @@ public interface StationMapper {
     // From a page of tracks and a set of user's liked tracks ids and reposted tracks ids
     // we have a map between track ids and their secret token that we also use
     default StationPageResponse toPageResponse(
-            Page<Track> page, Set<Long> likedIds, Set<Long> repostedIds, Map<Long, String> tokenMap) {
+            Page<Track> page,
+            Set<Long> likedIds,
+            Set<Long> repostedIds,
+            Map<Long, String> tokenMap,
+            Set<Long> followingArtistIds) {
 
         // i turn page's content into a stream and generate tracksummarydto for each track
         // i also mark inside the track summary dto if the track is liked or reposted by user
@@ -35,14 +40,14 @@ public interface StationMapper {
                                             dto.coverUrl(),
                                             dto.trackUrl(),
                                             dto.trackPreviewUrl(),
-                                            dto.artist(),
+                                            toUserSummaryDto(track, followingArtistIds),
                                             dto.playCount(),
                                             dto.likeCount(),
                                             dto.repostCount(),
                                             dto.commentCount(),
                                             likedIds != null && likedIds.contains(track.getId()),
                                             repostedIds != null && repostedIds.contains(track.getId()),
-                                            tokenMap.getOrDefault(track.getId(), null),// secretToken
+                                            tokenMap.getOrDefault(track.getId(), null),
                                             dto.access()
                                     );
                                 })
@@ -59,4 +64,19 @@ public interface StationMapper {
 
     // delegates to TrackMapper.toTrackSummary via `uses`
     TrackSummaryDTO toTrackSummary(Track track);
+
+    default UserSummaryDTO toUserSummaryDto(Track track, Set<Long> followingArtistIds) {
+        if (track == null || track.getUploader() == null) {
+            return null;
+        }
+
+        return new UserSummaryDTO(
+                track.getUploader().getId(),
+                track.getUploader().getUsername(),
+                track.getUploader().getDisplayName(),
+                track.getUploader().getAvatarUrl(),
+                followingArtistIds != null && followingArtistIds.contains(track.getUploader().getId()),
+                track.getUploader().getFollowerCount(),
+                track.getUploader().getTrackCount());
+    }
 }
