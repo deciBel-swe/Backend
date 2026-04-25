@@ -39,11 +39,10 @@ public interface UserMapper {
 
         return userMappingUtility.toUserProfile(target, isFollowed, isFollowing, isBlocked);
     }
-
     UserSummary toUserSummary(User user);
 
     @Mapping(target = "isFollowing", ignore = true)
-    @Mapping(target = "followerCount", source = "followerCount")
-    @Mapping(target = "trackCount", source = "trackCount")
+    @Mapping(target = "followerCount", ignore = true)
+    @Mapping(target = "trackCount", ignore = true)
     UserSummaryDTO toUserSummaryDto(User user);
 }

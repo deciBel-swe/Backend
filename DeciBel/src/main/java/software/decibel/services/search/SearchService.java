@@ -5,14 +5,16 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
 import lombok.RequiredArgsConstructor;
-import software.decibel.dtos.discovery.ResourceItemDto;
+import software.decibel.dtos.discovery.ResourceRefFullDTO;
 import software.decibel.dtos.search.SearchResponse;
 import software.decibel.entities.Playlist;
 import software.decibel.entities.Track;
@@ -47,14 +49,10 @@ public class SearchService {
         }
 
         return switch (type.toLowerCase()) {
-            case "track" ->
-                searchTracks(query, pageable);
-            case "playlist" ->
-                searchPlaylists(query, pageable);
-            case "user" ->
-                searchUsers(query, pageable);
-            default ->
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid search type: " + type);
+            case "track" -> searchTracks(query, pageable);
+            case "playlist" -> searchPlaylists(query, pageable);
+            case "user" -> searchUsers(query, pageable);
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid search type: " + type);
         };
     }
 
@@ -62,6 +60,8 @@ public class SearchService {
         int pageSize = pageable.getPageSize();
         int pageNumber = pageable.getPageNumber();
 
+        // Distribute pageSize across different types (Tracks, Playlists, Users)
+        // Taking a balanced portion from each to combine them.
         int tracksLimit = pageSize / 3 + (pageSize % 3 > 0 ? 1 : 0);
         int playlistsLimit = pageSize / 3 + (pageSize % 3 > 1 ? 1 : 0);
         int usersLimit = pageSize / 3;
@@ -74,11 +74,10 @@ public class SearchService {
         Page<Playlist> playlists = playlistRepository.searchPublicPlaylists(query, playlistsPageable);
         Page<User> users = userRepository.searchPublicUsers(query, usersPageable);
 
-        List<ResourceItemDto> content = new ArrayList<>();
-        tracks.getContent().forEach(t -> content.add(ResourceItemDto.of(trackMapper.toTrackResponse(t, false, false))));
-        playlists.getContent().forEach(p -> content.add(ResourceItemDto.of(playlistMapper.toResponse(p))));
-        // CHANGED: Using toUserSummaryDto to ensure followerCount & trackCount populate
-        users.getContent().forEach(u -> content.add(ResourceItemDto.of(userMapper.toUserSummaryDto(u))));
+        List<ResourceRefFullDTO> content = new ArrayList<>();
+        tracks.getContent().forEach(t -> content.add(ResourceRefFullDTO.of(trackMapper.toTrackResponse(t, false, false))));
+        playlists.getContent().forEach(p -> content.add(ResourceRefFullDTO.of(playlistMapper.toResponse(p))));
+        users.getContent().forEach(u -> content.add(ResourceRefFullDTO.of(userMapper.toUserSummary(u))));
 
         long totalElements = tracks.getTotalElements() + playlists.getTotalElements() + users.getTotalElements();
         int totalPages = (int) Math.ceil((double) totalElements / pageSize);
@@ -96,29 +95,29 @@ public class SearchService {
 
     private SearchResponse searchTracks(String query, Pageable pageable) {
         Page<Track> tracks = trackRepository.searchPublicTracks(query, pageable);
-        List<ResourceItemDto> content = tracks.getContent().stream()
-                .map(t -> ResourceItemDto.of(trackMapper.toTrackResponse(t, false, false)))
+        List<ResourceRefFullDTO> content = tracks.getContent().stream()
+                .map(t -> ResourceRefFullDTO.of(trackMapper.toTrackResponse(t, false, false)))
                 .collect(Collectors.toList());
         return toSearchResponse(tracks, content);
     }
 
     private SearchResponse searchPlaylists(String query, Pageable pageable) {
         Page<Playlist> playlists = playlistRepository.searchPublicPlaylists(query, pageable);
-        List<ResourceItemDto> content = playlists.getContent().stream()
-                .map(p -> ResourceItemDto.of(playlistMapper.toResponse(p)))
+        List<ResourceRefFullDTO> content = playlists.getContent().stream()
+                .map(p -> ResourceRefFullDTO.of(playlistMapper.toResponse(p)))
                 .collect(Collectors.toList());
         return toSearchResponse(playlists, content);
     }
 
     private SearchResponse searchUsers(String query, Pageable pageable) {
         Page<User> users = userRepository.searchPublicUsers(query, pageable);
-        List<ResourceItemDto> content = users.getContent().stream()
-                .map(u -> ResourceItemDto.of(userMapper.toUserSummaryDto(u)))
+        List<ResourceRefFullDTO> content = users.getContent().stream()
+                .map(u -> ResourceRefFullDTO.of(userMapper.toUserSummary(u)))
                 .collect(Collectors.toList());
         return toSearchResponse(users, content);
     }
 
-    private <T> SearchResponse toSearchResponse(Page<T> page, List<ResourceItemDto> content) {
+    private <T> SearchResponse toSearchResponse(Page<T> page, List<ResourceRefFullDTO> content) {
         return new SearchResponse(
                 content,
                 page.getNumber(),

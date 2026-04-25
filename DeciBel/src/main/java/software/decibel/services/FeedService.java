@@ -11,9 +11,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
-import software.decibel.dtos.discovery.FeedItemDto;
-import software.decibel.dtos.discovery.ResourceItemDto;
 import software.decibel.dtos.discovery.FeedPageResponse;
+import software.decibel.dtos.discovery.ResourceRefFullDTO;
 import software.decibel.entities.User;
 import software.decibel.mappers.PlaylistMapper;
 import software.decibel.mappers.TrackMapper;
@@ -47,35 +46,31 @@ public class FeedService {
             return new FeedPageResponse(Collections.emptyList(), pageable.getPageNumber(), pageable.getPageSize(), 0, 0, true);
         }
 
+        // Fetch reposts from followed users
         Page<software.decibel.entities.TrackRepost> trackRepostsPage = trackRepostRepository.findByUserIdIn(followingIds, pageable);
         Page<software.decibel.entities.PlaylistRepost> playlistRepostsPage = playlistRepostRepository.findByUserIdIn(followingIds, pageable);
 
         Set<Long> likedTrackIds = likeService.getLikedTrackIds(currentUser.getId());
         Set<Long> repostedTrackIds = repostService.getRepostedTrackIds(currentUser.getId());
 
-        // Map Tracks to FeedItemDto
-        Stream<FeedItemDto> trackStream = trackRepostsPage.getContent().stream()
-                .map(tr -> new FeedItemDto(
-                tr.getId(),
-                "TRACK_POSTED",
-                ResourceItemDto.of(trackMapper.toTrackResponse(tr.getTrack(), currentUser.getTier(), likedTrackIds, repostedTrackIds)),
-                userMapper.toUserSummaryDto(tr.getUser()), // CHANGED: Using toUserSummaryDto
+        //  Extract to typed local variables to fix generic type inference
+        Stream<ResourceRefFullDTO> trackStream = trackRepostsPage.getContent().stream()
+                .map(tr -> ResourceRefFullDTO.of(
+                trackMapper.toTrackResponse(tr.getTrack(), currentUser.getTier(), likedTrackIds, repostedTrackIds),
+                userMapper.toUserSummary(tr.getUser()),
                 tr.getRepostedAt()
         ));
 
-        // Map Playlists to FeedItemDto
-        Stream<FeedItemDto> playlistStream = playlistRepostsPage.getContent().stream()
-                .map(pr -> new FeedItemDto(
-                pr.getId(),
-                "PLAYLIST_POSTED",
-                ResourceItemDto.of(playlistMapper.toResponse(pr.getPlaylist())),
-                userMapper.toUserSummaryDto(pr.getUser()), // CHANGED: Using toUserSummaryDto
+        Stream<ResourceRefFullDTO> playlistStream = playlistRepostsPage.getContent().stream()
+                .map(pr -> ResourceRefFullDTO.of(
+                playlistMapper.toResponse(pr.getPlaylist()),
+                userMapper.toUserSummary(pr.getUser()),
                 pr.getRepostedAt()
         ));
 
-        // Concatenate, sort by 'createdAt' in FeedItemDto
-        List<FeedItemDto> feedItems = Stream.concat(trackStream, playlistStream)
-                .sorted(Comparator.comparing(FeedItemDto::createdAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed())
+        // Safely concatenate now that the compiler knows both are Stream<ResourceRefFullDTO>
+        List<ResourceRefFullDTO> feedItems = Stream.concat(trackStream, playlistStream)
+                .sorted(Comparator.comparing(ResourceRefFullDTO::repostedAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed())
                 .limit(pageable.getPageSize())
                 .toList();
 
