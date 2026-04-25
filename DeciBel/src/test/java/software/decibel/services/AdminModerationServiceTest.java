@@ -1,10 +1,21 @@
 package software.decibel.services;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.any;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -17,9 +28,9 @@ import org.springframework.web.server.ResponseStatusException;
 import software.decibel.dtos.admin.AnalyticsResponse;
 import software.decibel.dtos.admin.BanUserRequest;
 import software.decibel.dtos.admin.BannedUserResponse;
-import software.decibel.dtos.auth.AdminPrincipal;
 import software.decibel.dtos.admin.ReportResponse;
 import software.decibel.dtos.admin.UpdateReportStatusRequest;
+import software.decibel.dtos.auth.AdminPrincipal;
 import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.entities.Report;
 import software.decibel.entities.User;
@@ -32,15 +43,7 @@ import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.admin.AdminModerationService;
 import software.decibel.services.track.TrackService;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import software.decibel.utils.FileUtilityAzure;
 
 @ExtendWith(MockitoExtension.class)
 class AdminModerationServiceTest {
@@ -50,6 +53,9 @@ class AdminModerationServiceTest {
 
     @Mock
     private ReportMapper reportMapper;
+
+    @Mock
+    private FileUtilityAzure fileUtilityAzure;
 
     @Mock
     private TrackService trackService;
@@ -88,7 +94,7 @@ class AdminModerationServiceTest {
     void getAllReports_returnsReportList() {
         Page<Report> page = new PageImpl<>(List.of(report));
         when(reportRepository.findAll(any(PageRequest.class))).thenReturn(page);
-        
+
         ReportResponse response = ReportResponse.builder()
                 .id(1L)
                 .build();
@@ -142,9 +148,9 @@ class AdminModerationServiceTest {
         UpdateReportStatusRequest request = new UpdateReportStatusRequest(ReportStatus.RESOLVED);
         when(reportRepository.findById(1L)).thenReturn(Optional.empty());
 
-        assertThrows(ResourceNotFoundException.class, () -> 
-            adminModerationService.updateReportStatus(1L, request));
-        
+        assertThrows(ResourceNotFoundException.class, ()
+                -> adminModerationService.updateReportStatus(1L, request));
+
         verify(reportRepository, never()).save(any());
     }
 

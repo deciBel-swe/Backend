@@ -16,8 +16,8 @@ import org.springframework.web.server.ResponseStatusException;
 import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.admin.AnalyticsResponse;
 import software.decibel.dtos.admin.BanUserRequest;
-import software.decibel.dtos.admin.BannedUsersPageResponse;
 import software.decibel.dtos.admin.BannedUserResponse;
+import software.decibel.dtos.admin.BannedUsersPageResponse;
 import software.decibel.dtos.admin.ReportResponse;
 import software.decibel.dtos.admin.UpdateReportStatusRequest;
 import software.decibel.dtos.auth.AdminPrincipal;
@@ -31,6 +31,7 @@ import software.decibel.repositories.ReportRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.track.TrackService;
+import software.decibel.utils.FileUtilityAzure;
 
 @Service
 @RequiredArgsConstructor
@@ -42,6 +43,7 @@ public class AdminModerationService {
     private final UserRepository userRepository;
     private final AdminUserMapper adminUserMapper;
     private final TrackRepository trackRepository;
+    private final FileUtilityAzure fileUtilityAzure;
 
     public List<ReportResponse> getAllReports(int page, int size) {
         List<Report> reports = reportRepository.findAll(
@@ -119,13 +121,14 @@ public class AdminModerationService {
         Long totalTracks = trackRepository.count();
         Long totalPlays = trackRepository.sumPlayCount();
         Double playThroughRate = trackRepository.averagePlayThroughRate();
+        Long totalStorageBytes = fileUtilityAzure.getTotalStorageUsed();
 
         return new AnalyticsResponse(
                 totalUsers,
                 totalTracks,
                 totalPlays != null ? totalPlays : 0L,
                 playThroughRate != null ? playThroughRate : 0.0,
-                0L);
+                totalStorageBytes);
     }
 
     private void requireAdmin() {

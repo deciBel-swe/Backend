@@ -49,19 +49,6 @@ public class PlaylistMapper {
                 .build();
     }
 
-    // -------------------------------------------------------------------------
-    // PATCH  — sentinel boolean three-state logic
-    //
-    // Because this is multipart/form-data (@ModelAttribute), Optional<T> and
-    // @JsonSetter don't work. Instead each nullable field that can be explicitly
-    // cleared has a paired boolean sentinel:
-    //
-    //   field has a value                         → overwrite with new value
-    //   field null  +  clearX absent / false      → keep existing value (no-op)
-    //   field null  +  clearX = true              → set field to null on entity
-    //
-    // newSlug and newCoverArtUrl are resolved by the service before calling here.
-    // -------------------------------------------------------------------------
     public void updateEntityFromPatch(
             PatchPlaylistRequest request,
             Playlist playlist,
@@ -71,6 +58,8 @@ public class PlaylistMapper {
         if (request.title() != null) {
             playlist.setTitle(request.title());
             // slug follows title — service passes newSlug when title is present
+        } else {
+            playlist.setTitle("");
         }
 
         // description — null = keep existing, non-null = overwrite
@@ -81,17 +70,17 @@ public class PlaylistMapper {
         // type — null = keep existing
         if (request.type() != null) {
             playlist.setType(request.type());
+        } else {
+            playlist.setType(null);
         }
 
         // isPrivate — null = keep existing, Boolean value = overwrite
         if (request.isPrivate() != null) {
             playlist.setPrivate(request.isPrivate());
+        } else {
+            playlist.setPrivate(false);
         }
 
-        // coverArtUrl — service resolves three states and passes result:
-        //   null        → coverArt part absent and clearCoverArt false → keep existing
-        //   ""          → clearCoverArt = true → wipe the art
-        //   actual URL  → new upload → replace
         if (newCoverArtUrl != null) {
             playlist.setCoverArtUrl(newCoverArtUrl.isEmpty() ? null : newCoverArtUrl);
         }

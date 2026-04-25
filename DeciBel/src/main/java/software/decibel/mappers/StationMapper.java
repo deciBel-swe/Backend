@@ -9,6 +9,7 @@ import software.decibel.dtos.discovery.StationPageResponse;
 import software.decibel.dtos.track.TrackSummaryDTO;
 import software.decibel.dtos.user.UserSummaryDTO;
 import software.decibel.entities.Track;
+import org.mapstruct.*;
 
 @Mapper(
         componentModel = "spring",
@@ -63,6 +64,7 @@ public interface StationMapper {
     }
 
     // delegates to TrackMapper.toTrackSummary via `uses`
+    @Mapping(target = "trackSlug", source = "slug")
     TrackSummaryDTO toTrackSummary(Track track);
 
     default UserSummaryDTO toUserSummaryDto(Track track, Set<Long> followingArtistIds) {
