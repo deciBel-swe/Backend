@@ -38,6 +38,8 @@ class CommentServiceTest {
     private TrackRepository trackRepository;
     @Mock
     private TrackChecksUtil trackChecksUtil;
+  @Mock private BlockService blockService;
+  @Mock private InAppNotificationService inAppNotificationService;
     @InjectMocks
     private CommentService commentService;
     private MockedStatic<JwtService> jwtMock;
@@ -70,6 +72,7 @@ class CommentServiceTest {
         Track track = new Track();
         track.setDurationSeconds(60);
         Comment commentEntity = new Comment();
+    track.setUploader(user);
 
         CommentResponse commentResponse = mock(CommentResponse.class);
 
@@ -139,6 +142,8 @@ class CommentServiceTest {
         CreateCommentRequest request = new CreateCommentRequest("replying", null);
         User user = new User();
         Track track = new Track();
+
+    track.setUploader(user);
         Comment parentComment = new Comment();
         parentComment.setTrack(track);
         Comment replyEntity = new Comment();

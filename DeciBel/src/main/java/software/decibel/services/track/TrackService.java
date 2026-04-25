@@ -19,13 +19,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
+import software.decibel.dtos.Resource;
 import software.decibel.dtos.track.requests.TrackPatchRequest;
 import software.decibel.dtos.track.requests.TrackUploadRequest;
 import software.decibel.dtos.track.responses.TrackPageResponse;
 import software.decibel.dtos.track.responses.TrackPatchResponse;
 import software.decibel.dtos.track.responses.TrackPublishResponse;
 import software.decibel.dtos.track.responses.TrackResponse;
-import software.decibel.dtos.Resource;
 import software.decibel.dtos.track.responses.TrackStatusResponse;
 import software.decibel.dtos.track.responses.TrackUploadResponse;
 import software.decibel.dtos.track.responses.TrackWaveFormUrlResponse;
@@ -89,7 +89,7 @@ public class TrackService {
     //delete track
     @Transactional
     public void deleteTrack(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
+    Track track = trackChecksUtil.getTrackIfExistsById(trackId);
 
     User uploader = track.getUploader();
     Long currentUserId = JwtService.getCurrentUserId();
@@ -306,8 +306,7 @@ public class TrackService {
     @Transactional
     public TrackPatchResponse updateTrack(Long trackId, TrackPatchRequest request) {
 
-        
-        Track track = getTrackIfExistsById(trackId);
+    Track track = trackChecksUtil.getTrackIfExistsById(trackId);
         Long userId = JwtService.getCurrentUserId();
     User user = userService.getUserIfExistsById(userId);
 
