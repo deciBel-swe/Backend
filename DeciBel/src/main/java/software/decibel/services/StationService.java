@@ -22,52 +22,60 @@ import software.decibel.services.user.UserService;
 @RequiredArgsConstructor
 public class StationService {
 
-  private final TrackRepository trackRepository;
-  private final TrackLikeRepository trackLikeRepository;
-  private final TrackRepostRepository trackRepostRepository;
-  private final TrackTokenRepository trackTokenRepository;
-  private final FollowRepository followRepository;
-  private final StationMapper stationMapper;
-  private final UserService userService;
+    private final TrackRepository trackRepository;
+    private final TrackLikeRepository trackLikeRepository;
+    private final TrackRepostRepository trackRepostRepository;
+    private final TrackTokenRepository trackTokenRepository;
+    private final FollowRepository followRepository;
+    private final StationMapper stationMapper;
+    private final UserService userService;
 
-  // Tracks with same genres as ones you liked + filtering
-  public StationPageResponse getGenreStation(int page, int size) {
-    Long userId = JwtService.getCurrentUserId();
-    Page<Track> tracks = trackRepository.findGenreStation(userId, PageRequest.of(page, size));
-    return buildStationResponse(tracks, userId);
-  }
-
-  // Tracks with same genres as ones posted by artists you follow + filtering
-  public StationPageResponse getArtistStation(int page, int size) {
-    Long userId = JwtService.getCurrentUserId();
-    Page<Track> tracks = trackRepository.findArtistStation(userId, PageRequest.of(page, size));
-    return buildStationResponse(tracks, userId);
-  }
-
-  // Tracks with same tags as ones you liked
-  public StationPageResponse getLikesStation(int page, int size) {
-    Long userId = JwtService.getCurrentUserId();
-    Page<Track> tracks = trackRepository.findLikesStation(userId, PageRequest.of(page, size));
-    return buildStationResponse(tracks, userId);
-  }
-
-  // Shared logic for all stations:
-
-  private StationPageResponse buildStationResponse(Page<Track> tracks, Long userId) {
-    // throw if tracks empty
-    if (tracks.isEmpty()) {
-      throw new NoStationResultsException();
+    // Tracks with same genres as ones you liked + filtering
+    public StationPageResponse getGenreStation(int page, int size) {
+        Long userId = JwtService.getCurrentUserId();
+        Page<Track> tracks = trackRepository.findGenreStation(userId, PageRequest.of(page, size));
+        return buildStationResponse(tracks, userId);
     }
 
-    // build dto (show if liked, reposted, and their tokens)
+    // Tracks with same genres as ones posted by artists you follow + filtering
+    public StationPageResponse getArtistStation(int page, int size) {
+        Long userId = JwtService.getCurrentUserId();
+        Page<Track> tracks = trackRepository.findArtistStation(userId, PageRequest.of(page, size));
+        return buildStationResponse(tracks, userId);
+    }
 
-    Set<Long> trackIds = tracks.getContent().stream().map(Track::getId).collect(Collectors.toSet());
+    // Tracks with same tags as ones you liked
+    public StationPageResponse getLikesStation(int page, int size) {
+        Long userId = JwtService.getCurrentUserId();
+        Page<Track> tracks = trackRepository.findLikesStation(userId, PageRequest.of(page, size));
+        return buildStationResponse(tracks, userId);
+    }
 
-    Set<Long> likedIds = trackLikeRepository.findTrackIdsByUserId(userId);
-    Set<Long> repostedIds = trackRepostRepository.findTrackIdsByUserId(userId);
-    Map<Long, String> tokenMap = trackTokenRepository.findActiveTokensByTrackIds(trackIds);
-    Set<Long> followingArtistIds = Set.copyOf(followRepository.findFollowingIdsByFollowerId(userId));
+    // Shared logic for all stations:
+    private StationPageResponse buildStationResponse(Page<Track> tracks, Long userId) {
+        // throw if tracks empty
+        if (tracks.isEmpty()) {
+            throw new NoStationResultsException();
+        }
 
-    return stationMapper.toPageResponse(tracks, likedIds, repostedIds, tokenMap, followingArtistIds);
-  }
+        // build dto (show if liked, reposted, and their tokens)
+        Set<Long> trackIds = tracks.getContent().stream().map(Track::getId).collect(Collectors.toSet());
+
+        Set<Long> likedIds = trackLikeRepository.findTrackIdsByUserId(userId);
+        Set<Long> repostedIds = trackRepostRepository.findTrackIdsByUserId(userId);
+        Map<Long, String> tokenMap;
+        if (trackIds.isEmpty()) {
+            tokenMap = Map.of();
+        } else {
+            var projections = trackTokenRepository.findActiveTokensByTrackIds(trackIds);
+            tokenMap = projections.stream()
+                    .collect(Collectors.toMap(
+                            software.decibel.projections.TrackTokenProjection::getTrackId,
+                            software.decibel.projections.TrackTokenProjection::getToken
+                    ));
+        }
+        Set<Long> followingArtistIds = Set.copyOf(followRepository.findFollowingIdsByFollowerId(userId));
+
+        return stationMapper.toPageResponse(tracks, likedIds, repostedIds, tokenMap, followingArtistIds);
+    }
 }

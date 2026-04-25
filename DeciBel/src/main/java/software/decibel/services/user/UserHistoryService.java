@@ -13,6 +13,7 @@ import software.decibel.dtos.discovery.StationPageResponse;
 import software.decibel.entities.ListeningHistory;
 import software.decibel.entities.Track;
 import software.decibel.mappers.StationMapper;
+import software.decibel.projections.TrackTokenProjection;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.ListeningHistoryRepository;
 import software.decibel.repositories.TrackLikeRepository;
@@ -46,10 +47,20 @@ public class UserHistoryService {
         Set<Long> likedIds = trackLikeRepository.findTrackIdsByUserId(userId);
         Set<Long> repostedIds = trackRepostRepository.findTrackIdsByUserId(userId);
         Set<Long> followingArtistIds = Set.copyOf(followRepository.findFollowingIdsByFollowerId(userId));
-        Map<Long, String> tokenMap = trackIds.isEmpty()
-                ? Map.of()
-                : trackTokenRepository.findActiveTokensByTrackIds(trackIds);
+        Map<Long, String> tokenMap;
+        if (trackIds.isEmpty()) {
+            tokenMap = Map.of();
+        } else {
+            // Fetch the lightweight projections from the database
+            var projections = trackTokenRepository.findActiveTokensByTrackIds(trackIds);
 
+            //Convert the projections into aJava Map<Long, String>
+            tokenMap = projections.stream()
+                    .collect(Collectors.toMap(
+                            TrackTokenProjection::getTrackId,
+                            TrackTokenProjection::getToken
+                    ));
+        }
         return stationMapper.toPageResponse(tracks, likedIds, repostedIds, tokenMap, followingArtistIds);
     }
 }

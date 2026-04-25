@@ -13,6 +13,7 @@ import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.blob.models.BlobHttpHeaders;
+import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.BlobStorageException;
 
 import software.decibel.enums.FileType;
@@ -125,5 +126,22 @@ public class FileUtilityAzure {
     // file title -> file_title
     private String cleanFileName(String fileName) {
         return fileName.trim().replaceAll("\\s+", "_");
+    }
+
+    public long getTotalStorageUsed() {
+        long totalSizeBytes = 0;
+
+        try {
+            // listBlobs() iterates through all files in the container
+            for (BlobItem blobItem : blobContainerClient.listBlobs()) {
+                if (blobItem.getProperties() != null && blobItem.getProperties().getContentLength() != null) {
+                    totalSizeBytes += blobItem.getProperties().getContentLength();
+                }
+            }
+        } catch (Exception e) {
+            throw new AzureFileStorageException("Could not calculate total storage from Azure", e);
+        }
+
+        return totalSizeBytes;
     }
 }
