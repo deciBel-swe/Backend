@@ -3,7 +3,6 @@ package software.decibel.mappers;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.springframework.data.domain.Page;
-
 import software.decibel.dtos.comment.CommentPageResponse;
 import software.decibel.dtos.comment.CommentResponse;
 import software.decibel.dtos.comment.CommentUserResponse;
@@ -47,11 +46,11 @@ public interface CommentMapper {
                 page.isLast());
     }
 
-    // ------------- Reply Mappers -------------
-    @Mapping(target = "replyToCommentId", source = "parentComment.id")
-    @Mapping(target = "body", source = "content")
-    @Mapping(target = "user", source = "user")
-    ReplyResponse toReplyResponse(Comment comment);
+  // ------------- Reply Mappers -------------
+  @Mapping(target = "replyToCommentId", source = "comment.parentComment.id")
+  @Mapping(target = "body", source = "comment.content")
+  @Mapping(target = "user", source = "comment.user")
+  ReplyResponse toReplyResponse(Comment comment);
 
     default ReplyPageResponse toReplyPageResponse(Page<Comment> page) {
         return new ReplyPageResponse(
@@ -63,12 +62,14 @@ public interface CommentMapper {
                 page.isLast());
     }
 
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "createdAt", ignore = true)
-    @Mapping(target = "replies", ignore = true)
-    @Mapping(target = "content", source = "request.body")
-    @Mapping(target = "timestampSeconds", ignore = true)
-    @Mapping(target = "parentComment", source = "parentComment") // needed
-    Comment toReplyEntity(
-            CreateCommentRequest request, User user, Track track, Comment parentComment);
+  @Mapping(target = "id", ignore = true)
+  @Mapping(target = "createdAt", ignore = true)
+  @Mapping(target = "replies", ignore = true)
+  @Mapping(target = "content", source = "request.body")
+  @Mapping(target = "timestampSeconds", ignore = true)
+  @Mapping(target = "user", source = "user")
+  @Mapping(target = "track", source = "track")
+  @Mapping(target = "parentComment", source = "parentComment")
+  Comment toReplyEntity(
+      CreateCommentRequest request, User user, Track track, Comment parentComment);
 }
