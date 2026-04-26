@@ -37,12 +37,12 @@ import software.decibel.enums.Visibility;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.RepostMapper;
 import software.decibel.mappers.UserMapper;
-import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.PlaylistRepostRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
+import software.decibel.services.BlockService;
 import software.decibel.services.engagement.RepostService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.UserMappingUtility;
@@ -67,7 +67,7 @@ class RepostServiceTest {
     @Mock
     private FollowRepository followRepository;
     @Mock
-    private BlockRepository blockRepository;
+    private BlockService blockService;
     @Mock
     private UserMapper userMapper;
 

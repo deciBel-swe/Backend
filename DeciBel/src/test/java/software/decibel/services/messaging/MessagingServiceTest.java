@@ -49,8 +49,8 @@ import software.decibel.enums.AccountTier;
 import software.decibel.enums.NotificationType;
 import software.decibel.enums.ResourceType;
 import software.decibel.mappers.UserMapper;
-import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.BlockService;
 import software.decibel.services.notification.FcmNotificationService;
 import software.decibel.services.notification.InAppNotificationService;
 import software.decibel.services.user.UserService;
@@ -65,7 +65,7 @@ class MessagingServiceTest {
     @Mock
     private UserRepository userRepository;
     @Mock
-    private BlockRepository blockRepository;
+    private BlockService blockService;
     @Mock
     private InAppNotificationService inAppNotificationService;
     @Mock
@@ -137,7 +137,7 @@ class MessagingServiceTest {
     void sendMessage_blockedBySender_throwsForbidden() {
         when(authentication.getPrincipal()).thenReturn(senderPrincipal);
         when(userService.getUserIfExistsById(2L)).thenReturn(recipient);
-        when(blockRepository.existsByBlocker_IdAndBlocked_Id(1L, 2L)).thenReturn(true);
+        when(blockService.hasUserBlocked(1L, 2L)).thenReturn(true);
 
         SendMessageRequest request = new SendMessageRequest(2L, "hello");
 
@@ -152,8 +152,8 @@ class MessagingServiceTest {
     void sendMessage_blockedByRecipient_throwsForbidden() {
         when(authentication.getPrincipal()).thenReturn(senderPrincipal);
         when(userService.getUserIfExistsById(2L)).thenReturn(recipient);
-        when(blockRepository.existsByBlocker_IdAndBlocked_Id(1L, 2L)).thenReturn(false);
-        when(blockRepository.existsByBlocker_IdAndBlocked_Id(2L, 1L)).thenReturn(true);
+        when(blockService.hasUserBlocked(1L, 2L)).thenReturn(false);
+        when(blockService.hasUserBlocked(2L, 1L)).thenReturn(true);
 
         SendMessageRequest request = new SendMessageRequest(2L, "hello");
 
@@ -178,8 +178,8 @@ class MessagingServiceTest {
         // Mock the UserMapper call
         when(userMapper.toUserSummaryDto(mockSender)).thenReturn(senderSummary);
 
-        when(blockRepository.existsByBlocker_IdAndBlocked_Id(senderId, 2L)).thenReturn(false);
-        when(blockRepository.existsByBlocker_IdAndBlocked_Id(2L, senderId)).thenReturn(false);
+        when(blockService.hasUserBlocked(senderId, 2L)).thenReturn(false);
+        when(blockService.hasUserBlocked(2L, senderId)).thenReturn(false);
 
         SendMessageRequest request = new SendMessageRequest(2L, "hello");
 
@@ -245,8 +245,8 @@ class MessagingServiceTest {
         when(userService.getUserIfExistsById(2L)).thenReturn(recipient);
         when(userMapper.toUserSummaryDto(recipient)).thenReturn(recipientSummary);
 
-        when(blockRepository.existsByBlocker_IdAndBlocked_Id(1L, 2L)).thenReturn(false);
-        when(blockRepository.existsByBlocker_IdAndBlocked_Id(2L, 1L)).thenReturn(false);
+        when(blockService.hasUserBlocked(1L, 2L)).thenReturn(false);
+        when(blockService.hasUserBlocked(2L, 1L)).thenReturn(false);
 
         CollectionReference conversations = mock(CollectionReference.class);
         DocumentReference conversationDoc = mock(DocumentReference.class);

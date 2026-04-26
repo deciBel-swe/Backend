@@ -24,9 +24,9 @@ import software.decibel.dtos.user.UserFollowDto;
 import software.decibel.entities.Follow;
 import software.decibel.entities.User;
 import software.decibel.mappers.UserMapper;
-import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.BlockService;
 import software.decibel.services.notification.InAppNotificationService;
 import software.decibel.services.user.UserService;
 
@@ -39,7 +39,7 @@ class FollowServiceTest {
     @Mock
     private UserRepository userRepository;
     @Mock
-    private BlockRepository blockRepository;
+    private BlockService blockService;
     @Mock
     private UserService userService;
 
