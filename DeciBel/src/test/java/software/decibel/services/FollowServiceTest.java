@@ -58,6 +58,7 @@ class FollowServiceTest {
 
         when(userService.getUserIfExistsById(1L)).thenReturn(follower);
         when(userService.getUserIfExistsById(2L)).thenReturn(following);
+        when(blockService.hasUserBlocked(2L, 1L)).thenReturn(false);
         when(followRepository.existsByFollowerAndFollowing(follower, following)).thenReturn(false);
 
         followService.followUser(1L, 2L);
@@ -81,6 +82,7 @@ class FollowServiceTest {
 
         when(userService.getUserIfExistsById(1L)).thenReturn(follower);
         when(userService.getUserIfExistsById(2L)).thenReturn(following);
+        when(blockService.hasUserBlocked(2L, 1L)).thenReturn(false);
         when(followRepository.existsByFollowerAndFollowing(follower, following)).thenReturn(true);
 
         followService.followUser(1L, 2L);

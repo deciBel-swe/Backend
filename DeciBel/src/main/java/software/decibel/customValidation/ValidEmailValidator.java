@@ -1,5 +1,6 @@
 package software.decibel.customValidation;
 
+
 import java.util.regex.Pattern;
 
 import javax.naming.NamingException;
