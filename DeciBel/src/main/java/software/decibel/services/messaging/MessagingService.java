@@ -44,6 +44,7 @@ import software.decibel.enums.NotificationType;
 import software.decibel.enums.ResourceType;
 import software.decibel.mappers.UserMapper;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.BlockService;
 import software.decibel.services.notification.FcmNotificationService;
 import software.decibel.services.notification.InAppNotificationService;
 import software.decibel.services.user.UserService;
@@ -57,6 +58,7 @@ public class MessagingService {
     private final UserRepository userRepository;
     private final InAppNotificationService inAppNotificationService;
     private final UserService userService;
+    private final BlockService blockService;
 
     private static final String CONVERSATIONS_COLLECTION = "conversations";
     private static final String MESSAGES_COLLECTION = "messages";
@@ -80,10 +82,10 @@ public class MessagingService {
         }
 
         // Block checks
-        if (userService.hasBlocked(senderId, recipientId)) {
+        if (blockService.hasUserBlocked(senderId, recipientId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You have blocked this user");
         }
-        if (userService.hasBlocked(recipientId, senderId)) {
+        if (blockService.hasUserBlocked(recipientId, senderId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This user has blocked you");
         }
 
@@ -184,10 +186,10 @@ public class MessagingService {
         }
 
         // Block checks
-        if (userService.hasBlocked(senderId, recipientId)) {
+        if (blockService.hasUserBlocked(senderId, recipientId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You have blocked this user");
         }
-        if (userService.hasBlocked(recipientId, senderId)) {
+        if (blockService.hasUserBlocked(recipientId, senderId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This user has blocked you");
         }
 

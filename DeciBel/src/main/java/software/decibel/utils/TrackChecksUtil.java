@@ -8,13 +8,14 @@ import software.decibel.enums.Visibility;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.services.JwtService;
+import software.decibel.services.BlockService;
 import software.decibel.services.user.UserService;
 
 @RequiredArgsConstructor
 @Component
 public class TrackChecksUtil {
 
-    private final UserService userService;
+    private final BlockService blockService;
     private final TrackRepository trackRepository;
 
     public Track getTrackIfExistsById(Long trackId) {
@@ -27,7 +28,7 @@ public class TrackChecksUtil {
         Track track = trackRepository.findById(trackId)
                 .orElseThrow(() -> new ResourceNotFoundException("Track with id " + trackId + " not found"));
 
-        if (userService.isBlockRelationshipActive(currentUserId, track.getUploader().getId())) {
+        if (blockService.isBlockRelationshipActive(currentUserId, track.getUploader().getId())) {
             throw new ResourceNotFoundException("Track with id " + trackId + " not found");
         }
         checkTrackVisibility(track, currentUserId);

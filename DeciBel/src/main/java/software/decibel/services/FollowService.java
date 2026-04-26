@@ -18,6 +18,7 @@ import software.decibel.exceptions.custom.UnauthorizedActionException;
 import software.decibel.mappers.UserMapper;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.BlockService;
 import software.decibel.services.notification.InAppNotificationService;
 import software.decibel.services.user.UserService;
 
@@ -31,6 +32,7 @@ public class FollowService {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final UserService userService;
+    private final BlockService blockService;
 
     // Follows a user and updates follower/following counts
     @Transactional
@@ -42,7 +44,7 @@ public class FollowService {
         User follower = userService.getUserIfExistsById(followerId);
         User following = userService.getUserIfExistsById(followingId);
 
-        if (userService.hasBlocked(followingId, followerId)) {
+        if (blockService.hasUserBlocked(followingId, followerId)) {
             throw new UnauthorizedActionException("you have been block by " + following.getDisplayName() + " please don't");
         }
         if (followRepository.existsByFollowerAndFollowing(follower, following)) {

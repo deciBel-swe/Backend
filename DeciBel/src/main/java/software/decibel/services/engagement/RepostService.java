@@ -33,6 +33,7 @@ import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.PlaylistRepostRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
+import software.decibel.services.BlockService;
 import software.decibel.services.JwtService;
 import software.decibel.services.notification.InAppNotificationService;
 import software.decibel.services.user.UserService;
@@ -46,6 +47,7 @@ public class RepostService {
     private final TrackRepostRepository trackRepostRepository;
     private final TrackRepository trackRepository;
     private final UserService userService;
+    private final BlockService blockService;
     private final InAppNotificationService inAppNotificationService;
     private final RepostMapper repostMapper;
     private final PlaylistRepostRepository playlistRepostRepository;
@@ -168,7 +170,7 @@ public class RepostService {
         Long currentUserId = JwtService.getCurrentUserId();
         User user = userService.getUserIfExistsByUsername(username);
 
-        if (userService.isBlockRelationshipActive(currentUserId, user.getId())) {
+        if (blockService.isBlockRelationshipActive(currentUserId, user.getId())) {
             throw new ResourceNotFoundException("User not found: " + username);
         }
 
@@ -212,7 +214,7 @@ public class RepostService {
         User currentViewer = resolveCurrentViewer();
         return trackRepostRepository
                 .findUsersByTrackId(trackId, pageable)
-                .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, userService));
+                .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, blockService));
     }
 
     // used for getting all playlist reposters
@@ -222,7 +224,7 @@ public class RepostService {
         User currentViewer = resolveCurrentViewer();
         return playlistRepostRepository
                 .findUsersByPlaylistId(playlistId, pageable)
-                .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, userService));
+                .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, blockService));
     }
 
     private User findUser(Long userId) {

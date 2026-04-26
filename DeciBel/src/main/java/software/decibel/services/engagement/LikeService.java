@@ -34,6 +34,7 @@ import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
+import software.decibel.services.BlockService;
 import software.decibel.services.JwtService;
 import software.decibel.services.notification.InAppNotificationService;
 import software.decibel.services.user.UserService;
@@ -48,6 +49,7 @@ public class LikeService {
     private final TrackRepostRepository trackRepostRepository;
     private final TrackRepository trackRepository;
     private final UserService userService;
+    private final BlockService blockService;
     private final InAppNotificationService inAppNotificationService;
     private final LikeMapper likeMapper;
     private final UserMapper userMapper;
@@ -165,7 +167,7 @@ public class LikeService {
         User user = userService.getUserIfExistsByUsername(username);
 
         //check if user has been blocked 
-        if (userService.isBlockRelationshipActive(currentUserId, user.getId())) {
+        if (blockService.isBlockRelationshipActive(currentUserId, user.getId())) {
             // Hide the fact that the user exists/has playlists by throwing a 404
             throw new ResourceNotFoundException("User not found: " + username);
         }
@@ -210,7 +212,7 @@ public class LikeService {
         User currentViewer = resolveCurrentViewer();
         return trackLikeRepository
                 .findUsersByTrackId(trackId, pageable)
-                .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, userService));
+                .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, blockService));
     }
 
     // used to get the users who liked a playlist, for the GET /playlists/{playlistId}/likes endpoint
@@ -220,7 +222,7 @@ public class LikeService {
         User currentViewer = resolveCurrentViewer();
         return playlistLikeRepository
                 .findUsersByPlaylistId(playlistId, pageable)
-                .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, userService));
+                .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, blockService));
     }
 
     // Resolves the currently authenticated user, or null for anonymous requests

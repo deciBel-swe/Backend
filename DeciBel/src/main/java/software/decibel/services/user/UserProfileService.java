@@ -20,6 +20,7 @@ import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.SocialLinksRepository;
 import software.decibel.repositories.UserProfileTokenRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.BlockService;
 import software.decibel.services.JwtService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.FileUtilityAzure;
@@ -38,6 +39,7 @@ public class UserProfileService {
     private final UserProfileTokenRepository userProfileTokenRepository;
     private final FollowRepository followRepository;
     private final UserService userService;
+    private final BlockService blockService;
 
     // Public profile — no auth required
     @Transactional(readOnly = true)
@@ -48,7 +50,7 @@ public class UserProfileService {
             throw new ResourceNotFoundException("User with ID " + userId + " not found");
         }
         //check if the current user is blocked by this profile, if so, throw a 404
-        if (userService.hasBlocked(user.getId(), currentUserId)) {
+        if (blockService.hasUserBlocked(user.getId(), currentUserId)) {
             throw new ResourceNotFoundException("User with ID " + userId + " not found");
         }
         return getResponseWithFollowStatus(user, false);
@@ -105,7 +107,7 @@ public class UserProfileService {
             throw new ResourceNotFoundException("User with username " + username + " not found");
         }
         //check if the current user is blocked by this profile, if so, throw a 404
-        if (userService.hasBlocked(user.getId(), currentUserId)) {
+        if (blockService.hasUserBlocked(user.getId(), currentUserId)) {
             throw new ResourceNotFoundException("User with username " + username + " not found");
         }
         return getResponseWithFollowStatus(user, false);
@@ -171,7 +173,7 @@ public class UserProfileService {
                 User currentUser = userRepository.getReferenceById(currentUserId);
                 isFollowed = followRepository.existsByFollowerAndFollowing(currentUser, profileUser);
                 isFollowing = followRepository.existsByFollowerAndFollowing(profileUser, currentUser);
-                isBlocked = userService.hasBlocked(currentUserId, profileUser.getId());
+                isBlocked = blockService.hasUserBlocked(currentUserId, profileUser.getId());
             }
         } catch (Exception ignored) {
             // No authenticated user or other security context issue
