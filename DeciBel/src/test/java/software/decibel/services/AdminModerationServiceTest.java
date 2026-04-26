@@ -7,6 +7,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -88,6 +89,12 @@ class AdminModerationServiceTest {
                 .displayName("Target User")
                 .avatarUrl("avatar.png")
                 .build();
+    }
+
+    @AfterEach
+    void tearDown() {
+        // Clear SecurityContext to prevent AdminPrincipal from polluting other tests
+        SecurityContextHolder.clearContext();
     }
 
     @Test

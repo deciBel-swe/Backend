@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -25,6 +26,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.server.ResponseStatusException;
 import software.decibel.dtos.engagement.RepostItemResponse;
 import software.decibel.dtos.track.responses.RepostResponse;
@@ -73,6 +75,12 @@ class RepostServiceTest {
 
     @InjectMocks
     private RepostService repostService;
+
+    @AfterEach
+    void tearDown() {
+        // Clear SecurityContext to prevent test pollution
+        SecurityContextHolder.clearContext();
+    }
 
     // ── TRACK REPOSTS ─────────────────────────────────────────────────────────
     @Test
