@@ -298,7 +298,7 @@ class AuthControllerTest {
 
     private RegisterLocalRequest registerRequest() {
         return new RegisterLocalRequest(
-                "john.doe@gmail.com",
+                "test@gmail.com",
                 "new-user",
                 "Password123",
                 LocalDate.of(2000, 1, 1),
