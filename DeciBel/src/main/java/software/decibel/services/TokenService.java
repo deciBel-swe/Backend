@@ -1,6 +1,7 @@
 package software.decibel.services;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -12,6 +13,7 @@ import software.decibel.dtos.auth.IssuedToken;
 import software.decibel.entities.Token;
 import software.decibel.entities.User;
 import software.decibel.enums.TokenType;
+import software.decibel.repositories.PendingEmailChangeRepository;
 import software.decibel.repositories.TokenRepository;
 import software.decibel.utils.TokenUtility;
 
@@ -28,6 +30,7 @@ public class TokenService {
 
     private final TokenRepository tokenRepository;
     private final TokenUtility tokenUtility;
+    private final PendingEmailChangeRepository pendingEmailChangeRepository;
 
     // public TokenService(TokenRepository tokenRepository, TokenUtility tokenUtility) {
     //     this.tokenRepository = tokenRepository;
@@ -74,6 +77,8 @@ public class TokenService {
 
     @Transactional
     public void deleteToken(Token token) {
+        // Delete PendingEmailChange records first to avoid FK constraint violation
+        pendingEmailChangeRepository.findByToken(token).ifPresent(pendingEmailChangeRepository::delete);
         tokenRepository.delete(token);
     }
 
@@ -84,7 +89,10 @@ public class TokenService {
 
     @Transactional
     public void deleteTokensForUserAndType(User user, TokenType tokenType) {
-        tokenRepository.deleteByUserAndTokenType(user, tokenType);
+        // Fetch tokens and delete them individually using deleteToken()
+        // which handles pending_email_changes cleanup for each token
+        List<Token> tokensToDelete = tokenRepository.findAllByUserAndTokenType(user, tokenType);
+        tokensToDelete.forEach(this::deleteToken);
     }
 
     private IssuedToken issueToken(User user, TokenType tokenType, int bytesLength, long expirationMinutes) {

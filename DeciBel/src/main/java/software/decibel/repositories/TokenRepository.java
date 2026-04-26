@@ -17,6 +17,8 @@ public interface TokenRepository extends JpaRepository<Token, Long> {
     //Optional<Token> findByTokenHash(String tokenHash);
     Optional<Token> findByHashAndTokenType(String Hash, TokenType tokenType);
 
+    List<Token> findAllByUserAndTokenType(User user, TokenType tokenType);
+
     void deleteByUserAndTokenType(User user, TokenType tokenType);
 
     void deleteByExpiresAtBefore(LocalDateTime dateTime);
