@@ -105,11 +105,14 @@ public class BlockService {
         }
     }
 
-  public boolean hasUserBlocked(Long blockerId, Long blockedId) {
-    return blockRepository.existsByBlocker_IdAndBlocked_Id(blockerId, blockedId);
-  }
+    public boolean hasUserBlocked(Long blockerId, Long blockedId) {
+        if (blockerId == null || blockedId == null) return false;
+        return blockRepository.existsByBlocker_IdAndBlocked_Id(blockerId, blockedId);
+    }
 
-  public boolean isBlockedByUser(Long blockedId, Long blockerId) {
-    return blockRepository.existsByBlocker_IdAndBlocked_Id(blockerId, blockedId);
-  }
+    public boolean isBlockRelationshipActive(Long userId1, Long userId2) {
+        if (userId1 == null || userId2 == null) return false;
+        return blockRepository.existsByBlocker_IdAndBlocked_Id(userId1, userId2) ||
+               blockRepository.existsByBlocker_IdAndBlocked_Id(userId2, userId1);
+    }
 }

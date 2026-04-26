@@ -24,6 +24,8 @@ import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.UserRepository;
 
+import software.decibel.services.JwtService;
+
 @Service
 @RequiredArgsConstructor
 public class SearchService {
@@ -59,6 +61,13 @@ public class SearchService {
     }
 
     private SearchResponse searchAll(String query, Pageable pageable) {
+        Long userId = null;
+        try {
+            userId = JwtService.getCurrentUserId();
+        } catch (Exception e) {
+            // Unauthenticated
+        }
+
         int pageSize = pageable.getPageSize();
         int pageNumber = pageable.getPageNumber();
 
@@ -70,9 +79,9 @@ public class SearchService {
         Pageable playlistsPageable = PageRequest.of(pageNumber, playlistsLimit);
         Pageable usersPageable = PageRequest.of(pageNumber, usersLimit);
 
-        Page<Track> tracks = trackRepository.searchPublicTracks(query, tracksPageable);
-        Page<Playlist> playlists = playlistRepository.searchPublicPlaylists(query, playlistsPageable);
-        Page<User> users = userRepository.searchPublicUsers(query, usersPageable);
+        Page<Track> tracks = trackRepository.searchPublicTracks(query, userId, tracksPageable);
+        Page<Playlist> playlists = playlistRepository.searchPublicPlaylists(query, userId, playlistsPageable);
+        Page<User> users = userRepository.searchPublicUsers(query, userId, usersPageable);
 
         List<ResourceItemDto> content = new ArrayList<>();
         tracks.getContent().forEach(t -> content.add(ResourceItemDto.of(trackMapper.toTrackResponse(t, false, false))));
@@ -95,7 +104,12 @@ public class SearchService {
     }
 
     private SearchResponse searchTracks(String query, Pageable pageable) {
-        Page<Track> tracks = trackRepository.searchPublicTracks(query, pageable);
+        Long userId = null;
+        try {
+            userId = JwtService.getCurrentUserId();
+        } catch (Exception e) {
+        }
+        Page<Track> tracks = trackRepository.searchPublicTracks(query, userId, pageable);
         List<ResourceItemDto> content = tracks.getContent().stream()
                 .map(t -> ResourceItemDto.of(trackMapper.toTrackResponse(t, false, false)))
                 .collect(Collectors.toList());
@@ -103,7 +117,12 @@ public class SearchService {
     }
 
     private SearchResponse searchPlaylists(String query, Pageable pageable) {
-        Page<Playlist> playlists = playlistRepository.searchPublicPlaylists(query, pageable);
+        Long userId = null;
+        try {
+            userId = JwtService.getCurrentUserId();
+        } catch (Exception e) {
+        }
+        Page<Playlist> playlists = playlistRepository.searchPublicPlaylists(query, userId, pageable);
         List<ResourceItemDto> content = playlists.getContent().stream()
                 .map(p -> ResourceItemDto.of(playlistMapper.toResponse(p)))
                 .collect(Collectors.toList());
@@ -111,7 +130,12 @@ public class SearchService {
     }
 
     private SearchResponse searchUsers(String query, Pageable pageable) {
-        Page<User> users = userRepository.searchPublicUsers(query, pageable);
+        Long userId = null;
+        try {
+            userId = JwtService.getCurrentUserId();
+        } catch (Exception e) {
+        }
+        Page<User> users = userRepository.searchPublicUsers(query, userId, pageable);
         List<ResourceItemDto> content = users.getContent().stream()
                 .map(u -> ResourceItemDto.of(userMapper.toUserSummaryDto(u)))
                 .collect(Collectors.toList());

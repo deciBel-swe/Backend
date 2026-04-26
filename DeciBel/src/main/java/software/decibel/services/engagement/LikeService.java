@@ -28,13 +28,13 @@ import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.LikeMapper;
 import software.decibel.mappers.PlaylistMapper;
 import software.decibel.mappers.UserMapper;
-import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.PlaylistLikeRepository;
 import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
+import software.decibel.services.BlockService;
 import software.decibel.services.JwtService;
 import software.decibel.services.notification.InAppNotificationService;
 import software.decibel.services.user.UserService;
@@ -49,11 +49,11 @@ public class LikeService {
     private final TrackRepostRepository trackRepostRepository;
     private final TrackRepository trackRepository;
     private final UserService userService;
+    private final BlockService blockService;
     private final InAppNotificationService inAppNotificationService;
     private final LikeMapper likeMapper;
     private final UserMapper userMapper;
     private final FollowRepository followRepository;
-    private final BlockRepository blockRepository;
 
     private final PlaylistLikeRepository playlistLikeRepository;
     private final PlaylistRepository playlistRepository;
@@ -167,14 +167,9 @@ public class LikeService {
         User user = userService.getUserIfExistsByUsername(username);
 
         //check if user has been blocked 
-        if (currentUserId != null && !currentUserId.equals(user.getId())) {
-            boolean hasBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(currentUserId, user.getId());
-            boolean isBlockedBy = blockRepository.existsByBlocker_IdAndBlocked_Id(user.getId(), currentUserId);
-
-            if (hasBlocked || isBlockedBy) {
-                // Hide the fact that the user exists/has playlists by throwing a 404
-                throw new ResourceNotFoundException("User not found: " + username);
-            }
+        if (blockService.isBlockRelationshipActive(currentUserId, user.getId())) {
+            // Hide the fact that the user exists/has playlists by throwing a 404
+            throw new ResourceNotFoundException("User not found: " + username);
         }
 
         Page<Playlist> likedPlaylists = playlistLikeRepository.findLikedPlaylistsByUserId(user.getId(), playlistPageable);
@@ -217,7 +212,7 @@ public class LikeService {
         User currentViewer = resolveCurrentViewer();
         return trackLikeRepository
                 .findUsersByTrackId(trackId, pageable)
-                .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, blockRepository));
+                .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, blockService));
     }
 
     // used to get the users who liked a playlist, for the GET /playlists/{playlistId}/likes endpoint
@@ -227,7 +222,7 @@ public class LikeService {
         User currentViewer = resolveCurrentViewer();
         return playlistLikeRepository
                 .findUsersByPlaylistId(playlistId, pageable)
-                .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, blockRepository));
+                .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, blockService));
     }
 
     // Resolves the currently authenticated user, or null for anonymous requests

@@ -6,15 +6,16 @@ import lombok.RequiredArgsConstructor;
 import software.decibel.entities.Track;
 import software.decibel.enums.Visibility;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
-import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.services.JwtService;
+import software.decibel.services.BlockService;
+import software.decibel.services.user.UserService;
 
 @RequiredArgsConstructor
 @Component
 public class TrackChecksUtil {
 
-    private final BlockRepository blockRepository;
+    private final BlockService blockService;
     private final TrackRepository trackRepository;
 
     public Track getTrackIfExistsById(Long trackId) {
@@ -27,7 +28,7 @@ public class TrackChecksUtil {
         Track track = trackRepository.findById(trackId)
                 .orElseThrow(() -> new ResourceNotFoundException("Track with id " + trackId + " not found"));
 
-        if (isUserBlocked(currentUserId, track.getUploader().getId())) {
+        if (blockService.isBlockRelationshipActive(currentUserId, track.getUploader().getId())) {
             throw new ResourceNotFoundException("Track with id " + trackId + " not found");
         }
         checkTrackVisibility(track, currentUserId);
@@ -40,15 +41,6 @@ public class TrackChecksUtil {
                 throw new ResourceNotFoundException("Track with id " + track.getId() + " not found");
             }
         }
-    }
-
-    private boolean isUserBlocked(Long currentUserId, Long targetUserId) {
-        if (currentUserId == null) {
-            return false;
-        }
-        boolean hasBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(currentUserId, targetUserId);
-        boolean isBlockedBy = blockRepository.existsByBlocker_IdAndBlocked_Id(targetUserId, currentUserId);
-        return hasBlocked || isBlockedBy;
     }
 
 }

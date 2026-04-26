@@ -54,12 +54,12 @@ public class GlobalExceptionHandler {
         ApiErrorResponse.builder()
             .timestamp(LocalDateTime.now())
             .status(HttpStatus.NO_CONTENT.value())
-            .error("No Results")
+            .error("No Content")
             .message(ex.getMessage())
             .path(request.getRequestURI())
             .build();
 
-    return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    return ResponseEntity.status(HttpStatus.NO_CONTENT).body(error);
   }
 
     // ── 400 — DTO Validation (@Valid failed)

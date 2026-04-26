@@ -45,6 +45,7 @@ import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.exceptions.custom.TrackAlreadyPublishedException;
 import software.decibel.exceptions.custom.UnauthorizedActionException;
 import software.decibel.exceptions.custom.CooldownActiveException;
+import software.decibel.exceptions.custom.NoStationResultsException;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.CommentRepository;
 import software.decibel.repositories.ListeningHistoryRepository;
@@ -483,12 +484,17 @@ public class TrackService {
 
     public TrackPageResponse getTrendingTracks(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<Track> trendingTracks = trackRepository.findAllTrending(pageable);
 
         Long currentUserId = null;
         try {
             currentUserId = JwtService.getCurrentUserId();
         } catch (Exception e) {
+        }
+
+        Page<Track> trendingTracks = trackRepository.findAllTrending(currentUserId, pageable);
+
+        if (trendingTracks.isEmpty()) {
+            throw new NoStationResultsException();
         }
 
         Set<Long> likedTrackIds = (currentUserId != null) ? likeService.getLikedTrackIds(currentUserId) : Set.of();

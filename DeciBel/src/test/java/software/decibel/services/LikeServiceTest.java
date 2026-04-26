@@ -39,13 +39,13 @@ import software.decibel.enums.AccountTier;
 import software.decibel.mappers.LikeMapper;
 import software.decibel.mappers.PlaylistMapper;
 import software.decibel.mappers.UserMapper;
-import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.PlaylistLikeRepository;
 import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
+import software.decibel.services.BlockService;
 import software.decibel.services.engagement.LikeService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.UserMappingUtility;
@@ -66,7 +66,7 @@ class LikeServiceTest {
     @Mock
     private FollowRepository followRepository;
     @Mock
-    private BlockRepository blockRepository;
+    private BlockService blockService;
     @Mock
     private PlaylistLikeRepository playlistLikeRepository;
     @Mock
@@ -220,6 +220,7 @@ class LikeServiceTest {
 
         when(userService.getUserIfExistsByUsername("testuser")).thenReturn(user);
         when(userService.getUserIfExistsById(1L)).thenReturn(user);
+        when(blockService.isBlockRelationshipActive(any(), any())).thenReturn(false);
 
         when(playlistLikeRepository.findLikedPlaylistsByUserId(eq(1L), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(playlist)));

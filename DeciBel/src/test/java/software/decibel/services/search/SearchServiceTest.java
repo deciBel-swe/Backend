@@ -63,7 +63,7 @@ class SearchServiceTest {
         track.setTitle("Test Track");
         Page<Track> trackPage = new PageImpl<>(List.of(track));
 
-        when(trackRepository.searchPublicTracks(anyString(), any(Pageable.class))).thenReturn(trackPage);
+        when(trackRepository.searchPublicTracks(anyString(), any(), any(Pageable.class))).thenReturn(trackPage);
         when(trackMapper.toTrackResponse(any(), any(Boolean.class), any(Boolean.class)))
                 .thenReturn(new TrackResponse(1L, "Test Track", null, null, null, null, null, null, false, false, null, null, 0, 0, 0, 0, 0, false, 0, null, null, null, null, "test-track"));
 
@@ -72,7 +72,7 @@ class SearchServiceTest {
         assertNotNull(response);
         assertEquals(1, response.content().size());
         assertEquals("TRACK", response.content().get(0).type());
-        verify(trackRepository, times(1)).searchPublicTracks(eq("test"), any(Pageable.class));
+        verify(trackRepository, times(1)).searchPublicTracks(eq("test"), any(), any(Pageable.class));
     }
 
     @Test
@@ -81,7 +81,7 @@ class SearchServiceTest {
         user.setUsername("testuser");
         Page<User> userPage = new PageImpl<>(List.of(user));
 
-        when(userRepository.searchPublicUsers(anyString(), any(Pageable.class))).thenReturn(userPage);
+        when(userRepository.searchPublicUsers(anyString(), any(), any(Pageable.class))).thenReturn(userPage);
         when(userMapper.toUserSummaryDto(any(User.class))).thenReturn(
                 new UserSummaryDTO(1L, "username", "Display", "url", false, 0, 0)
         );
@@ -91,20 +91,20 @@ class SearchServiceTest {
         assertNotNull(response);
         assertEquals(1, response.content().size());
         assertEquals("USER", response.content().get(0).type());
-        verify(userRepository, times(1)).searchPublicUsers(eq("test"), any(Pageable.class));
+        verify(userRepository, times(1)).searchPublicUsers(eq("test"), any(), any(Pageable.class));
     }
 
     @Test
     void search_withAll_callsAllRepositories() {
-        when(trackRepository.searchPublicTracks(anyString(), any(Pageable.class))).thenReturn(new PageImpl<>(Collections.emptyList()));
-        when(playlistRepository.searchPublicPlaylists(anyString(), any(Pageable.class))).thenReturn(new PageImpl<>(Collections.emptyList()));
-        when(userRepository.searchPublicUsers(anyString(), any(Pageable.class))).thenReturn(new PageImpl<>(Collections.emptyList()));
+        when(trackRepository.searchPublicTracks(anyString(), any(), any(Pageable.class))).thenReturn(new PageImpl<>(Collections.emptyList()));
+        when(playlistRepository.searchPublicPlaylists(anyString(), any(), any(Pageable.class))).thenReturn(new PageImpl<>(Collections.emptyList()));
+        when(userRepository.searchPublicUsers(anyString(), any(), any(Pageable.class))).thenReturn(new PageImpl<>(Collections.emptyList()));
 
         searchService.search("test", "all", 0, 30);
 
-        verify(trackRepository).searchPublicTracks(eq("test"), any(Pageable.class));
-        verify(playlistRepository).searchPublicPlaylists(eq("test"), any(Pageable.class));
-        verify(userRepository).searchPublicUsers(eq("test"), any(Pageable.class));
+        verify(trackRepository).searchPublicTracks(eq("test"), any(), any(Pageable.class));
+        verify(playlistRepository).searchPublicPlaylists(eq("test"), any(), any(Pageable.class));
+        verify(userRepository).searchPublicUsers(eq("test"), any(), any(Pageable.class));
     }
 
     private String eq(String test) {

@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -25,6 +26,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.server.ResponseStatusException;
 import software.decibel.dtos.engagement.RepostItemResponse;
 import software.decibel.dtos.track.responses.RepostResponse;
@@ -37,12 +39,12 @@ import software.decibel.enums.Visibility;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.RepostMapper;
 import software.decibel.mappers.UserMapper;
-import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.PlaylistRepostRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
+import software.decibel.services.BlockService;
 import software.decibel.services.engagement.RepostService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.UserMappingUtility;
@@ -67,12 +69,18 @@ class RepostServiceTest {
     @Mock
     private FollowRepository followRepository;
     @Mock
-    private BlockRepository blockRepository;
+    private BlockService blockService;
     @Mock
     private UserMapper userMapper;
 
     @InjectMocks
     private RepostService repostService;
+
+    @AfterEach
+    void tearDown() {
+        // Clear SecurityContext to prevent test pollution
+        SecurityContextHolder.clearContext();
+    }
 
     // ── TRACK REPOSTS ─────────────────────────────────────────────────────────
     @Test
@@ -200,6 +208,7 @@ class RepostServiceTest {
         Pageable pageable = PageRequest.of(0, 10);
 
         when(userService.getUserIfExistsByUsername("testuser")).thenReturn(user);
+        when(blockService.isBlockRelationshipActive(any(), any())).thenReturn(false);
 
         PlaylistRepost pr = PlaylistRepost.builder().playlist(playlist).repostedAt(LocalDateTime.now().minusDays(1)).build();
         TrackRepost tr = TrackRepost.builder().track(track).repostedAt(LocalDateTime.now()).build();
@@ -207,12 +216,16 @@ class RepostServiceTest {
         when(playlistRepostRepository.findByUser(eq(user), any(Pageable.class))).thenReturn(new PageImpl<>(List.of(pr)));
         when(trackRepostRepository.findByUser(eq(user), any(Pageable.class))).thenReturn(new PageImpl<>(List.of(tr)));
 
-        Page<RepostItemResponse> result = repostService.getUserReposts("testuser", pageable);
+        try (MockedStatic<JwtService> mockedJwt = mockStatic(JwtService.class)) {
+            mockedJwt.when(JwtService::getCurrentUserId).thenReturn(1L);
 
-        assertNotNull(result);
-        assertEquals(2, result.getTotalElements());
-        assertEquals("TRACK", result.getContent().get(0).type()); // Track is newer, so it should be first
-        assertEquals("PLAYLIST", result.getContent().get(1).type());
+            Page<RepostItemResponse> result = repostService.getUserReposts("testuser", pageable);
+
+            assertNotNull(result);
+            assertEquals(2, result.getTotalElements());
+            assertEquals("TRACK", result.getContent().get(0).type()); // Track is newer, so it should be first
+            assertEquals("PLAYLIST", result.getContent().get(1).type());
+        }
     }
 
     @Test
