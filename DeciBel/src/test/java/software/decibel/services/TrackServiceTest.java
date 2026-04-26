@@ -512,7 +512,7 @@ class TrackServiceTest {
 
         when(userService.getUserIfExistsById(any())).thenReturn(mockUser);
 
-        when(trackRepository.findAllTrending(any())).thenReturn(page);
+        when(trackRepository.findAllTrending(eq(mockUserId), any())).thenReturn(page);
         when(likeService.getLikedTrackIds(any())).thenReturn(Set.of());
         when(repostService.getRepostedTrackIds(any())).thenReturn(Set.of());
 
@@ -522,7 +522,7 @@ class TrackServiceTest {
         TrackPageResponse result = trackService.getTrendingTracks(0, 10);
 
         assertNotNull(result);
-        verify(trackRepository).findAllTrending(any());
+        verify(trackRepository).findAllTrending(eq(mockUserId), any());
     }
 
     @Test

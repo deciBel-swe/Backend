@@ -209,8 +209,18 @@ public interface TrackRepository extends JpaRepository<Track, Long> {
 """)
   Page<Track> findLikesStation(@Param("userId") Long userId, Pageable pageable);
 
-    @Query("SELECT t FROM Track t WHERE t.visibility = 'PUBLIC' AND t.published = true ORDER BY (t.likeCount + t.repostCount) DESC")
-    Page<Track> findAllTrending(Pageable pageable);
+    @Query("""
+        SELECT t FROM Track t
+        WHERE t.visibility = 'PUBLIC'
+        AND t.published = true
+        AND (:userId IS NULL OR NOT EXISTS (
+            SELECT 1 FROM Block b
+            WHERE (b.blocker.id = :userId AND b.blocked.id = t.uploader.id)
+            OR (b.blocker.id = t.uploader.id AND b.blocked.id = :userId)
+        ))
+        ORDER BY (t.likeCount + t.repostCount) DESC
+    """)
+    Page<Track> findAllTrending(@Param("userId") Long userId, Pageable pageable);
 
     @Query("SELECT t FROM Track t WHERE t.uploader.id IN :uploaderIds AND t.visibility = 'PUBLIC' AND t.published = true")
     Page<Track> findByUploaderIdInAndVisibilityPublicAndPublishedTrue(List<Long> uploaderIds, Pageable pageable);
