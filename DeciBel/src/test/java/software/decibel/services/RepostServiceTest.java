@@ -200,6 +200,7 @@ class RepostServiceTest {
         Pageable pageable = PageRequest.of(0, 10);
 
         when(userService.getUserIfExistsByUsername("testuser")).thenReturn(user);
+        when(blockService.isBlockRelationshipActive(any(), any())).thenReturn(false);
 
         PlaylistRepost pr = PlaylistRepost.builder().playlist(playlist).repostedAt(LocalDateTime.now().minusDays(1)).build();
         TrackRepost tr = TrackRepost.builder().track(track).repostedAt(LocalDateTime.now()).build();
@@ -207,12 +208,16 @@ class RepostServiceTest {
         when(playlistRepostRepository.findByUser(eq(user), any(Pageable.class))).thenReturn(new PageImpl<>(List.of(pr)));
         when(trackRepostRepository.findByUser(eq(user), any(Pageable.class))).thenReturn(new PageImpl<>(List.of(tr)));
 
-        Page<RepostItemResponse> result = repostService.getUserReposts("testuser", pageable);
+        try (MockedStatic<JwtService> mockedJwt = mockStatic(JwtService.class)) {
+            mockedJwt.when(JwtService::getCurrentUserId).thenReturn(1L);
 
-        assertNotNull(result);
-        assertEquals(2, result.getTotalElements());
-        assertEquals("TRACK", result.getContent().get(0).type()); // Track is newer, so it should be first
-        assertEquals("PLAYLIST", result.getContent().get(1).type());
+            Page<RepostItemResponse> result = repostService.getUserReposts("testuser", pageable);
+
+            assertNotNull(result);
+            assertEquals(2, result.getTotalElements());
+            assertEquals("TRACK", result.getContent().get(0).type()); // Track is newer, so it should be first
+            assertEquals("PLAYLIST", result.getContent().get(1).type());
+        }
     }
 
     @Test
