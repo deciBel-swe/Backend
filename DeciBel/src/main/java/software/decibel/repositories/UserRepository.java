@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
+import org.springframework.data.repository.query.Param;
 import software.decibel.entities.User;
 
 public interface UserRepository extends JpaRepository<User, Long> {
@@ -54,6 +55,15 @@ public interface UserRepository extends JpaRepository<User, Long> {
     """)
     List<User> findPopularUsers(Long userId, Pageable pageable);
 
-    @Query("SELECT u FROM User u WHERE (LOWER(u.username) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(u.displayName) LIKE LOWER(CONCAT('%', :query, '%'))) AND u.isPrivate = false")
-    Page<User> searchPublicUsers(String query, Pageable pageable);
+    @Query("""
+        SELECT u FROM User u
+        WHERE (LOWER(u.username) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(u.displayName) LIKE LOWER(CONCAT('%', :query, '%')))
+        AND u.isPrivate = false
+        AND (:userId IS NULL OR NOT EXISTS (
+            SELECT 1 FROM Block b
+            WHERE (b.blocker.id = :userId AND b.blocked.id = u.id)
+            OR (b.blocker.id = u.id AND b.blocked.id = :userId)
+        ))
+    """)
+    Page<User> searchPublicUsers(@Param("query") String query, @Param("userId") Long userId, Pageable pageable);
 }

@@ -38,7 +38,6 @@ public class CommentService {
     private final UserService userService;
     private final TrackChecksUtil trackChecksUtil;
     private final CommentMapper commentMapper;
-  private final BlockService blockService;
 
     // Add comment to a track
     @Transactional
@@ -55,13 +54,13 @@ public class CommentService {
         }
 
     // Check if user is blocked by track uploader
-    if (blockService.isBlockedByUser(userId, track.getUploader().getId())) {
-      throw new AccessDeniedException("You cannot comment on tracks from user you blocked.");
+    if (userService.hasBlocked(track.getUploader().getId(), userId)) {
+      throw new AccessDeniedException("You cannot comment on tracks from users who blocked you.");
     }
 
     // Check if user has blocked the track uploader
-    if (blockService.hasUserBlocked(userId, track.getUploader().getId())) {
-      throw new AccessDeniedException("You cannot comment on tracks from users who blocked you.");
+    if (userService.hasBlocked(userId, track.getUploader().getId())) {
+      throw new AccessDeniedException("You cannot comment on tracks from user you blocked.");
     }
 
         // update comment count
@@ -108,13 +107,13 @@ public class CommentService {
         }
 
     // Check if user is blocked by track uploader
-    if (blockService.isBlockedByUser(userId, parentComment.getTrack().getUploader().getId())) {
-      throw new AccessDeniedException("You cannot reply on tracks from user you blocked.");
+    if (userService.hasBlocked(parentComment.getTrack().getUploader().getId(), userId)) {
+      throw new AccessDeniedException("You cannot reply on tracks from users who blocked you.");
     }
 
     // Check if user has blocked the track uploader
-    if (blockService.hasUserBlocked(userId, parentComment.getTrack().getUploader().getId())) {
-      throw new AccessDeniedException("You cannot reply on tracks from users who blocked you.");
+    if (userService.hasBlocked(userId, parentComment.getTrack().getUploader().getId())) {
+      throw new AccessDeniedException("You cannot reply on tracks from user you blocked.");
     }
 
         Comment reply

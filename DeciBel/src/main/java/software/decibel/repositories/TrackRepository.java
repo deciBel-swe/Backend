@@ -215,6 +215,16 @@ public interface TrackRepository extends JpaRepository<Track, Long> {
     @Query("SELECT t FROM Track t WHERE t.uploader.id IN :uploaderIds AND t.visibility = 'PUBLIC' AND t.published = true")
     Page<Track> findByUploaderIdInAndVisibilityPublicAndPublishedTrue(List<Long> uploaderIds, Pageable pageable);
 
-    @Query("SELECT t FROM Track t WHERE LOWER(t.title) LIKE LOWER(CONCAT('%', :query, '%')) AND t.visibility = 'PUBLIC' AND t.published = true")
-    Page<Track> searchPublicTracks(String query, Pageable pageable);
+    @Query("""
+        SELECT t FROM Track t
+        WHERE LOWER(t.title) LIKE LOWER(CONCAT('%', :query, '%'))
+        AND t.visibility = 'PUBLIC'
+        AND t.published = true
+        AND (:userId IS NULL OR NOT EXISTS (
+            SELECT 1 FROM Block b
+            WHERE (b.blocker.id = :userId AND b.blocked.id = t.uploader.id)
+            OR (b.blocker.id = t.uploader.id AND b.blocked.id = :userId)
+        ))
+    """)
+    Page<Track> searchPublicTracks(@Param("query") String query, @Param("userId") Long userId, Pageable pageable);
 }

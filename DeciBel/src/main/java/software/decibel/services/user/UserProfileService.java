@@ -16,7 +16,6 @@ import software.decibel.entities.UserProfileToken;
 import software.decibel.enums.FileType;
 import software.decibel.enums.SocialPlatform;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
-import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.SocialLinksRepository;
 import software.decibel.repositories.UserProfileTokenRepository;
@@ -38,7 +37,6 @@ public class UserProfileService {
     private final UserMappingUtility userMappingUtility;
     private final UserProfileTokenRepository userProfileTokenRepository;
     private final FollowRepository followRepository;
-    private final BlockRepository blockRepository;
     private final UserService userService;
 
     // Public profile — no auth required
@@ -50,7 +48,7 @@ public class UserProfileService {
             throw new ResourceNotFoundException("User with ID " + userId + " not found");
         }
         //check if the current user is blocked by this profile, if so, throw a 404
-        if (currentUserId != null && blockRepository.existsByBlockerAndBlocked(user, userRepository.getReferenceById(currentUserId))) {
+        if (userService.hasBlocked(user.getId(), currentUserId)) {
             throw new ResourceNotFoundException("User with ID " + userId + " not found");
         }
         return getResponseWithFollowStatus(user, false);
@@ -107,7 +105,7 @@ public class UserProfileService {
             throw new ResourceNotFoundException("User with username " + username + " not found");
         }
         //check if the current user is blocked by this profile, if so, throw a 404
-        if (currentUserId != null && blockRepository.existsByBlockerAndBlocked(user, userRepository.getReferenceById(currentUserId))) {
+        if (userService.hasBlocked(user.getId(), currentUserId)) {
             throw new ResourceNotFoundException("User with username " + username + " not found");
         }
         return getResponseWithFollowStatus(user, false);
@@ -173,7 +171,7 @@ public class UserProfileService {
                 User currentUser = userRepository.getReferenceById(currentUserId);
                 isFollowed = followRepository.existsByFollowerAndFollowing(currentUser, profileUser);
                 isFollowing = followRepository.existsByFollowerAndFollowing(profileUser, currentUser);
-                isBlocked = blockRepository.existsByBlockerAndBlocked(currentUser, profileUser);
+                isBlocked = userService.hasBlocked(currentUserId, profileUser.getId());
             }
         } catch (Exception ignored) {
             // No authenticated user or other security context issue

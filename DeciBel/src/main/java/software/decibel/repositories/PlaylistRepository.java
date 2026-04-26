@@ -24,8 +24,17 @@ public interface PlaylistRepository extends JpaRepository<Playlist, Long> {
     @Query("SELECT p FROM Playlist p WHERE p.user.id IN :userIds AND p.isPrivate = false")
     Page<Playlist> findByUserIdInAndIsPrivateFalse(List<Long> userIds, Pageable pageable);
 
-    @Query("SELECT p FROM Playlist p WHERE LOWER(p.title) LIKE LOWER(CONCAT('%', :query, '%')) AND p.isPrivate = false")
-    Page<Playlist> searchPublicPlaylists(String query, Pageable pageable);
+    @Query("""
+        SELECT p FROM Playlist p
+        WHERE LOWER(p.title) LIKE LOWER(CONCAT('%', :query, '%'))
+        AND p.isPrivate = false
+        AND (:userId IS NULL OR NOT EXISTS (
+            SELECT 1 FROM Block b
+            WHERE (b.blocker.id = :userId AND b.blocked.id = p.user.id)
+            OR (b.blocker.id = p.user.id AND b.blocked.id = :userId)
+        ))
+    """)
+    Page<Playlist> searchPublicPlaylists(@Param("query") String query, @Param("userId") Long userId, Pageable pageable);
 
     @Query("SELECT p FROM Playlist p JOIN p.slugHistory pt WHERE pt.token = :token AND pt.isDeleted = false")
     Optional<Playlist> findByToken(@Param("token") String token);

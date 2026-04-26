@@ -16,7 +16,6 @@ import software.decibel.enums.ResourceType;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.exceptions.custom.UnauthorizedActionException;
 import software.decibel.mappers.UserMapper;
-import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.notification.InAppNotificationService;
@@ -31,7 +30,6 @@ public class FollowService {
     private final FollowRepository followRepository;
     private final UserRepository userRepository;
     private final UserMapper userMapper;
-    private final BlockRepository blockRepository;
     private final UserService userService;
 
     // Follows a user and updates follower/following counts
@@ -44,7 +42,7 @@ public class FollowService {
         User follower = userService.getUserIfExistsById(followerId);
         User following = userService.getUserIfExistsById(followingId);
 
-        if (blockRepository.existsByBlockerAndBlocked(following, follower)) {
+        if (userService.hasBlocked(followingId, followerId)) {
             throw new UnauthorizedActionException("you have been block by " + following.getDisplayName() + " please don't");
         }
         if (followRepository.existsByFollowerAndFollowing(follower, following)) {

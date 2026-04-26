@@ -43,7 +43,6 @@ import software.decibel.entities.User;
 import software.decibel.enums.NotificationType;
 import software.decibel.enums.ResourceType;
 import software.decibel.mappers.UserMapper;
-import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.notification.FcmNotificationService;
 import software.decibel.services.notification.InAppNotificationService;
@@ -56,7 +55,6 @@ public class MessagingService {
 
     private final ObjectProvider<Firestore> firestoreProvider;
     private final UserRepository userRepository;
-    private final BlockRepository blockRepository;
     private final InAppNotificationService inAppNotificationService;
     private final UserService userService;
 
@@ -82,10 +80,10 @@ public class MessagingService {
         }
 
         // Block checks
-        if (blockRepository.existsByBlocker_IdAndBlocked_Id(senderId, recipientId)) {
+        if (userService.hasBlocked(senderId, recipientId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You have blocked this user");
         }
-        if (blockRepository.existsByBlocker_IdAndBlocked_Id(recipientId, senderId)) {
+        if (userService.hasBlocked(recipientId, senderId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This user has blocked you");
         }
 
@@ -186,10 +184,10 @@ public class MessagingService {
         }
 
         // Block checks
-        if (blockRepository.existsByBlocker_IdAndBlocked_Id(senderId, recipientId)) {
+        if (userService.hasBlocked(senderId, recipientId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You have blocked this user");
         }
-        if (blockRepository.existsByBlocker_IdAndBlocked_Id(recipientId, senderId)) {
+        if (userService.hasBlocked(recipientId, senderId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This user has blocked you");
         }
 

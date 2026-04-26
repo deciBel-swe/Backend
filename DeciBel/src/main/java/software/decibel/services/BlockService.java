@@ -106,10 +106,10 @@ public class BlockService {
     }
 
   public boolean hasUserBlocked(Long blockerId, Long blockedId) {
-    return blockRepository.existsByBlocker_IdAndBlocked_Id(blockerId, blockedId);
+    return userService.hasBlocked(blockerId, blockedId);
   }
 
   public boolean isBlockedByUser(Long blockedId, Long blockerId) {
-    return blockRepository.existsByBlocker_IdAndBlocked_Id(blockerId, blockedId);
+    return userService.hasBlocked(blockerId, blockedId);
   }
 }

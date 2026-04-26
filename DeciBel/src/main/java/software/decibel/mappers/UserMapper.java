@@ -25,7 +25,7 @@ public interface UserMapper {
     default UserProfile toUserProfile(User target, User currentViewer,
             UserMappingUtility userMappingUtility,
             software.decibel.repositories.FollowRepository followRepository,
-            software.decibel.repositories.BlockRepository blockRepository) {
+            software.decibel.services.user.UserService userService) {
 
         boolean isFollowed = false;
         boolean isFollowing = false;
@@ -34,7 +34,7 @@ public interface UserMapper {
         if (currentViewer != null && !currentViewer.getId().equals(target.getId())) {
             isFollowed = followRepository.existsByFollowerAndFollowing(currentViewer, target);
             isFollowing = followRepository.existsByFollowerAndFollowing(target, currentViewer);
-            isBlocked = blockRepository.existsByBlockerAndBlocked(currentViewer, target);
+            isBlocked = userService.hasBlocked(currentViewer.getId(), target.getId());
         }
 
         return userMappingUtility.toUserProfile(target, isFollowed, isFollowing, isBlocked);
