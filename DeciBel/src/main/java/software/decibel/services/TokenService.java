@@ -12,6 +12,7 @@ import software.decibel.dtos.auth.IssuedToken;
 import software.decibel.entities.Token;
 import software.decibel.entities.User;
 import software.decibel.enums.TokenType;
+import software.decibel.repositories.PendingEmailChangeRepository;
 import software.decibel.repositories.TokenRepository;
 import software.decibel.utils.TokenUtility;
 
@@ -28,6 +29,7 @@ public class TokenService {
 
     private final TokenRepository tokenRepository;
     private final TokenUtility tokenUtility;
+    private final PendingEmailChangeRepository pendingEmailChangeRepository;
 
     // public TokenService(TokenRepository tokenRepository, TokenUtility tokenUtility) {
     //     this.tokenRepository = tokenRepository;
@@ -74,6 +76,8 @@ public class TokenService {
 
     @Transactional
     public void deleteToken(Token token) {
+        // Delete PendingEmailChange records first to avoid FK constraint violation
+        pendingEmailChangeRepository.findByToken(token).ifPresent(pendingEmailChangeRepository::delete);
         tokenRepository.delete(token);
     }
 
@@ -84,6 +88,9 @@ public class TokenService {
 
     @Transactional
     public void deleteTokensForUserAndType(User user, TokenType tokenType) {
+        // Delete PendingEmailChange records first to avoid FK constraint violation
+        // This is necessary for any token type since pending_email_changes can reference any token
+        pendingEmailChangeRepository.findByUser(user).ifPresent(pendingEmailChangeRepository::delete);
         tokenRepository.deleteByUserAndTokenType(user, tokenType);
     }
 

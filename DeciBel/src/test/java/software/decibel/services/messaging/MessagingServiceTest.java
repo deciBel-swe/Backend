@@ -88,6 +88,7 @@ class MessagingServiceTest {
     @BeforeEach
     void setUp() {
         lenient().when(firestoreProvider.getObject()).thenReturn(firestore);
+        lenient().when(blockService.hasUserBlocked(any(), any())).thenReturn(false);
 
         senderPrincipal = UserPrincipal.builder()
                 .id(1L)

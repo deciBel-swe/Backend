@@ -68,6 +68,8 @@ class LikeServiceTest {
     @Mock
     private BlockService blockService;
     @Mock
+    private software.decibel.services.notification.InAppNotificationService inAppNotificationService;
+    @Mock
     private PlaylistLikeRepository playlistLikeRepository;
     @Mock
     private PlaylistRepository playlistRepository;

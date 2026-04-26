@@ -64,7 +64,6 @@ public class UserEmailService {
             pendingEmailChangeRepository.delete(existingRequest);
             tokenService.deleteToken(existingRequest.getToken());
         });
-        tokenService.deleteTokensForUserAndType(currentUser, TokenType.EMAIL_CHANGE);
 
         IssuedToken issuedToken = tokenService.createEmailChangeToken(currentUser);
         PendingEmailChange pendingEmailChange = PendingEmailChange.builder()
