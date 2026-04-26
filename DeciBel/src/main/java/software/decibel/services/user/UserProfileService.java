@@ -22,7 +22,6 @@ import software.decibel.repositories.UserProfileTokenRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.BlockService;
 import software.decibel.services.JwtService;
-import software.decibel.services.user.UserService;
 import software.decibel.utils.FileUtilityAzure;
 import software.decibel.utils.LocationUtility;
 import software.decibel.utils.UserMappingUtility;
@@ -70,18 +69,30 @@ public class UserProfileService {
 
         //checks Bio 
         if (request.bio() != null) {
-            user.setBio(request.bio());
+            user.setBio(request.bio().isBlank() ? null : request.bio());
         }
-        //checks City and Country, if either is provided, we need to update the location string
+        //check Location
         if (request.city() != null || request.country() != null) {
-            String city = request.city() != null ? request.city() : locationUtility.parseCity(user.getLocation());
-            String country = request.country() != null ? request.country() : locationUtility.parseCountry(user.getLocation());
-            user.setLocation(locationUtility.buildLocation(city, country));
+            String city = request.city() != null
+                    ? (request.city().isBlank() ? null : request.city()) : locationUtility.parseCity(user.getLocation());
+            String country = request.country() != null
+                    ? (request.country().isBlank() ? null : request.country()) : locationUtility.parseCountry(user.getLocation());
+
+            // If both are cleared out, nullify the whole location
+            if (city == null && country == null) {
+                user.setLocation(null);
+            } else {
+                user.setLocation(locationUtility.buildLocation(city, country));
+            }
         }
         //checks Favorite Genres
 
         if (request.favoriteGenres() != null) {
-            user.setFavoriteGenres(request.favoriteGenres());
+            if (request.favoriteGenres().isEmpty()) {
+                user.setFavoriteGenres(null); // or Collections.emptyList() depending on your entity structure
+            } else {
+                user.setFavoriteGenres(request.favoriteGenres());
+            }
         }
 
         if (request.displayName() != null) {
@@ -188,16 +199,22 @@ public class UserProfileService {
 
     private void upsertSocialLink(User user, SocialPlatform platform, String url) {
         // Safety check: Don't do anything if the URL is missing or blank
-        if (url == null || url.isBlank()) {
+        if (url != null && url.isBlank()) {
+            socialLinksRepository.findByUserAndPlatform(user, platform)
+                    .ifPresent(socialLinksRepository::delete);
             return;
         }
 
-        // Find the existing link or create a new one
+        // If it's omitted entirely from the PATCH request, do nothing
+        if (url == null) {
+            return;
+        }
+
+        // Otherwise, update or create the link
         SocialLinks link = socialLinksRepository
                 .findByUserAndPlatform(user, platform)
                 .orElse(SocialLinks.builder().user(user).platform(platform).build());
 
-        // Update the URL and save
         link.setUrl(url);
         socialLinksRepository.save(link);
     }

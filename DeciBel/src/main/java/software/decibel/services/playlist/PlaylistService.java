@@ -31,6 +31,7 @@ import software.decibel.exceptions.custom.InvalidPlaylistOperationException;
 import software.decibel.exceptions.custom.PlaylistAccessDeniedException;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.exceptions.custom.TrackAlreadyInPlaylistException;
+import software.decibel.exceptions.custom.UnauthorizedActionException;
 import software.decibel.mappers.PlaylistMapper;
 import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.PlaylistLikeRepository;
@@ -105,15 +106,6 @@ public class PlaylistService {
 
         String newCoverArtUrl = null;
 
-        //NOT SURE IF NEEDED LEFT COMMENTED OUT
-        // if (request.title() != null) {
-        //     newSlug = SlugUtility.generateUniqueSlug(
-        //             request.title(), playlistRepository::existsBySlug);
-        // }
-        // Cover art — three-state via sentinel:
-        //   clearCoverArt = true              → delete existing, set null
-        //   coverArt part present with bytes  → delete existing, upload new
-        //   everything else                   → keep existing (null passed to mapper)
         playlistMapper.updateEntityFromPatch(request, playlist, newCoverArtUrl);
         playlist = playlistRepository.save(playlist);
 
@@ -406,6 +398,29 @@ public class PlaylistService {
             return playlistTokenService.getActiveToken(playlistId);
         } else {
             return playlistTokenService.getActiveToken(playlistId);
+        }
+    }
+
+    @Transactional
+    public void deletePlaylistCover(Long playlistId) {
+        // 1. Fetch the playlist
+        Playlist playlist = playlistRepository.findById(playlistId)
+                .orElseThrow(() -> new ResourceNotFoundException("Playlist not found"));
+
+        // 2. Ownership Check: Ensure the person deleting is the creator
+        Long currentUserId = JwtService.getCurrentUserId();
+        if (!playlist.getUser().getId().equals(currentUserId)) {
+            throw new UnauthorizedActionException("You do not have permission to edit this playlist.");
+        }
+
+        // 3. Delete from Azure and Update DB
+        if (playlist.getCoverArtUrl() != null) {
+            // Remove the actual file from storage
+            fileUtilityAzure.deleteFileByUrl(playlist.getCoverArtUrl());
+
+            // Nullify the reference in our database
+            playlist.setCoverArtUrl(null);
+            playlistRepository.save(playlist);
         }
     }
 

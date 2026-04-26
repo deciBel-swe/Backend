@@ -57,6 +57,7 @@ import software.decibel.repositories.TrackRepostRepository;
 import software.decibel.services.engagement.LikeService;
 import software.decibel.services.engagement.RepostService;
 import software.decibel.services.track.TrackService;
+import software.decibel.services.track.TrackTokenService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.FileUtilityAzure;
 import software.decibel.utils.TrackChecksUtil;
@@ -69,6 +70,9 @@ class TrackServiceTest {
     private TrackRepostRepository repostRepository;
     @Mock
     private CommentRepository commentRepository;
+
+    @Mock
+    private TrackTokenService trackTokenService;
     @Mock
     private TrackRepository trackRepository;
 
@@ -484,7 +488,7 @@ class TrackServiceTest {
         when(request.tags()).thenReturn(null);
 
         when(trackRepository.findById(1L)).thenReturn(Optional.of(track));
-    when(trackChecksUtil.getTrackIfExistsById(1L)).thenReturn(track);
+        when(trackChecksUtil.getTrackIfExistsById(1L)).thenReturn(track);
 
         // Act
         trackService.updateTrack(1L, request);
