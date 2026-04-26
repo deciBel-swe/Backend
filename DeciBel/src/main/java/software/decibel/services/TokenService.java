@@ -88,10 +88,10 @@ public class TokenService {
 
     @Transactional
     public void deleteTokensForUserAndType(User user, TokenType tokenType) {
-        // Delete PendingEmailChange records first to avoid FK constraint violation
-        // This is necessary for any token type since pending_email_changes can reference any token
-        pendingEmailChangeRepository.findByUser(user).ifPresent(pendingEmailChangeRepository::delete);
-        tokenRepository.deleteByUserAndTokenType(user, tokenType);
+        // Fetch tokens and delete them individually using deleteToken()
+        // which handles pending_email_changes cleanup for each token
+        List<Token> tokensToDelete = tokenRepository.findAllByUserAndTokenType(user, tokenType);
+        tokensToDelete.forEach(this::deleteToken);
     }
 
     private IssuedToken issueToken(User user, TokenType tokenType, int bytesLength, long expirationMinutes) {
