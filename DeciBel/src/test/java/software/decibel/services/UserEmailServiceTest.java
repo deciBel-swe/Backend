@@ -100,7 +100,7 @@ class UserEmailServiceTest {
                 new ChangeEmailRequest("new@example.com"));
 
         assertEquals("Verification email sent successfully", response.message());
-        verify(tokenService).deleteTokensForUserAndType(user, TokenType.EMAIL_CHANGE);
+        verify(tokenService, never()).deleteToken(any(Token.class));
         verify(pendingEmailChangeRepository).save(any(PendingEmailChange.class));
         verify(emailService).sendEmailChangeVerificationEmail(
                 "new@example.com",
