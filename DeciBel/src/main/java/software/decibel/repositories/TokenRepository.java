@@ -19,6 +19,8 @@ public interface TokenRepository extends JpaRepository<Token, Long> {
 
     List<Token> findAllByUserAndTokenType(User user, TokenType tokenType);
 
+    List<Token> findByExpiresAtBefore(LocalDateTime time);
+
     void deleteByUserAndTokenType(User user, TokenType tokenType);
 
     void deleteByExpiresAtBefore(LocalDateTime dateTime);

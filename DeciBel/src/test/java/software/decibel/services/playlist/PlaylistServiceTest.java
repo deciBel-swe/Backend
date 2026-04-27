@@ -185,6 +185,7 @@ class PlaylistServiceTest {
         User user = user(1L);
         user.setTier(AccountTier.FREE);
         Playlist playlist = playlist(user);
+        when(userService.getUserIfExistsById(user.getId())).thenReturn(user);
         when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
 
         // Mock current user so visibility checks pass
