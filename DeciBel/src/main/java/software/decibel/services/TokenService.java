@@ -84,15 +84,21 @@ public class TokenService {
 
     @Transactional
     public void deleteExpiredTokens() {
-        tokenRepository.deleteByExpiresAtBefore(LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+
+        pendingEmailChangeRepository.deleteByToken_ExpiresAtBefore(now);
+
+        //Bulk delete the expired tokens themselves
+        tokenRepository.deleteByExpiresAtBefore(now);
     }
 
     @Transactional
     public void deleteTokensForUserAndType(User user, TokenType tokenType) {
-        // Fetch tokens and delete them individually using deleteToken()
-        // which handles pending_email_changes cleanup for each token
-        List<Token> tokensToDelete = tokenRepository.findAllByUserAndTokenType(user, tokenType);
-        tokensToDelete.forEach(this::deleteToken);
+        //Bulk delete all pending email changes tied to this user's tokens of this type
+        pendingEmailChangeRepository.deleteByToken_UserAndToken_TokenType(user, tokenType);
+
+        //Bulk delete the tokens themselves
+        tokenRepository.deleteByUserAndTokenType(user, tokenType); // Ensure this method exists in TokenRepository!
     }
 
     private IssuedToken issueToken(User user, TokenType tokenType, int bytesLength, long expirationMinutes) {

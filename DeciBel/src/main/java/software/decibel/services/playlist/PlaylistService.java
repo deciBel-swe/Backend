@@ -25,6 +25,7 @@ import software.decibel.entities.Playlist;
 import software.decibel.entities.PlaylistRepost;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
+import software.decibel.enums.AccountTier;
 import software.decibel.enums.FileType;
 import software.decibel.enums.ResourceType;
 import software.decibel.exceptions.custom.InvalidPlaylistOperationException;
@@ -134,15 +135,18 @@ public class PlaylistService {
         if (isUserBlocked(currentUserId, playlist.getUser().getId())) {
             throw new ResourceNotFoundException("Playlist with id " + playlistId + " not found");
         }
+        AccountTier userTier = AccountTier.FREE;
 
         if (currentUserId == null) {
-            return playlistMapper.toResponse(playlist);
+            return playlistMapper.toResponse(playlist, Collections.emptySet(), Collections.emptySet(), userTier);
         }
 
         Set<Long> likedTrackIds = trackLikeRepository.findTrackIdsByUserId(currentUserId);
         Set<Long> repostedTrackIds = trackRepostRepository.findTrackIdsByUserId(currentUserId);
+        User currentUser = userService.getUserIfExistsById(currentUserId);
+        userTier = currentUser.getTier();
 
-        return playlistMapper.toResponse(playlist, likedTrackIds, repostedTrackIds);
+        return playlistMapper.toResponse(playlist, likedTrackIds, repostedTrackIds, userTier);
     }
 
     // -------------------------------------------------------------------------
@@ -157,8 +161,10 @@ public class PlaylistService {
 
         Set<Long> likedTrackIds = trackLikeRepository.findTrackIdsByUserId(currentUserId);
         Set<Long> repostedTrackIds = trackRepostRepository.findTrackIdsByUserId(currentUserId);
+        User currentUser = userService.getUserIfExistsById(currentUserId);
+        AccountTier userTier = currentUser.getTier();
 
-        return playlistMapper.toResponse(playlist, likedTrackIds, repostedTrackIds);
+        return playlistMapper.toResponse(playlist, likedTrackIds, repostedTrackIds, userTier);
     }
 
     // -------------------------------------------------------------------------
@@ -205,7 +211,10 @@ public class PlaylistService {
         Set<Long> trackReposts = currentUserId != null
                 ? trackRepostRepository.findTrackIdsByUserId(currentUserId) : Collections.emptySet();
 
-        return playlistMapper.toResponse(playlist, trackLikes, trackReposts);
+        User currentUser = userService.getUserIfExistsById(currentUserId);
+        AccountTier userTier = currentUser.getTier();
+
+        return playlistMapper.toResponse(playlist, trackLikes, trackReposts, userTier);
     }
 
     // -------------------------------------------------------------------------
@@ -227,7 +236,10 @@ public class PlaylistService {
         Set<Long> trackLikes = trackLikeRepository.findTrackIdsByUserId(currentUserId);
         Set<Long> trackReposts = trackRepostRepository.findTrackIdsByUserId(currentUserId);
 
-        return playlistMapper.toResponse(playlist, trackLikes, trackReposts);
+        User currentUser = userService.getUserIfExistsById(currentUserId);
+        AccountTier userTier = currentUser.getTier();
+
+        return playlistMapper.toResponse(playlist, trackLikes, trackReposts, userTier);
     }
 
     // -------------------------------------------------------------------------

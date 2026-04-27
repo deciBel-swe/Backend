@@ -182,6 +182,8 @@ public interface TrackMapper {
             target = "isPrivate",
             expression = "java(track.getVisibility() == software.decibel.enums.Visibility.PRIVATE)")
     @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
+    @Mapping(target = "trackSlug", source = "slug")
+    @Mapping(target = "commentCount", expression = "java(mapCommentCount(track))")
     TrackPatchResponse toTrackPatchResponse(Track track);
 
     default List<String> mapTags(List<Tag> tags) {

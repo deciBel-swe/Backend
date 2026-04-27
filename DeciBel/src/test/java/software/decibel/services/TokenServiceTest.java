@@ -10,8 +10,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -20,9 +22,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import software.decibel.dtos.auth.IssuedToken;
+import software.decibel.entities.PendingEmailChange;
 import software.decibel.entities.Token;
 import software.decibel.entities.User;
 import software.decibel.enums.TokenType;
+import software.decibel.repositories.PendingEmailChangeRepository;
 import software.decibel.repositories.TokenRepository;
 import software.decibel.utils.TokenUtility;
 
@@ -34,6 +38,9 @@ class TokenServiceTest {
 
     @Mock
     private TokenUtility tokenUtility;
+
+    @Mock
+    private PendingEmailChangeRepository pendingEmailChangeRepository;
 
     @InjectMocks
     private TokenService tokenService;
@@ -125,4 +132,63 @@ class TokenServiceTest {
         assertNotNull(token.getUsedAt());
         verify(tokenRepository).save(token);
     }
+
+    @Test
+    void deleteToken_whenPendingEmailChangeExists_deletesPendingChangeBeforeToken() {
+        // Arrange
+        Token token = Token.builder().tokenId(1L).build();
+        PendingEmailChange pendingChange = PendingEmailChange.builder().pendingEmailChangeId(10L).build();
+
+        when(pendingEmailChangeRepository.findByToken(token)).thenReturn(Optional.of(pendingChange));
+
+        // Act
+        tokenService.deleteToken(token);
+
+        // Assert
+        InOrder inOrder = inOrder(pendingEmailChangeRepository, tokenRepository);
+        inOrder.verify(pendingEmailChangeRepository).delete(pendingChange);
+        inOrder.verify(tokenRepository).delete(token);
+    }
+
+    @Test
+    void deleteToken_whenNoPendingEmailChangeExists_deletesOnlyToken() {
+        // Arrange
+        Token token = Token.builder().tokenId(1L).build();
+        when(pendingEmailChangeRepository.findByToken(token)).thenReturn(Optional.empty());
+
+        // Act
+        tokenService.deleteToken(token);
+
+        // Assert
+        verify(pendingEmailChangeRepository, never()).delete(any());
+        verify(tokenRepository).delete(token);
+    }
+
+    @Test
+    void deleteExpiredTokens_bulkDeletesPendingChangesBeforeTokens() {
+        // Act
+        tokenService.deleteExpiredTokens();
+
+        // Assert
+        // Verifies the bulk delete queries are executed in the correct order
+        InOrder inOrder = inOrder(pendingEmailChangeRepository, tokenRepository);
+        inOrder.verify(pendingEmailChangeRepository).deleteByToken_ExpiresAtBefore(any(LocalDateTime.class));
+        inOrder.verify(tokenRepository).deleteByExpiresAtBefore(any(LocalDateTime.class));
+    }
+
+    @Test
+    void deleteTokensForUserAndType_bulkDeletesPendingChangesBeforeTokens() {
+        // Arrange
+        User user = new User();
+        TokenType type = TokenType.EMAIL_CHANGE;
+
+        // Act
+        tokenService.deleteTokensForUserAndType(user, type);
+
+        // Assert
+        InOrder inOrder = inOrder(pendingEmailChangeRepository, tokenRepository);
+        inOrder.verify(pendingEmailChangeRepository).deleteByToken_UserAndToken_TokenType(user, type);
+        inOrder.verify(tokenRepository).deleteByUserAndTokenType(user, type);
+    }
+
 }

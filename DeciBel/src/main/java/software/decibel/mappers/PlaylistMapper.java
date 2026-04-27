@@ -70,15 +70,11 @@ public class PlaylistMapper {
         // type — null = keep existing
         if (request.type() != null) {
             playlist.setType(request.type());
-        } else {
-            playlist.setType(null);
         }
 
         // isPrivate — null = keep existing, Boolean value = overwrite
         if (request.isPrivate() != null) {
             playlist.setPrivate(request.isPrivate());
-        } else {
-            playlist.setPrivate(false);
         }
 
         if (newCoverArtUrl != null) {
@@ -122,8 +118,8 @@ public class PlaylistMapper {
                 firstTrackWaveformUrl);
     }
 
-    public PlaylistResponse toResponse(Playlist playlist, Set<Long> likedTrackIds, Set<Long> repostedTrackIds) {
-        return toResponse(playlist, likedTrackIds, repostedTrackIds, AccountTier.FREE);
+    public PlaylistResponse toResponse(Playlist playlist, AccountTier accountTier) {
+        return toResponse(playlist, Collections.emptySet(), Collections.emptySet(), accountTier);
     }
 
     public PlaylistResponse toResponse(Playlist playlist) {
@@ -171,8 +167,8 @@ public class PlaylistMapper {
                 secretToken);
     }
 
-    public PlaylistSummaryDto toSummary(Playlist playlist) {
-        return toSummary(playlist, Collections.emptySet(), Collections.emptySet(), AccountTier.FREE);
+    public PlaylistSummaryDto toSummary(Playlist playlist, AccountTier accountTier) {
+        return toSummary(playlist, Collections.emptySet(), Collections.emptySet(), accountTier);
     }
 
     // -------------------------------------------------------------------------
