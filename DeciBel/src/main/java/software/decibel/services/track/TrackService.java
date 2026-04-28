@@ -44,13 +44,14 @@ import software.decibel.enums.TrackAccess;
 import software.decibel.enums.TrackState;
 import software.decibel.enums.Visibility;
 import software.decibel.exceptions.custom.CooldownActiveException;
+import software.decibel.exceptions.custom.NoStationResultsException;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.exceptions.custom.TrackAlreadyPublishedException;
 import software.decibel.exceptions.custom.UnauthorizedActionException;
-import software.decibel.exceptions.custom.NoStationResultsException;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.CommentRepository;
 import software.decibel.repositories.ListeningHistoryRepository;
+import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
@@ -88,6 +89,8 @@ public class TrackService {
     private final TagService tagService;
     private final SimpMessagingTemplate messagingTemplate;
     private final TrackChecksUtil trackChecksUtil;
+
+    private final PlaylistRepository playlistRepository;
 
     //Async Processor
     private final TrackAsyncProcessor trackAsyncProcessor;
@@ -167,6 +170,7 @@ public class TrackService {
         likeRepository.deleteAllByTrackId(trackId);
         repostRepository.deleteAllByTrackId(trackId);
         commentRepository.deleteAllByTrackId(trackId);
+        playlistRepository.removeTrackFromAllPlaylists(trackId);
 
         // update track count
         uploader.setTrackCount(uploader.getTrackCount() - 1);
@@ -217,6 +221,7 @@ public class TrackService {
         likeRepository.deleteAllByTrackId(trackId);
         repostRepository.deleteAllByTrackId(trackId);
         commentRepository.deleteAllByTrackId(trackId);
+        playlistRepository.removeTrackFromAllPlaylists(trackId);
         trackRepository.delete(track);
 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {

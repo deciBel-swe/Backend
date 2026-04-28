@@ -233,4 +233,29 @@ public interface TrackRepository extends JpaRepository<Track, Long> {
         ))
     """)
     Page<Track> searchPublicTracks(@Param("query") String query, @Param("userId") Long userId, Pageable pageable);
+
+// Fallback for Genre Station: Most popular tracks overall (Plays & Likes)
+    @Query("""
+        SELECT t FROM Track t 
+        WHERE t.visibility = 'PUBLIC' AND t.state = 'FINISHED' 
+        ORDER BY t.playCount DESC, t.likeCount DESC
+    """)
+    Page<Track> findMostPopularTracks(Pageable pageable);
+
+    // Fallback for Artist Station: Highly engaged/viral tracks (Reposts & Comments)
+    @Query("""
+        SELECT t FROM Track t 
+        WHERE t.visibility = 'PUBLIC' AND t.state = 'FINISHED' 
+        ORDER BY t.repostCount DESC, t.commentCount DESC, t.playCount DESC
+    """)
+    Page<Track> findMostPopularArtistTracks(Pageable pageable);
+
+    // Fallback for Likes Station: Most liked tracks overall
+    @Query("""
+        SELECT t FROM Track t 
+        WHERE t.visibility = 'PUBLIC' AND t.state = 'FINISHED' 
+        ORDER BY t.likeCount DESC, t.playCount DESC
+    """)
+    Page<Track> findMostLikedTracks(Pageable pageable);
+
 }
