@@ -11,32 +11,27 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import software.decibel.dtos.track.requests.TrackPatchRequest;
+
 import software.decibel.dtos.auth.MessageResponse;
+import software.decibel.dtos.track.requests.TrackPatchRequest;
 import software.decibel.dtos.track.responses.TrackPageResponse;
 import software.decibel.dtos.track.responses.TrackStatusResponse;
 import software.decibel.entities.ListeningHistory;
@@ -51,6 +46,7 @@ import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.CommentRepository;
 import software.decibel.repositories.ListeningHistoryRepository;
+import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
@@ -75,6 +71,8 @@ class TrackServiceTest {
     private TrackTokenService trackTokenService;
     @Mock
     private TrackRepository trackRepository;
+    @Mock
+    private PlaylistRepository playlistRepository;
 
     @Mock
     private ListeningHistoryRepository listeningHistoryRepository;

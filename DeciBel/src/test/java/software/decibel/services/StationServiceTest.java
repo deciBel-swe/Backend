@@ -1,27 +1,37 @@
 package software.decibel.services;
 
+import java.util.List;
+import java.util.Set;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.AfterEach;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import org.mockito.MockitoAnnotations;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import org.junit.jupiter.api.*;
-import org.mockito.*;
-import org.springframework.data.domain.*;
 import software.decibel.dtos.discovery.StationPageResponse;
 import software.decibel.entities.Track;
 import software.decibel.exceptions.custom.NoStationResultsException;
 import software.decibel.mappers.StationMapper;
 import software.decibel.repositories.FollowRepository;
+import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
 import software.decibel.repositories.TrackTokenRepository;
-import software.decibel.projections.TrackTokenProjection;
 import software.decibel.services.user.UserService;
 
 class StationServiceTest {
@@ -42,6 +52,8 @@ class StationServiceTest {
     private StationMapper stationMapper;
     @Mock
     private UserService userService;
+    @Mock
+    private PlaylistRepository playlistRepository;
 
     @InjectMocks
     private StationService stationService;
@@ -51,9 +63,6 @@ class StationServiceTest {
     @BeforeEach
     void setup() {
         MockitoAnnotations.openMocks(this);
-        // we will mock jwt once here so that anytime a test or service needs to use it
-        // to get user id
-        // we automatically get user id 1
         jwtMock = mockStatic(JwtService.class);
         jwtMock.when(JwtService::getCurrentUserId).thenReturn(mockUserId);
     }
@@ -87,7 +96,7 @@ class StationServiceTest {
 
         when(trackRepository.findGenreStation(eq(mockUserId), any(PageRequest.class))).thenReturn(page);
         mockBuildDependencies(Set.of(1L));
-        when(stationMapper.toPageResponse(eq(page), any(), any(), any(), any())).thenReturn(mockResponse);
+        when(stationMapper.toPageResponse(any(Page.class), any(), any(), any(), any())).thenReturn(mockResponse);
 
         // Act
         StationPageResponse response = stationService.getGenreStation(0, 20);
@@ -102,6 +111,8 @@ class StationServiceTest {
         // Arrange
         when(trackRepository.findGenreStation(eq(mockUserId), any(PageRequest.class)))
                 .thenReturn(Page.empty());
+        when(trackRepository.findMostPopularTracks(any(PageRequest.class)))
+                .thenReturn(Page.empty());
 
         // Act & Assert
         assertThrows(NoStationResultsException.class, () -> stationService.getGenreStation(0, 20));
@@ -111,7 +122,6 @@ class StationServiceTest {
     @Test
     void getArtistStation_shouldReturnPageResponse_whenTracksFound() {
         // Arrange
-        Long artistId = 2L;
         Track track = new Track();
         track.setId(10L);
         Page<Track> page = pageOf(track);
@@ -120,7 +130,7 @@ class StationServiceTest {
         when(trackRepository.findArtistStation(eq(mockUserId), any(PageRequest.class)))
                 .thenReturn(page);
         mockBuildDependencies(Set.of(10L));
-        when(stationMapper.toPageResponse(eq(page), any(), any(), any(), any())).thenReturn(mockResponse);
+        when(stationMapper.toPageResponse(any(Page.class), any(), any(), any(), any())).thenReturn(mockResponse);
 
         // Act
         StationPageResponse response = stationService.getArtistStation(0, 20);
@@ -133,8 +143,9 @@ class StationServiceTest {
     @Test
     void getArtistStation_shouldThrowNoStationResults_whenEmpty() {
         // Arrange
-        Long artistId = 2L;
         when(trackRepository.findArtistStation(eq(mockUserId), any(PageRequest.class)))
+                .thenReturn(Page.empty());
+        when(trackRepository.findMostPopularArtistTracks(any(PageRequest.class)))
                 .thenReturn(Page.empty());
 
         // Act & Assert
@@ -152,7 +163,7 @@ class StationServiceTest {
 
         when(trackRepository.findLikesStation(eq(mockUserId), any(PageRequest.class))).thenReturn(page);
         mockBuildDependencies(Set.of(5L));
-        when(stationMapper.toPageResponse(eq(page), any(), any(), any(), any())).thenReturn(mockResponse);
+        when(stationMapper.toPageResponse(any(Page.class), any(), any(), any(), any())).thenReturn(mockResponse);
 
         // Act
         StationPageResponse response = stationService.getLikesStation(0, 20);
@@ -166,6 +177,8 @@ class StationServiceTest {
     void getLikesStation_shouldThrowNoStationResults_whenEmpty() {
         // Arrange
         when(trackRepository.findLikesStation(eq(mockUserId), any(PageRequest.class)))
+                .thenReturn(Page.empty());
+        when(trackRepository.findMostLikedTracks(any(PageRequest.class)))
                 .thenReturn(Page.empty());
 
         // Act & Assert
