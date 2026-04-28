@@ -137,7 +137,7 @@ class FeedServiceTest {
                 0,
                 false,
                 120,
-                LocalDate.now().minusDays(1),
+                LocalDateTime.now().minusDays(1),
                 "desc",
                 "token",
                 software.decibel.enums.TrackAccess.PLAYABLE,
