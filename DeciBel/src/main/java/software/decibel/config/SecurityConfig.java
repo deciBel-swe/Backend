@@ -75,6 +75,7 @@ public class SecurityConfig {
                                 .requestMatchers("/webhook/**").permitAll()
                                 //needed for api docs
                                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                                .requestMatchers("/actuator/**").permitAll() // Allow actuator endpoints for monitoring
                                 .anyRequest().authenticated())
                 // Use stateless sessions for JWT authentication
                 .sessionManagement(

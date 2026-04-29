@@ -31,8 +31,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
         String path = request.getServletPath();
-        // Tell the filter to skip any route starting with /auth/ or /admin
-        return path.startsWith("/auth/") || path.startsWith("/admin") || path.startsWith("/ws");
+        // Tell the filter to skip any route starting with /auth/ or /admin or /ws or /actuator (for monitoring)
+        return path.startsWith("/auth/") || path.startsWith("/admin") || path.startsWith("/ws") || path.startsWith("/actuator");
 
     }
 
