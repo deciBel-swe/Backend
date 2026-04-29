@@ -168,12 +168,18 @@ public interface TrackMapper {
             expression
             = "java(dto.isPrivate() ? software.decibel.enums.Visibility.PRIVATE : software.decibel.enums.Visibility.PUBLIC)")
     @Mapping(target = "uploader", source = "uploader")
+    @Mapping(target = "tokens", ignore = true)
+    @Mapping(target = "comments", ignore = true)
     Track toEntity(TrackUploadRequest dto, User uploader);
 
     // ----------------- TrackStatus DTOs ---------------------
     // Track -> TrackStatusResponse DTO
     @Mapping(source = "id", target = "trackId")
     @Mapping(source = "state", target = "trackState")
+    @Mapping(target = "progressPercentage", ignore = true)
+    @Mapping(target = "stepName", ignore = true)
+    @Mapping(target = "errorMessage", ignore = true)
+    @Mapping(target = "trackResponse", ignore = true)
     TrackStatusResponse toTrackStatusResponse(Track track);
 
     // --------------- TrackPatch DTOs ---------------------

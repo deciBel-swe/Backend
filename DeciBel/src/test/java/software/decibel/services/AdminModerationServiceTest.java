@@ -59,6 +59,9 @@ class AdminModerationServiceTest {
     private FileUtilityAzure fileUtilityAzure;
 
     @Mock
+    private software.decibel.repositories.CommentRepository commentRepository;
+
+    @Mock
     private TrackService trackService;
 
     @Mock
@@ -116,13 +119,19 @@ class AdminModerationServiceTest {
 
     @Test
     void getReportById_whenReportExists_returnsMappedResponse() {
-        ReportResponse response = ReportResponse.builder().id(1L).build();
+        report.setTargetType(software.decibel.enums.ReportTargetType.USER);
+        report.setTargetId(2L);
+        report.setReporterId(7L);
         when(reportRepository.findById(1L)).thenReturn(Optional.of(report));
-        when(reportMapper.toReportResponse(report)).thenReturn(response);
+        when(userRepository.findById(7L)).thenReturn(Optional.of(user));
+        
+        User targetUser = User.builder().id(2L).username("target").displayName("Target").build();
+        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
 
-        ReportResponse result = adminModerationService.getReportById(1L);
+        software.decibel.dtos.admin.DetailedReportResponse result = adminModerationService.getReportById(1L);
 
         assertEquals(1L, result.id());
+        assertEquals("target", result.targetUsername());
     }
 
     @Test
@@ -239,6 +248,9 @@ class AdminModerationServiceTest {
         when(trackRepository.sumPlayCount()).thenReturn(120L);
         when(trackRepository.averagePlayThroughRate()).thenReturn(73.5);
 
+        when(fileUtilityAzure.getTotalStorageUsed()).thenReturn(0L);
+        when(fileUtilityAzure.getTotalStorageCapacity()).thenReturn(53687091200L);
+
         AnalyticsResponse result = adminModerationService.getPlatformAnalytics();
 
         assertEquals(10L, result.totalUsers());
@@ -246,6 +258,7 @@ class AdminModerationServiceTest {
         assertEquals(120L, result.totalPlays());
         assertEquals(73.5, result.playThroughRate());
         assertEquals(0L, result.totalStorageUsedBytes());
+        assertEquals(53687091200L, result.totalStorageCapacityBytes());
     }
 
     private void mockAdminAuth() {

@@ -28,11 +28,13 @@ public class FileUtilityAzure {
     // Client that connects to your specific container in Azure
     private final BlobContainerClient blobContainerClient;
     private final Tika tika;
+    private final long totalStorageCapacityBytes;
 
     // Constructor (get values from application.properties)
     public FileUtilityAzure(
             @Value("${azure.storage.connection-string}") String connectionString,
-            @Value("${azure.storage.blob-container-name}") String containerName) {
+            @Value("${azure.storage.blob-container-name}") String containerName,
+            @Value("${azure.storage.capacity-bytes:53687091200}") long totalStorageCapacityBytes) {
 
         // Build the connection using connection string and container name
         this.blobContainerClient
@@ -41,6 +43,7 @@ public class FileUtilityAzure {
                         .containerName(containerName)
                         .buildClient();
         this.tika = new Tika();
+        this.totalStorageCapacityBytes = totalStorageCapacityBytes;
     }
 
     // Saves file to azure and returns the URL of the uploaded file
@@ -143,5 +146,9 @@ public class FileUtilityAzure {
         }
 
         return totalSizeBytes;
+    }
+
+    public long getTotalStorageCapacity() {
+        return this.totalStorageCapacityBytes;
     }
 }

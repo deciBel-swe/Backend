@@ -170,7 +170,7 @@ class AdminControllerTest {
 
     @Test
     void getReportById_returnsOkAndJson() throws Exception {
-        ReportResponse report = ReportResponse.builder()
+        software.decibel.dtos.admin.DetailedReportResponse report = software.decibel.dtos.admin.DetailedReportResponse.builder()
                 .id(1L)
                 .reporterId(100L)
                 .status(ReportStatus.OPEN)
@@ -257,12 +257,13 @@ class AdminControllerTest {
     @Test
     void getPlatformAnalytics_returnsOkAndJson() throws Exception {
         when(adminModerationService.getPlatformAnalytics())
-                .thenReturn(new AnalyticsResponse(10L, 4L, 120L, 73.5, 0L));
+                .thenReturn(new AnalyticsResponse(10L, 4L, 120L, 73.5, 0L, 53687091200L));
 
         mockMvc.perform(get("/admin/analytics"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalUsers").value(10))
                 .andExpect(jsonPath("$.totalTracks").value(4))
-                .andExpect(jsonPath("$.totalPlays").value(120));
+                .andExpect(jsonPath("$.totalPlays").value(120))
+                .andExpect(jsonPath("$.totalStorageCapacityBytes").value(53687091200L));
     }
 }

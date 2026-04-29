@@ -77,4 +77,9 @@ public class User {
     // purpose is to delete comments if user is deleted
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Comment> comments;
+
+    // user can have many tokens (e.g. verification, reset)
+    // purpose is to delete tokens if user is deleted
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Token> tokens;
 }
