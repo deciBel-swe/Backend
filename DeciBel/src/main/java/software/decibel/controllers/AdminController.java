@@ -24,6 +24,7 @@ import software.decibel.dtos.admin.LoginAdminResponse;
 import software.decibel.dtos.admin.ReportResponse;
 import software.decibel.dtos.admin.UpdateReportStatusRequest;
 import software.decibel.dtos.auth.MessageResponse;
+import software.decibel.dtos.admin.DetailedReportResponse;
 import software.decibel.services.admin.AdminAuthService;
 import software.decibel.services.admin.AdminModerationService;
 
@@ -49,7 +50,7 @@ public class AdminController {
     }
 
     @GetMapping("/reports/{id}")
-    public ResponseEntity<ReportResponse> getReportById(@PathVariable Long id) {
+    public ResponseEntity<DetailedReportResponse> getReportById(@PathVariable Long id) {
         return ResponseEntity.ok(adminModerationService.getReportById(id));
     }
 
