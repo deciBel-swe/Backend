@@ -1,190 +1,126 @@
 package software.decibel.mappers;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-
-import org.springframework.stereotype.Component;
-
-import lombok.RequiredArgsConstructor;
+import java.util.stream.Collectors;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Pageable;
 import software.decibel.dtos.playlist.CreatePlaylistRequest;
-import software.decibel.dtos.playlist.OwnerDto;
-import software.decibel.dtos.playlist.PatchPlaylistRequest;
 import software.decibel.dtos.playlist.PlaylistResponse;
-import software.decibel.dtos.playlist.PlaylistSummaryDto;
+import software.decibel.dtos.playlist.PlaylistSummaryResponse;
 import software.decibel.dtos.track.TrackSummaryDTO;
-import software.decibel.dtos.user.UserSummaryDTO;
 import software.decibel.entities.Playlist;
-import software.decibel.entities.PlaylistToken;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
 import software.decibel.enums.AccountTier;
+import software.decibel.services.playlist.PlaylistTokenService;
 
-@Component
-@RequiredArgsConstructor
-public class PlaylistMapper {
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 
-    private static final int SUMMARY_TRACK_LIMIT = 5;
+@Mapper(componentModel = "spring", uses = {UserMapper.class})
+public abstract class PlaylistMapper {
 
-    private final TrackMapper trackMapper;
-    private final UserMapper userMapper;
+    // Manually inject TrackMapper so it's guaranteed to be available in the implementation
+    @Autowired
+    protected TrackMapper trackMapper;
 
-    // -------------------------------------------------------------------------
-    // CREATE
-    // -------------------------------------------------------------------------
-    public Playlist toEntity(CreatePlaylistRequest request, User owner, String slug, String coverArtUrl) {
-        return Playlist.builder()
-                .title(request.title())
-                .description(request.description())
-                .type(request.type())
-                .isPrivate(request.isPrivate())
-                .user(owner)
-                .slug(slug)
-                .coverArtUrl(coverArtUrl)
-                .trackCount(0)
-                .totalDurationSeconds(0)
-                .tracks(new ArrayList<>())
-                .genres(new ArrayList<>())
-                .build();
-    }
+    @Autowired
+    protected PlaylistTokenService playlistTokenService;
 
-    public void updateEntityFromPatch(
-            PatchPlaylistRequest request,
-            Playlist playlist,
-            String newCoverArtUrl) {
+    public abstract Playlist toEntity(CreatePlaylistRequest request, User owner, String slug, String coverArtUrl);
 
-        // title — no clear sentinel (blank title is invalid, null = keep existing)
-        if (request.title() != null) {
-            playlist.setTitle(request.title());
-            // slug follows title — service passes newSlug when title is present
-        } else {
-            playlist.setTitle("");
-        }
-
-        // description — null = keep existing, non-null = overwrite
-        if (request.description() != null) {
-            playlist.setDescription(request.description());
-        }
-
-        // type — null = keep existing
-        if (request.type() != null) {
-            playlist.setType(request.type());
-        }
-
-        // isPrivate — null = keep existing, Boolean value = overwrite
-        if (request.isPrivate() != null) {
-            playlist.setPrivate(request.isPrivate());
-        }
-
-        if (newCoverArtUrl != null) {
-            playlist.setCoverArtUrl(newCoverArtUrl.isEmpty() ? null : newCoverArtUrl);
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // PLAYLIST RESPONSE
-    // -------------------------------------------------------------------------
-    public PlaylistResponse toResponse(
+    @Mapping(target = "playlistSlug", source = "playlist.slug")
+    @Mapping(target = "owner", source = "playlist.user")
+    @Mapping(target = "isLiked", source = "isLikedPlaylist")
+    @Mapping(target = "isReposted", source = "isRepostedPlaylist")
+    @Mapping(target = "secretToken", expression = "java(playlistTokenService.resolveSecretToken(playlist))")
+    @Mapping(target = "trackSummaryDto", expression = "java(mapTracksToPage(playlist.getTracks(), trackPageable, likedTrackIds, repostedTrackIds, accountTier))")
+    @Mapping(target = "firstTrackWaveformUrl", expression = "java(playlist.getTracks().isEmpty() ? null : playlist.getTracks().get(0).getWaveformUrl())")
+    public abstract PlaylistResponse toResponse(
             Playlist playlist,
             Set<Long> likedTrackIds,
             Set<Long> repostedTrackIds,
-            AccountTier accountTier) {
+            boolean isLikedPlaylist,
+            boolean isRepostedPlaylist,
+            AccountTier accountTier,
+            Pageable trackPageable,
+            String secretToken);
 
-        List<Track> allTracks = playlist.getTracks() != null ? playlist.getTracks() : new ArrayList<>();
+    protected Page<TrackSummaryDTO> mapTracksToPage(
+            List<Track> tracks,
+            Pageable pageable,
+            Set<Long> likedTrackIds,
+            Set<Long> repostedTrackIds,
+            AccountTier tier) {
 
-        List<TrackSummaryDTO> trackSummaries = allTracks.stream()
-                .limit(SUMMARY_TRACK_LIMIT)
-                .map(t -> trackMapper.toTrackSummaryDTO(t, likedTrackIds, repostedTrackIds, accountTier))
-                .toList();
+        if (tracks == null || tracks.isEmpty()) {
+            return Page.empty(pageable);
+        }
 
-        String firstTrackWaveformUrl = allTracks.isEmpty() ? null : allTracks.get(0).getWaveformUrl();
+        // 1. Map all tracks to DTOs
+        List<TrackSummaryDTO> dtos = tracks.stream()
+                .map(t -> trackMapper.toTrackSummaryDTO(t, likedTrackIds, repostedTrackIds, tier))
+                .collect(Collectors.toList());
 
-        return new PlaylistResponse(
-                playlist.getId(),
-                playlist.getTitle(),
-                playlist.getType(),
-                playlist.isLiked(),
-                playlist.getDescription(),
-                playlist.isPrivate(),
-                playlist.getCoverArtUrl(),
-                playlist.getSlug(),
-                playlist.getTotalDurationSeconds(),
-                playlist.getTrackCount(),
-                userMapper.toUserSummaryDto(playlist.getUser()),
-                playlist.getGenres() != null ? playlist.getGenres() : new ArrayList<>(),
-                playlist.getCreatedAt(),
-                trackSummaries,
-                firstTrackWaveformUrl);
+        // 2. Since the entity likely has the full list, we need to "slice" it manually for the Page
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), dtos.size());
+
+        // Handle cases where offset is out of bounds
+        if (start > dtos.size()) {
+            return new PageImpl<>(Collections.emptyList(), pageable, dtos.size());
+        }
+
+        List<TrackSummaryDTO> subList = dtos.subList(start, end);
+
+        // 3. Return a PageImpl which is the concrete implementation of Page
+        return new PageImpl<>(subList, pageable, dtos.size());
     }
 
-    public PlaylistResponse toResponse(Playlist playlist, AccountTier accountTier) {
-        return toResponse(playlist, Collections.emptySet(), Collections.emptySet(), accountTier);
+    // Convenience overload
+    public PlaylistResponse toResponse(Playlist playlist, Pageable trackPageable, String secretToken) {
+        return toResponse(playlist, Collections.emptySet(), Collections.emptySet(),
+                false, false, AccountTier.FREE, trackPageable, secretToken);
     }
 
-    public PlaylistResponse toResponse(Playlist playlist) {
-        return toResponse(playlist, Collections.emptySet(), Collections.emptySet(), AccountTier.FREE);
-    }
-
-    // -------------------------------------------------------------------------
-    // PLAYLIST SUMMARY DTO  (lightweight card — Image 3)
-    // -------------------------------------------------------------------------
-    public PlaylistSummaryDto toSummary(
+    @Mapping(target = "playlistSlug", source = "playlist.slug")
+    @Mapping(target = "owner", source = "playlist.user")
+    @Mapping(target = "isLiked", source = "isLikedPlaylist")
+    @Mapping(target = "isReposted", source = "isRepostedPlaylist")
+    @Mapping(target = "secretToken", expression = "java(playlistTokenService.resolveSecretToken(playlist))")
+    @Mapping(target = "trackSummaryDto", expression = "java(mapTracksToSummary(playlist.getTracks(), likedTrackIds, repostedTrackIds, accountTier))")
+    @Mapping(target = "firstTrackWaveformUrl", expression = "java(playlist.getTracks().isEmpty() ? null : playlist.getTracks().get(0).getWaveformUrl())")
+    public abstract PlaylistSummaryResponse toSummaryResponse(
             Playlist playlist,
             Set<Long> likedTrackIds,
             Set<Long> repostedTrackIds,
-            AccountTier accountTier) {
+            boolean isLikedPlaylist,
+            boolean isRepostedPlaylist,
+            AccountTier accountTier,
+            String secretToken);
 
-        List<Track> allTracks = playlist.getTracks() != null ? playlist.getTracks() : new ArrayList<>();
-
-        TrackSummaryDTO representativeTrack = allTracks.isEmpty()
-                ? null
-                : trackMapper.toTrackSummaryDTO(allTracks.get(0), likedTrackIds, repostedTrackIds, accountTier);
-
-        String primaryGenre = (playlist.getGenres() != null && !playlist.getGenres().isEmpty())
-                ? playlist.getGenres().get(0) : null;
-
-        String secretToken = null;
-        if (playlist.getSlugHistory() != null && !playlist.getSlugHistory().isEmpty()) {
-            secretToken = playlist.getSlugHistory().stream()
-                    .filter(t -> !t.isDeleted())
-                    .map(PlaylistToken::getToken)
-                    .findFirst()
-                    .orElse(null);
-        }
-
-        return new PlaylistSummaryDto(
-                playlist.getId(),
-                playlist.getTitle(),
-                playlist.getSlug(),
-                playlist.isLiked(),
-                playlist.isPrivate(),
-                playlist.getCoverArtUrl(),
-                playlist.getTrackCount(),
-                buildOwnerSummaryDto(playlist.getUser()),
-                primaryGenre,
-                representativeTrack,
-                secretToken);
+    // Convenience overload
+    public PlaylistSummaryResponse toSummaryResponse(Playlist playlist, String secretToken) {
+        return toSummaryResponse(playlist, Collections.emptySet(), Collections.emptySet(),
+                false, false, AccountTier.FREE, secretToken);
     }
 
-    public PlaylistSummaryDto toSummary(Playlist playlist, AccountTier accountTier) {
-        return toSummary(playlist, Collections.emptySet(), Collections.emptySet(), accountTier);
-    }
-
-    // -------------------------------------------------------------------------
-    // Private helpers
-    // -------------------------------------------------------------------------
-    private OwnerDto buildOwnerDto(User user) {
-        if (user == null) {
-            return new OwnerDto(null, null, null, null);
+    // Changed to protected and removed the mapper parameter
+    protected List<TrackSummaryDTO> mapTracksToSummary(
+            List<Track> tracks,
+            Set<Long> likedTrackIds,
+            Set<Long> repostedTrackIds,
+            AccountTier tier) {
+        if (tracks == null || trackMapper == null) {
+            return Collections.emptyList();
         }
-        return new OwnerDto(user.getId(), user.getUsername(), user.getDisplayName(), user.getAvatarUrl());
-    }
-
-    private UserSummaryDTO buildOwnerSummaryDto(User user) {
-        if (user == null) {
-            return null;
-        }
-        return userMapper.toUserSummaryDto(user);
+        return tracks.stream()
+                .limit(5)
+                .map(t -> trackMapper.toTrackSummaryDTO(t, likedTrackIds, repostedTrackIds, tier))
+                .collect(Collectors.toList());
     }
 }

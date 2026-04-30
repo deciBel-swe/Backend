@@ -13,7 +13,7 @@ public class FrontendLinkService {
     }
 
     public String buildPasswordResetLink(String token) {
-        return frontendBaseUrl + "/reset-password?token=" + token;
+        return frontendBaseUrl + "/change-password?token=" + token;
     }
 
     public String buildEmailVerificationLink(String token) {

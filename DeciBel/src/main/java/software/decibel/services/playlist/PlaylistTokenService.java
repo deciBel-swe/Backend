@@ -50,9 +50,6 @@ public class PlaylistTokenService {
         return playlistToken.getPlaylist();
     }
 
-    // -------------------------------------------------------------------------
-    // Internal — called by PlaylistService on create-private and public→private
-    // -------------------------------------------------------------------------
     /**
      * Soft-deletes any existing active token for the playlist and saves a new
      * one.
@@ -77,6 +74,14 @@ public class PlaylistTokenService {
                         .build());
 
         return raw;
+    }
+
+    @Transactional
+    public String resolveSecretToken(Playlist playlist) {
+        return playlistTokenRepository
+                .findByPlaylistIdAndIsDeletedFalse(playlist.getId())
+                .map(software.decibel.entities.PlaylistToken::getToken)
+                .orElse(null);
     }
 
 }

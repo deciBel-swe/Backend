@@ -258,4 +258,19 @@ public interface TrackRepository extends JpaRepository<Track, Long> {
     """)
     Page<Track> findMostLikedTracks(Pageable pageable);
 
+    //searching by tags
+    @Query("""
+        SELECT t FROM Track t
+        JOIN t.tags tag
+        WHERE LOWER(tag.title) LIKE LOWER(CONCAT('%', :query, '%'))
+        AND t.visibility = 'PUBLIC'
+        AND (:userId IS NULL OR NOT EXISTS (
+            SELECT 1 FROM Block b
+            WHERE (b.blocker.id = :userId AND b.blocked.id = t.uploader.id)
+            OR (b.blocker.id = t.uploader.id AND b.blocked.id = :userId)
+        ))
+        GROUP BY t
+    """)
+    Page<Track> searchPublicTracksByTag(@Param("query") String query, @Param("userId") Long userId, Pageable pageable);
+
 }

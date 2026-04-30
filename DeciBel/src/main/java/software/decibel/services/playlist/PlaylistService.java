@@ -1,6 +1,5 @@
 package software.decibel.services.playlist;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,6 +18,7 @@ import software.decibel.dtos.Resource;
 import software.decibel.dtos.playlist.CreatePlaylistRequest;
 import software.decibel.dtos.playlist.PatchPlaylistRequest;
 import software.decibel.dtos.playlist.PlaylistResponse;
+import software.decibel.dtos.playlist.PlaylistSummaryResponse;
 import software.decibel.dtos.playlist.PlaylistTokenResponse;
 import software.decibel.dtos.playlist.ReorderTracksRequest;
 import software.decibel.entities.Playlist;
@@ -32,17 +32,14 @@ import software.decibel.exceptions.custom.InvalidPlaylistOperationException;
 import software.decibel.exceptions.custom.PlaylistAccessDeniedException;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.exceptions.custom.TrackAlreadyInPlaylistException;
-import software.decibel.exceptions.custom.UnauthorizedActionException;
 import software.decibel.mappers.PlaylistMapper;
 import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.PlaylistLikeRepository;
 import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.PlaylistRepostRepository;
-import software.decibel.repositories.PlaylistTokenRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
-import software.decibel.repositories.UserRepository;
 import software.decibel.services.JwtService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.FileUtilityAzure;
@@ -54,7 +51,6 @@ import software.decibel.utils.SlugUtility;
 public class PlaylistService {
 
     private final PlaylistRepository playlistRepository;
-    private final PlaylistTokenRepository playlistTokenRepository;
     private final TrackRepository trackRepository;
     private final TrackLikeRepository trackLikeRepository;
     private final TrackRepostRepository trackRepostRepository;
@@ -64,7 +60,6 @@ public class PlaylistService {
     private final UserService userService;
     private final PlaylistLikeRepository playlistLikeRepository;
     private final PlaylistRepostRepository playlistRepostRepository;
-    private final UserRepository userRepository;
     private final PlaylistTokenService playlistTokenService;
 
     // -------------------------------------------------------------------------
@@ -90,7 +85,8 @@ public class PlaylistService {
             playlistTokenService.issueNewToken(playlist);
         }
 
-        return playlistMapper.toResponse(playlist);
+        String secretToken = resolveSecretTokenForUser(playlist, userId);
+        return playlistMapper.toResponse(playlist, Pageable.ofSize(20), secretToken);
     }
 
     // -------------------------------------------------------------------------
@@ -99,15 +95,37 @@ public class PlaylistService {
     @Transactional
     public PlaylistResponse patchPlaylist(Long userId, Long playlistId, PatchPlaylistRequest request) {
         Playlist playlist = findPlaylistById(playlistId);
+
+        // SECURITY: Verify that the user attempting to edit is the actual owner
         checkOwnership(playlist, userId);
 
         // Snapshot visibility before applying patch to detect public → private transition
         boolean wasPublic = !playlist.isPrivate();
         boolean goingPrivate = Boolean.TRUE.equals(request.isPrivate());
 
-        String newCoverArtUrl = null;
+        // MANUALLY UPDATE FIELDS ONLY IF THEY ARE PRESENT IN THE REQUEST
+        if (request.title() != null) {
+            playlist.setTitle(request.title());
+        }
 
-        playlistMapper.updateEntityFromPatch(request, playlist, newCoverArtUrl);
+        if (request.description() != null) {
+            playlist.setDescription(request.description());
+        }
+
+        if (request.type() != null) {
+            playlist.setType(request.type());
+        }
+
+        if (request.isPrivate() != null) {
+            playlist.setPrivate(request.isPrivate());
+        }
+
+        // Handle cover art upload separately
+        if (request.coverArt() != null && !request.coverArt().isEmpty()) {
+            String newCoverArtUrl = fileUtilityAzure.saveFile(request.coverArt(), FileType.TRACK_COVERS);
+            playlist.setCoverArtUrl(newCoverArtUrl);
+        }
+
         playlist = playlistRepository.save(playlist);
 
         // Auto-issue a fresh token whenever visibility transitions public → private
@@ -115,13 +133,14 @@ public class PlaylistService {
             playlistTokenService.issueNewToken(playlist);
         }
 
-        return playlistMapper.toResponse(playlist);
+        String secretToken = resolveSecretTokenForUser(playlist, userId);
+        return playlistMapper.toResponse(playlist, Pageable.ofSize(20), secretToken);
     }
 
     // -------------------------------------------------------------------------
     // GET — single playlist (any authenticated user, subject to privacy + block)
     // -------------------------------------------------------------------------
-    public PlaylistResponse getPlaylist(Long playlistId, Long currentUserId) {
+    public PlaylistResponse getPlaylist(Long playlistId, Long currentUserId, Pageable trackPageable) {
         Playlist playlist = findPlaylistById(playlistId);
 
         // Private playlist: only the owner can see it
@@ -135,42 +154,62 @@ public class PlaylistService {
         if (isUserBlocked(currentUserId, playlist.getUser().getId())) {
             throw new ResourceNotFoundException("Playlist with id " + playlistId + " not found");
         }
-        AccountTier userTier = AccountTier.FREE;
+
+        String secretToken = resolveSecretTokenForUser(playlist, currentUserId);
 
         if (currentUserId == null) {
-            return playlistMapper.toResponse(playlist, Collections.emptySet(), Collections.emptySet(), userTier);
+            return playlistMapper.toResponse(playlist, trackPageable, secretToken);
         }
 
+        User currentUser = userService.getUserIfExistsById(currentUserId);
         Set<Long> likedTrackIds = trackLikeRepository.findTrackIdsByUserId(currentUserId);
         Set<Long> repostedTrackIds = trackRepostRepository.findTrackIdsByUserId(currentUserId);
-        User currentUser = userService.getUserIfExistsById(currentUserId);
-        userTier = currentUser.getTier();
+        boolean isLiked = playlistLikeRepository.existsByUserAndPlaylist(currentUser, playlist);
+        boolean isReposted = playlistRepostRepository.existsByUserAndPlaylist(currentUser, playlist);
+        AccountTier userTier = currentUser.getTier();
 
-        return playlistMapper.toResponse(playlist, likedTrackIds, repostedTrackIds, userTier);
+        return playlistMapper.toResponse(playlist, likedTrackIds, repostedTrackIds, isLiked, isReposted, userTier,
+                trackPageable, secretToken);
     }
 
     // -------------------------------------------------------------------------
     // GET — via secret token (bypasses privacy, anyone with the link)
     // -------------------------------------------------------------------------
-    public PlaylistResponse getPlaylistByToken(String token, Long currentUserId) {
+    public PlaylistResponse getPlaylistByToken(String token, Long currentUserId, Pageable trackPageable) {
         Playlist playlist = playlistTokenService.getPlaylistByToken(token);
 
+        if (isUserBlocked(currentUserId, playlist.getUser().getId())) {
+            throw new ResourceNotFoundException("Playlist not found");
+        }
+
         if (currentUserId == null) {
-            return playlistMapper.toResponse(playlist);
+            return playlistMapper.toResponse(playlist, trackPageable, token); // Keep token since they used the link
         }
 
         Set<Long> likedTrackIds = trackLikeRepository.findTrackIdsByUserId(currentUserId);
         Set<Long> repostedTrackIds = trackRepostRepository.findTrackIdsByUserId(currentUserId);
         User currentUser = userService.getUserIfExistsById(currentUserId);
-        AccountTier userTier = currentUser.getTier();
+        AccountTier accountTier = currentUser.getTier();
 
-        return playlistMapper.toResponse(playlist, likedTrackIds, repostedTrackIds, userTier);
+        boolean isLiked = playlistLikeRepository.existsByUserAndPlaylist(currentUser, playlist);
+        boolean isReposted = playlistRepostRepository.existsByUserAndPlaylist(currentUser, playlist);
+
+        return playlistMapper.toResponse(
+                playlist,
+                likedTrackIds,
+                repostedTrackIds,
+                isLiked,
+                isReposted,
+                accountTier,
+                trackPageable,
+                token
+        );
     }
 
     // -------------------------------------------------------------------------
     // GET — public playlists of any user (by username)
     // -------------------------------------------------------------------------
-    public Page<PlaylistResponse> getPublicPlaylistsByUsername(String username, Pageable pageable) {
+    public Page<PlaylistSummaryResponse> getPublicPlaylistsByUsername(String username, Pageable pageable) {
         User user = getUserByUsername(username);
         Long currentUserId = JwtService.getCurrentUserId();
 
@@ -178,9 +217,30 @@ public class PlaylistService {
             throw new ResourceNotFoundException("User '" + username + "' not found");
         }
 
-        return playlistRepository
-                .findByUserIdAndIsPrivateFalse(user.getId(), pageable)
-                .map(playlistMapper::toResponse);
+        Page<Playlist> playlists = playlistRepository.findByUserIdAndIsPrivateFalse(user.getId(), pageable);
+
+        if (currentUserId == null) {
+            return playlists.map(playlist -> playlistMapper.toSummaryResponse(playlist, resolveSecretTokenForUser(playlist, null)));
+        }
+
+        // IF LOGGED IN: Fetch engagement
+        Set<Long> likedTrackIds = trackLikeRepository.findTrackIdsByUserId(currentUserId);
+        Set<Long> repostedTrackIds = trackRepostRepository.findTrackIdsByUserId(currentUserId);
+        Set<Long> likedPlaylistIds = playlistLikeRepository.findPlaylistIdsByUserId(currentUserId);
+        Set<Long> repostedPlaylistIds = playlistRepostRepository.findPlaylistIdsByUserId(currentUserId);
+
+        User currentUser = userService.getUserIfExistsById(currentUserId);
+        AccountTier accountTier = currentUser.getTier();
+
+        return playlists.map(playlist -> playlistMapper.toSummaryResponse(
+                playlist,
+                likedTrackIds,
+                repostedTrackIds,
+                likedPlaylistIds.contains(playlist.getId()),
+                repostedPlaylistIds.contains(playlist.getId()),
+                accountTier,
+                resolveSecretTokenForUser(playlist, currentUserId)
+        ));
     }
 
     // -------------------------------------------------------------------------
@@ -206,24 +266,51 @@ public class PlaylistService {
             throw new ResourceNotFoundException("Playlist with id " + playlistId + " not found");
         }
 
-        Set<Long> trackLikes = currentUserId != null
-                ? trackLikeRepository.findTrackIdsByUserId(currentUserId) : Collections.emptySet();
-        Set<Long> trackReposts = currentUserId != null
-                ? trackRepostRepository.findTrackIdsByUserId(currentUserId) : Collections.emptySet();
+        String secretToken = resolveSecretTokenForUser(playlist, currentUserId);
+
+        if (currentUserId == null) {
+            return playlistMapper.toResponse(playlist, trackPageable, secretToken);
+        }
+
+        Set<Long> trackLikes = trackLikeRepository.findTrackIdsByUserId(currentUserId);
+        Set<Long> trackReposts = trackRepostRepository.findTrackIdsByUserId(currentUserId);
 
         User currentUser = userService.getUserIfExistsById(currentUserId);
+        boolean isLiked = playlistLikeRepository.existsByUserAndPlaylist(currentUser, playlist);
+        boolean isReposted = playlistRepostRepository.existsByUserAndPlaylist(currentUser, playlist);
+
         AccountTier userTier = currentUser.getTier();
 
-        return playlistMapper.toResponse(playlist, trackLikes, trackReposts, userTier);
+        return playlistMapper.toResponse(playlist, trackLikes, trackReposts, isLiked, isReposted, userTier,
+                trackPageable, secretToken);
     }
 
-    // -------------------------------------------------------------------------
-    // GET — all playlists (public + private) of the current user
-    // -------------------------------------------------------------------------
-    public Page<PlaylistResponse> getPlaylistsByUserId(Long userId, Pageable pageable) {
-        return playlistRepository
-                .findByUserId(userId, pageable)
-                .map(playlistMapper::toResponse);
+    public Page<PlaylistSummaryResponse> getPlaylistsByUserId(Long userId, Pageable pageable) {
+        Long currentUserId = JwtService.getCurrentUserId();
+        Page<Playlist> playlists = playlistRepository.findByUserId(userId, pageable);
+        if (currentUserId == null) {
+            return playlists.map(p -> playlistMapper.toSummaryResponse(p, null));
+        }
+
+        // Fetch what the CURRENT user has liked/reposted
+        Set<Long> likedPIds = playlistLikeRepository.findPlaylistIdsByUserId(currentUserId);
+        Set<Long> repostedPIds = playlistRepostRepository.findPlaylistIdsByUserId(currentUserId);
+
+        // You also need track engagement if you want the track summaries inside to be accurate
+        Set<Long> likedTIds = trackLikeRepository.findTrackIdsByUserId(currentUserId);
+        Set<Long> repostedTIds = trackRepostRepository.findTrackIdsByUserId(currentUserId);
+
+        User currentUser = userService.getUserIfExistsById(currentUserId);
+
+        return playlists.map(p -> playlistMapper.toSummaryResponse(
+                p,
+                likedTIds,
+                repostedTIds,
+                likedPIds.contains(p.getId()),
+                repostedPIds.contains(p.getId()),
+                currentUser.getTier(),
+                resolveSecretTokenForUser(p, currentUserId)
+        ));
     }
 
     // -------------------------------------------------------------------------
@@ -239,13 +326,16 @@ public class PlaylistService {
         User currentUser = userService.getUserIfExistsById(currentUserId);
         AccountTier userTier = currentUser.getTier();
 
-        return playlistMapper.toResponse(playlist, trackLikes, trackReposts, userTier);
+        String secretToken = resolveSecretTokenForUser(playlist, currentUserId);
+
+        boolean isLiked = playlistLikeRepository.existsByUserAndPlaylist(currentUser, playlist);
+        boolean isReposted = playlistRepostRepository.existsByUserAndPlaylist(currentUser, playlist);
+
+        return playlistMapper.toResponse(playlist, trackLikes, trackReposts, isLiked, isReposted, userTier,
+                trackPageable, secretToken);
     }
 
-    // -------------------------------------------------------------------------
-    // GET — liked/reposted playlists of any user
-    // -------------------------------------------------------------------------
-    public Page<PlaylistResponse> getLikedPlaylistsByUsername(String username, Pageable pageable) {
+    public Page<PlaylistSummaryResponse> getLikedPlaylistsByUsername(String username, Pageable pageable) {
         User user = getUserByUsername(username);
         Long currentUserId = JwtService.getCurrentUserId();
 
@@ -253,12 +343,31 @@ public class PlaylistService {
             throw new ResourceNotFoundException("User '" + username + "' not found");
         }
 
-        return playlistLikeRepository
-                .findLikedPlaylistsByUserId(user.getId(), pageable)
-                .map(playlistMapper::toResponse);
+        Page<Playlist> playlists = playlistLikeRepository.findLikedPlaylistsByUserId(user.getId(), pageable);
+
+        if (currentUserId == null) {
+            return playlists.map(playlist -> playlistMapper.toSummaryResponse(playlist, resolveSecretTokenForUser(playlist, null)));
+        }
+
+        Set<Long> likedTrackIds = trackLikeRepository.findTrackIdsByUserId(currentUserId);
+        Set<Long> repostedTrackIds = trackRepostRepository.findTrackIdsByUserId(currentUserId);
+        Set<Long> likedPlaylistIds = playlistLikeRepository.findPlaylistIdsByUserId(currentUserId);
+        Set<Long> repostedPlaylistIds = playlistRepostRepository.findPlaylistIdsByUserId(currentUserId);
+        User currentUser = userService.getUserIfExistsById(currentUserId);
+        AccountTier accountTier = currentUser.getTier();
+
+        return playlists.map(playlist -> playlistMapper.toSummaryResponse(
+                playlist,
+                likedTrackIds,
+                repostedTrackIds,
+                likedPlaylistIds.contains(playlist.getId()),
+                repostedPlaylistIds.contains(playlist.getId()),
+                accountTier,
+                resolveSecretTokenForUser(playlist, currentUserId)
+        ));
     }
 
-    public Page<PlaylistResponse> getRepostedPlaylistsByUsername(String username, Pageable pageable) {
+    public Page<PlaylistSummaryResponse> getRepostedPlaylistsByUsername(String username, Pageable pageable) {
         User user = getUserByUsername(username);
         Long currentUserId = JwtService.getCurrentUserId();
 
@@ -266,9 +375,28 @@ public class PlaylistService {
             throw new ResourceNotFoundException("User '" + username + "' not found");
         }
 
-        return playlistRepostRepository
-                .findRepostedPlaylistsByUserId(user.getId(), pageable)
-                .map(playlistMapper::toResponse);
+        Page<Playlist> playlists = playlistRepostRepository.findRepostedPlaylistsByUserId(user.getId(), pageable);
+
+        if (currentUserId == null) {
+            return playlists.map(playlist -> playlistMapper.toSummaryResponse(playlist, resolveSecretTokenForUser(playlist, null)));
+        }
+
+        Set<Long> likedTrackIds = trackLikeRepository.findTrackIdsByUserId(currentUserId);
+        Set<Long> repostedTrackIds = trackRepostRepository.findTrackIdsByUserId(currentUserId);
+        Set<Long> likedPlaylistIds = playlistLikeRepository.findPlaylistIdsByUserId(currentUserId);
+        Set<Long> repostedPlaylistIds = playlistRepostRepository.findPlaylistIdsByUserId(currentUserId);
+        User currentUser = userService.getUserIfExistsById(currentUserId);
+        AccountTier accountTier = currentUser.getTier();
+
+        return playlists.map(playlist -> playlistMapper.toSummaryResponse(
+                playlist,
+                likedTrackIds,
+                repostedTrackIds,
+                likedPlaylistIds.contains(playlist.getId()),
+                repostedPlaylistIds.contains(playlist.getId()),
+                accountTier,
+                resolveSecretTokenForUser(playlist, currentUserId)
+        ));
     }
 
     // -------------------------------------------------------------------------
@@ -297,11 +425,12 @@ public class PlaylistService {
             playlist.getGenres().add(track.getGenre());
         }
 
-        return playlistMapper.toResponse(playlistRepository.save(playlist));
+        String secretToken = resolveSecretTokenForUser(playlist, userId);
+        return playlistMapper.toResponse(playlistRepository.save(playlist), Pageable.ofSize(20), secretToken);
     }
 
     @Transactional
-    public void removeTrack(Long userId, Long playlistId, Long trackId) {
+    public PlaylistResponse removeTrack(Long userId, Long playlistId, Long trackId) {
         Playlist playlist = findPlaylistById(playlistId);
         checkOwnership(playlist, userId);
 
@@ -325,7 +454,8 @@ public class PlaylistService {
                 .collect(Collectors.toList());
         playlist.setGenres(updatedGenres);
 
-        playlistRepository.save(playlist);
+        String secretToken = resolveSecretTokenForUser(playlist, userId);
+        return playlistMapper.toResponse(playlistRepository.save(playlist), Pageable.ofSize(20), secretToken);
     }
 
     @Transactional
@@ -348,7 +478,8 @@ public class PlaylistService {
 
         playlist.setTracks(newOrder.stream().map(trackMap::get).collect(Collectors.toList()));
 
-        return playlistMapper.toResponse(playlistRepository.save(playlist));
+        String secretToken = resolveSecretTokenForUser(playlist, userId);
+        return playlistMapper.toResponse(playlistRepository.save(playlist), Pageable.ofSize(20), secretToken);
     }
 
     // -------------------------------------------------------------------------
@@ -405,35 +536,10 @@ public class PlaylistService {
      */
     public PlaylistTokenResponse getToken(Long userId, Long playlistId) {
         Playlist playlist = findPlaylistById(playlistId);
-        if (playlist.isPrivate() == true) {
+        if (playlist.isPrivate()) {
             checkOwnership(playlist, userId);
-            return playlistTokenService.getActiveToken(playlistId);
-        } else {
-            return playlistTokenService.getActiveToken(playlistId);
         }
-    }
-
-    @Transactional
-    public void deletePlaylistCover(Long playlistId) {
-        // 1. Fetch the playlist
-        Playlist playlist = playlistRepository.findById(playlistId)
-                .orElseThrow(() -> new ResourceNotFoundException("Playlist not found"));
-
-        // 2. Ownership Check: Ensure the person deleting is the creator
-        Long currentUserId = JwtService.getCurrentUserId();
-        if (!playlist.getUser().getId().equals(currentUserId)) {
-            throw new UnauthorizedActionException("You do not have permission to edit this playlist.");
-        }
-
-        // 3. Delete from Azure and Update DB
-        if (playlist.getCoverArtUrl() != null) {
-            // Remove the actual file from storage
-            fileUtilityAzure.deleteFileByUrl(playlist.getCoverArtUrl());
-
-            // Nullify the reference in our database
-            playlist.setCoverArtUrl(null);
-            playlistRepository.save(playlist);
-        }
+        return playlistTokenService.getActiveToken(playlistId);
     }
 
     /**
@@ -500,5 +606,9 @@ public class PlaylistService {
                 "No playlist found with slug: " + slug));
 
         return new Resource(ResourceType.PLAYLIST, id);
+    }
+
+    private String resolveSecretTokenForUser(Playlist playlist, Long userId) {
+        return playlistTokenService.resolveSecretToken(playlist);
     }
 }
