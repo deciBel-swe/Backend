@@ -32,6 +32,7 @@ import software.decibel.mappers.UserMapper;
 import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
+import software.decibel.repositories.TrackRepostRepository;
 import software.decibel.repositories.UserRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -52,6 +53,8 @@ class SearchServiceTest {
     
     @Mock
     private TrackLikeRepository trackLikeRepository;
+    @Mock
+    private TrackRepostRepository trackRepostRepository;
 
     @InjectMocks
     private SearchService searchService;
