@@ -29,7 +29,9 @@ import software.decibel.entities.User;
 import software.decibel.mappers.PlaylistMapper;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.mappers.UserMapper;
+import software.decibel.repositories.PlaylistLikeRepository;
 import software.decibel.repositories.PlaylistRepository;
+import software.decibel.repositories.PlaylistRepostRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
@@ -42,6 +44,10 @@ class SearchServiceTest {
     private TrackRepository trackRepository;
     @Mock
     private PlaylistRepository playlistRepository;
+    @Mock
+    private PlaylistLikeRepository playlistLikeRepository;
+    @Mock
+    private PlaylistRepostRepository playlistRepostRepository;
     @Mock
     private UserRepository userRepository;
     @Mock
