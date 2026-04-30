@@ -16,7 +16,6 @@ public record TrackPatchResponse(
         LocalDate releaseDate,
         TrackAccess access,
         int commentCount,
-        String trackSlug,
-        String secretToken) {
+        String trackSlug) {
 
 }
