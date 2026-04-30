@@ -1,22 +1,21 @@
 package software.decibel.services.user;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
-
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.user.UserFollowDto;
 import software.decibel.entities.User;
 import software.decibel.mappers.UserMapper;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.UserRepository;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -31,22 +30,7 @@ public class UserSuggestionService {
     @Transactional(readOnly = true)
     public List<UserFollowDto> getSuggestedUsers(User currentUser, int limit) {
         Set<String> interests = new HashSet<>();
-
-        //unauthenticated users
-        // --- GUEST USER LOGIC ---
-        if (currentUser == null) {
-            // Fetch popular users (passing null for the excluded ID)
-            List<User> suggestedUsers = userRepository.findPopularUsers(null, PageRequest.of(0, limit));
-
-            return suggestedUsers.stream()
-                    .map(user -> {
-                        UserFollowDto dto = userMapper.toUserFollowDto(user);
-                        // A guest isn't following anyone
-                        return dto.toBuilder().isFollowing(false).build();
-                    })
-                    .collect(Collectors.toList());
-        }
-
+        
         // add user's favorite genres to interests
         if (currentUser.getFavoriteGenres() != null) {
             interests.addAll(currentUser.getFavoriteGenres());
@@ -65,8 +49,8 @@ public class UserSuggestionService {
         } else {
             // find users with matching interests through repository
             suggestedUsers = userRepository.findSuggestedUsersByGenres(
-                    currentUser.getId(),
-                    new ArrayList<>(interests),
+                    currentUser.getId(), 
+                    new ArrayList<>(interests), 
                     PageRequest.of(0, limit)
             );
         }

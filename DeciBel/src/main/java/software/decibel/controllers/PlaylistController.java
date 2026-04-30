@@ -2,7 +2,6 @@ package software.decibel.controllers;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -23,7 +22,6 @@ import software.decibel.dtos.Resource;
 import software.decibel.dtos.playlist.CreatePlaylistRequest;
 import software.decibel.dtos.playlist.PatchPlaylistRequest;
 import software.decibel.dtos.playlist.PlaylistResponse;
-import software.decibel.dtos.playlist.PlaylistSummaryResponse;
 import software.decibel.dtos.playlist.PlaylistTokenResponse;
 import software.decibel.dtos.playlist.ReorderTracksRequest;
 import software.decibel.dtos.track.responses.LikeResponse;
@@ -53,20 +51,16 @@ public class PlaylistController {
 
     // GET /playlists/{playlistId} 
     @GetMapping("/{playlistId}")
-    public ResponseEntity<PlaylistResponse> getPlaylist(
-            @PathVariable Long playlistId,
-            @PageableDefault(size = 20) Pageable trackPageable) {
+    public ResponseEntity<PlaylistResponse> getPlaylist(@PathVariable Long playlistId) {
         Long currentUserId = JwtService.getCurrentUserId();
-        return ResponseEntity.ok(playlistService.getPlaylist(playlistId, currentUserId, trackPageable));
+        return ResponseEntity.ok(playlistService.getPlaylist(playlistId, currentUserId));
     }
 
     // GET /playlists/token/{token} — secret-link access, no auth required
     @GetMapping("/token/{token}")
-    public ResponseEntity<PlaylistResponse> getPlaylistByToken(
-            @PathVariable String token,
-            @PageableDefault(size = 20) Pageable trackPageable) {
+    public ResponseEntity<PlaylistResponse> getPlaylistByToken(@PathVariable String token) {
         Long currentUserId = JwtService.getCurrentUserId();
-        return ResponseEntity.ok(playlistService.getPlaylistByToken(token, currentUserId, trackPageable));
+        return ResponseEntity.ok(playlistService.getPlaylistByToken(token, currentUserId));
     }
 
     // ── UPDATE ────────────────────────────────────────────────────────────────
@@ -173,7 +167,7 @@ public class PlaylistController {
 
     // GET /playlists/{username}/liked-playlists — any user
     @GetMapping("/{username}/liked-playlists")
-    public ResponseEntity<Page<PlaylistSummaryResponse>> getLikedPlaylists(
+    public ResponseEntity<Page<PlaylistResponse>> getLikedPlaylists(
             @PathVariable String username,
             Pageable pageable) {
         return ResponseEntity.ok(likeService.getLikedPlaylists(username, pageable));

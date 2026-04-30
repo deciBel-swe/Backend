@@ -10,7 +10,7 @@ import software.decibel.dtos.track.responses.TrackResponse;
 import software.decibel.dtos.track.responses.TrackTokenResponse;
 import software.decibel.entities.Track;
 import software.decibel.entities.TrackToken;
-import software.decibel.enums.AccountTier;
+import software.decibel.entities.User;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.exceptions.custom.UnauthorizedActionException;
 import software.decibel.mappers.TrackMapper;
@@ -94,7 +94,6 @@ public class TrackTokenService {
         // create new token
         String tokenString = UUID.randomUUID().toString();
         TrackToken newToken = TrackToken.builder().track(track).token(tokenString).build();
-        track.getTokens().add(newToken);
 
         return trackTokenMapper.toTrackTokenResponse(trackTokenRepository.save(newToken));
     }
@@ -104,22 +103,13 @@ public class TrackTokenService {
         TrackToken trackToken = trackTokenRepository
                 .findByTokenAndIsDeletedFalse(token)
                 .orElseThrow(() -> new ResourceNotFoundException("Invalid or expired track token"));
+
+        Long userId = JwtService.getCurrentUserId();
+        User user = userService.getUserIfExistsById(userId);
         Track track = trackToken.getTrack();
-        Long userId = null;
-        boolean isLiked = false;
-        boolean isReposted = false;
-        try {
-            userId = JwtService.getCurrentUserId();
-            isLiked = likeRepository.existsByUserIdAndTrackId(userId, track.getId());
-            isReposted = repostRepository.existsByUserIdAndTrackId(userId, track.getId());
-            var tier = userService.getUserIfExistsById(userId).getTier();
-        } catch (Exception e) {
-            trackMapper.toTrackResponseSingle(
-                    track,
-                    AccountTier.FREE,
-                    false,
-                    false);
-        }
+
+        boolean isLiked = likeRepository.existsByUserIdAndTrackId(userId, track.getId());
+        boolean isReposted = repostRepository.existsByUserIdAndTrackId(userId, track.getId());
 
         return trackMapper.toTrackResponseSingle(
                 track,

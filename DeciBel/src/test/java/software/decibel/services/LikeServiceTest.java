@@ -28,6 +28,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+import software.decibel.dtos.playlist.PlaylistResponse;
 import software.decibel.dtos.track.responses.LikeResponse;
 import software.decibel.entities.Playlist;
 import software.decibel.entities.PlaylistLike;
@@ -37,14 +38,17 @@ import software.decibel.entities.User;
 import software.decibel.enums.AccountTier;
 import software.decibel.mappers.LikeMapper;
 import software.decibel.mappers.PlaylistMapper;
+import software.decibel.mappers.UserMapper;
+import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.PlaylistLikeRepository;
 import software.decibel.repositories.PlaylistRepository;
-import software.decibel.repositories.PlaylistTokenRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
+import software.decibel.services.BlockService;
 import software.decibel.services.engagement.LikeService;
 import software.decibel.services.user.UserService;
+import software.decibel.utils.UserMappingUtility;
 
 @ExtendWith(MockitoExtension.class)
 class LikeServiceTest {
@@ -58,7 +62,13 @@ class LikeServiceTest {
     @Mock
     private LikeMapper likeMapper;
     @Mock
+    private UserMapper userMapper;
+    @Mock
+    private FollowRepository followRepository;
+    @Mock
     private BlockService blockService;
+    @Mock
+    private software.decibel.services.notification.InAppNotificationService inAppNotificationService;
     @Mock
     private PlaylistLikeRepository playlistLikeRepository;
     @Mock
@@ -66,13 +76,9 @@ class LikeServiceTest {
     @Mock
     private PlaylistMapper playlistMapper;
     @Mock
-    private PlaylistTokenRepository playlistTokenRepository;
+    private UserMappingUtility userMappingUtility;
     @Mock
     private TrackRepostRepository trackRepostRepository;
-    @Mock
-    private software.decibel.services.playlist.PlaylistTokenService playlistTokenService;
-    @Mock
-    private software.decibel.repositories.PlaylistRepostRepository playlistRepostRepository;
     @InjectMocks
     private LikeService likeService;
 
@@ -196,25 +202,22 @@ class LikeServiceTest {
 
         Pageable pageable = PageRequest.of(0, 10);
 
-        // FIX 1: Create a PlaylistSummaryResponse instead of PlaylistResponse
-        software.decibel.dtos.playlist.PlaylistSummaryResponse dummySummaryResponse = new software.decibel.dtos.playlist.PlaylistSummaryResponse(
+        PlaylistResponse dummyResponse = new PlaylistResponse(
                 10L,
                 "Test Playlist",
                 software.decibel.enums.PlaylistType.PLAYLIST,
-                true, // isLiked (it is a liked playlist!)
-                false, // isReposted
+                false, // isLiked 
                 "A playlist for testing", // description 
                 false, // isPrivate 
                 "http://example.com/cover.jpg", // coverArtUrl 
-                "test-playlist-slug", // playlistSlug 
+                "test-playlist-slug", // ADDED: playlistSlug 
                 300, // totalDurationSeconds 
                 5, // trackCount 
                 null, // owner 
                 java.util.Collections.emptyList(), // genres 
                 LocalDateTime.now(), // createdAt 
-                java.util.Collections.emptyList(), // trackSummaryDto - List instead of Page for summary
-                "waveform-url", // firstTrackWaveformUrl
-                "secret-token" // secretToken instead of cache-key
+                null, // trackSummaryDto 
+                null // ADDED: firstTrackWaveformUrl
         );
 
         when(userService.getUserIfExistsByUsername("testuser")).thenReturn(user);
@@ -226,22 +229,15 @@ class LikeServiceTest {
 
         when(trackLikeRepository.findTrackIdsByUserId(1L)).thenReturn(Collections.emptySet());
         when(trackRepostRepository.findTrackIdsByUserId(1L)).thenReturn(Collections.emptySet());
-        org.mockito.Mockito.lenient().when(playlistTokenService.resolveSecretToken(any())).thenReturn("secret-token");
-        org.mockito.Mockito.lenient().when(playlistRepostRepository.findPlaylistIdsByUserId(any())).thenReturn(Collections.emptySet());
 
-        // FIX 2: Mock the correct toSummaryResponse methods!
-        // We use lenient() to ensure it catches whichever overload LikeService is calling
-        org.mockito.Mockito.lenient().when(playlistMapper.toSummaryResponse(any(Playlist.class), any()))
-                .thenReturn(dummySummaryResponse);
-        org.mockito.Mockito.lenient().when(playlistMapper.toSummaryResponse(any(Playlist.class), any(), any(), org.mockito.ArgumentMatchers.anyBoolean(), org.mockito.ArgumentMatchers.anyBoolean(), any(), any()))
-                .thenReturn(dummySummaryResponse);
+        when(playlistMapper.toResponse(any(), any(), any(), any())).thenReturn(dummyResponse);
 
         try (MockedStatic<JwtService> mockedJwt = mockStatic(JwtService.class)) {
             mockedJwt.when(JwtService::getCurrentUserId).thenReturn(1L);
 
-            Page<software.decibel.dtos.playlist.PlaylistSummaryResponse> result = likeService.getLikedPlaylists("testuser", pageable);
+            Page<PlaylistResponse> result = likeService.getLikedPlaylists("testuser", pageable);
 
-            //ASSERTIONS
+            // 4. ASSERTIONS
             assertNotNull(result);
             assertEquals(1, result.getTotalElements());
             assertEquals(10L, result.getContent().get(0).id());
