@@ -96,7 +96,11 @@ public interface TrackMapper {
         if (track == null || track.getTokens() == null || track.getTokens().isEmpty()) {
             return null;
         }
-        return track.getTokens().get(0).getToken();
+        return track.getTokens().stream()
+                .filter(token -> !token.isDeleted())
+                .map(token -> token.getToken())
+                .findFirst()
+                .orElse(null);
     }
 
     default TrackArtist mapArtist(User user) {
@@ -190,6 +194,7 @@ public interface TrackMapper {
     @Mapping(target = "tags", expression = "java(mapTags(track.getTags()))")
     @Mapping(target = "trackSlug", source = "slug")
     @Mapping(target = "commentCount", expression = "java(mapCommentCount(track))")
+    @Mapping(target = "secretToken", expression = "java(mapSecretToken(track))")
     TrackPatchResponse toTrackPatchResponse(Track track);
 
     default List<String> mapTags(List<Tag> tags) {

@@ -1,6 +1,7 @@
 package software.decibel.repositories;
 
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,9 +28,12 @@ public interface PlaylistLikeRepository extends JpaRepository<PlaylistLike, Long
 
     @Query("SELECT pl.playlist FROM PlaylistLike pl WHERE pl.user.id = :userId")
     Page<Playlist> findLikedPlaylistsByUserId(@Param("userId") Long userId, Pageable pageable);
- 
+
     // Returns the User entities who liked a given playlist
     @Query("SELECT pl.user FROM PlaylistLike pl WHERE pl.playlist.id = :playlistId")
     Page<User> findUsersByPlaylistId(@Param("playlistId") Long playlistId, Pageable pageable);
+
+    @Query("SELECT pl.playlist.id FROM PlaylistLike pl WHERE pl.user.id = :userId")
+    Set<Long> findPlaylistIdsByUserId(@Param("userId") Long userId);
 
 }

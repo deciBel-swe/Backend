@@ -14,6 +14,10 @@ import org.mapstruct.factory.Mappers;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -23,6 +27,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import software.decibel.dtos.playlist.CreatePlaylistRequest;
@@ -40,9 +46,13 @@ import software.decibel.mappers.PlaylistMapper;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.mappers.UserMapper;
 import software.decibel.repositories.BlockRepository;
+import software.decibel.repositories.PlaylistLikeRepository;
 import software.decibel.repositories.PlaylistRepository;
+import software.decibel.repositories.PlaylistRepostRepository;
+import software.decibel.repositories.PlaylistTokenRepository;
+import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
-import software.decibel.repositories.UserRepository;
+import software.decibel.repositories.TrackRepostRepository;
 import software.decibel.services.JwtService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.FileUtilityAzure;
@@ -55,52 +65,66 @@ class PlaylistServiceTest {
 
     @Mock
     private TrackRepository trackRepository;
-    @Mock
-    private BlockRepository blockRepository;
-
-    @Mock
-    private UserRepository userRepository;
 
     @Mock
     private FileUtilityAzure fileUtilityAzure;
 
     @Mock
-    private UserService userService;
+    private PlaylistTokenRepository playlistTokenRepository;
+
     @Mock
-    private software.decibel.repositories.TrackLikeRepository trackLikeRepository;
+    private BlockRepository blockRepository;
+
+    @Mock
+    private TrackLikeRepository trackLikeRepository;
+    @Mock
+    private TrackRepostRepository trackRepostRepository;
+    @Mock
+    private PlaylistLikeRepository playlistLikeRepository;
+    @Mock
+    private PlaylistRepostRepository playlistRepostRepository;
+
+    @Mock
+    private UserService userService;
 
     @Mock
     private TrackMapper trackMapper;
 
     @Mock
-    private software.decibel.repositories.TrackRepostRepository trackRepostRepository;
+    private PlaylistTokenService playlistTokenService;
 
+    @Mock
     private PlaylistMapper playlistMapper;
 
     @InjectMocks
     private PlaylistService playlistService;
 
-    @Mock
-    private PlaylistTokenService playlistTokenService;
-
     @BeforeEach
     void setUp() {
-        UserMapper userMapper = Mappers.getMapper(UserMapper.class);
-        playlistMapper = new PlaylistMapper(trackMapper, userMapper);
-        ReflectionTestUtils.setField(playlistService, "playlistMapper", playlistMapper);
+        ReflectionTestUtils.setField(playlistService, "playlistTokenService", playlistTokenService);
+        ReflectionTestUtils.setField(playlistService, "playlistLikeRepository", playlistLikeRepository);
+        ReflectionTestUtils.setField(playlistService, "playlistRepostRepository", playlistRepostRepository);
     }
 
     // ── createPlaylist ────────────────────────────────────────────────────────
     @Test
     void createPlaylist_whenRequestIsValid_returnsPlaylistResponse() {
         User user = user(1L);
+        Playlist playlist = new Playlist();
+        playlist.setId(10L);
+        playlist.setTitle("My Playlist");
+
         when(userService.getUserIfExistsById(anyLong())).thenReturn(user);
         when(playlistRepository.existsBySlug(anyString())).thenReturn(false);
-        when(playlistRepository.save(any(Playlist.class))).thenAnswer(inv -> {
-            Playlist p = inv.getArgument(0);
-            p.setId(10L);
-            return p;
-        });
+        when(playlistMapper.toEntity(any(CreatePlaylistRequest.class), eq(user), anyString(), isNull())).thenReturn(playlist);
+        when(playlistRepository.save(any(Playlist.class))).thenReturn(playlist);
+        when(playlistTokenService.resolveSecretToken(any(Playlist.class))).thenReturn("mock-token");
+        PlaylistResponse mockResponse = new PlaylistResponse(
+                10L, "My Playlist", PlaylistType.PLAYLIST, false, false, null, false,
+                null, null, 0, 0,
+                new software.decibel.dtos.user.UserSummaryDTO(1L, "testuser_1", null, null, false, 0, 0),
+                List.of(), null, null, "mock-token", null);
+        when(playlistMapper.toResponse(eq(playlist), any(Pageable.class), anyString())).thenReturn(mockResponse);
 
         CreatePlaylistRequest request = new CreatePlaylistRequest(
                 "My Playlist", "desc", PlaylistType.PLAYLIST, false, null);
@@ -134,17 +158,26 @@ class PlaylistServiceTest {
         CreatePlaylistRequest request = new CreatePlaylistRequest(
                 "My Album", "desc", PlaylistType.ALBUM, true, mockFile);
 
+        Playlist playlist = new Playlist();
+        playlist.setId(11L);
+        playlist.setTitle("My Album");
+        playlist.setCoverArtUrl("https://azure.com/cover.jpg");
+
+        when(userService.getUserIfExistsById(anyLong())).thenReturn(user);
         when(playlistRepository.existsBySlug(anyString())).thenReturn(false);
         when(fileUtilityAzure.saveFile(any(), any())).thenReturn("https://azure.com/cover.jpg");
-        when(playlistRepository.save(any(Playlist.class))).thenAnswer(inv -> {
-            Playlist p = inv.getArgument(0);
-            p.setId(11L);
-            return p;
-        });
-        when(playlistTokenService.issueNewToken(any(Playlist.class)))
-                .thenReturn("mock-token");
+        when(playlistMapper.toEntity(any(CreatePlaylistRequest.class), eq(user), anyString(), anyString())).thenReturn(playlist);
+        when(playlistRepository.save(any(Playlist.class))).thenReturn(playlist);
+        when(playlistTokenService.issueNewToken(any(Playlist.class))).thenReturn("mock-token");
+        when(playlistTokenService.resolveSecretToken(any(Playlist.class))).thenReturn("mock-token");
+        PlaylistResponse mockResponse = new PlaylistResponse(
+                11L, "My Album", PlaylistType.ALBUM, true, false, null, true,
+                "https://azure.com/cover.jpg", null, 0, 0,
+                new software.decibel.dtos.user.UserSummaryDTO(1L, "testuser_1", null, null, false, 0, 0),
+                List.of(), null, null, "mock-token", null);
+        when(playlistMapper.toResponse(eq(playlist), any(Pageable.class), anyString())).thenReturn(mockResponse);
 
-        PlaylistResponse response = playlistService.createPlaylist(1L, request);
+        PlaylistResponse response = playlistService.createPlaylist(user.getId(), request);
 
         assertEquals("https://azure.com/cover.jpg", response.coverArtUrl());
         verify(fileUtilityAzure).saveFile(any(), any());
@@ -153,16 +186,13 @@ class PlaylistServiceTest {
     // ── patchPlaylist ─────────────────────────────────────────────────────────
     @Test
     void patchPlaylist_whenUserIsNotOwner_throwsForbidden() {
-        User owner = user(10L); // The real owner is 10
+        User owner = user(10L);
         Playlist playlist = playlist(owner);
 
-        // The repository finds the playlist
         when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
 
         PatchPlaylistRequest request = new PatchPlaylistRequest("New Title", null, null, null, null);
 
-        // Call with 3 arguments: (Attempting UserId, PlaylistId, Request)
-        // We pass 99L as the "current user" to trigger the Forbidden exception
         assertThrows(PlaylistAccessDeniedException.class,
                 () -> playlistService.patchPlaylist(99L, 10L, request));
 
@@ -187,13 +217,22 @@ class PlaylistServiceTest {
         Playlist playlist = playlist(user);
         when(userService.getUserIfExistsById(user.getId())).thenReturn(user);
         when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
+        when(trackLikeRepository.findTrackIdsByUserId(anyLong())).thenReturn(java.util.Collections.emptySet());
+        when(trackRepostRepository.findTrackIdsByUserId(anyLong())).thenReturn(java.util.Collections.emptySet());
+        when(blockRepository.existsByBlocker_IdAndBlocked_Id(anyLong(), anyLong())).thenReturn(false);
+        when(playlistTokenService.resolveSecretToken(any(Playlist.class))).thenReturn("mock-token");
+        PlaylistResponse mockResponse = new PlaylistResponse(
+                10L, "Old Title", PlaylistType.PLAYLIST, false, false, null, false,
+                null, null, 0, 0,
+                new software.decibel.dtos.user.UserSummaryDTO(1L, "testuser_1", null, null, false, 0, 0),
+                List.of(), null, null, "mock-token", null);
+        when(playlistMapper.toResponse(any(Playlist.class), anySet(), anySet(), anyBoolean(), anyBoolean(), any(AccountTier.class), any(Pageable.class), anyString())).thenReturn(mockResponse);
 
-        // Mock current user so visibility checks pass
         try (MockedStatic<JwtService> mockedJwt = mockStatic(JwtService.class)) {
             mockedJwt.when(JwtService::getCurrentUserId).thenReturn(1L);
 
-            // FIX: Pass 1L (currentUserId) instead of PageRequest!
-            PlaylistResponse response = playlistService.getPlaylist(10L, 1L);
+            Pageable pageable = PageRequest.of(0, 10);
+            PlaylistResponse response = playlistService.getPlaylist(10L, 1L, pageable);
 
             assertEquals(10L, response.id());
             assertEquals(1L, response.owner().id());
@@ -209,7 +248,14 @@ class PlaylistServiceTest {
 
         when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
         when(trackRepository.findById(100L)).thenReturn(Optional.of(track));
-        when(playlistRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(playlistRepository.save(any())).thenReturn(playlist);
+        when(playlistTokenService.resolveSecretToken(any(Playlist.class))).thenReturn("mock-token");
+        PlaylistResponse mockResponse = new PlaylistResponse(
+                10L, "Old Title", PlaylistType.PLAYLIST, false, false, null, false,
+                null, null, 180, 1,
+                new software.decibel.dtos.user.UserSummaryDTO(1L, "testuser_1", null, null, false, 0, 0),
+                List.of("Hip Hop"), null, null, "mock-token", null);
+        when(playlistMapper.toResponse(any(Playlist.class), any(Pageable.class), anyString())).thenReturn(mockResponse);
 
         try (MockedStatic<JwtService> mockedJwt = mockStatic(JwtService.class)) {
             mockedJwt.when(JwtService::getCurrentUserId).thenReturn(1L);
@@ -254,11 +300,10 @@ class PlaylistServiceTest {
         when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
         when(trackRepository.findById(100L)).thenReturn(Optional.of(track));
         when(playlistRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(playlistTokenService.resolveSecretToken(any(Playlist.class))).thenReturn("mock-token");
 
-        // FIX: Just call the method. Don't assign it to a response variable.
         playlistService.removeTrack(1L, 10L, 100L);
 
-        // FIX: Assert against the modified 'playlist' entity instead of a response DTO!
         assertEquals(0, playlist.getTrackCount());
         assertEquals(0, playlist.getTotalDurationSeconds());
         assertTrue(playlist.getGenres().isEmpty());
@@ -267,9 +312,8 @@ class PlaylistServiceTest {
 
     @Test
     void removeTrack_whenTrackNotInPlaylist_throwsNotFoundException() {
-        User user = user(1L); // FIX: Passed ID
-        Playlist playlist = playlist(user);
-        Track track = track(100L, "Pop", 200, user); // FIX: Passed User
+        Playlist playlist = playlist(user(1L));
+        Track track = track(100L, "Pop", 200, user(1L));
 
         when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
         when(trackRepository.findById(100L)).thenReturn(Optional.of(track));

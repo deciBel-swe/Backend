@@ -2,6 +2,7 @@ package software.decibel.repositories;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -36,4 +37,7 @@ public interface PlaylistRepostRepository extends JpaRepository<PlaylistRepost, 
 
     @Query("SELECT pr FROM PlaylistRepost pr WHERE pr.user.id IN :userIds ORDER BY pr.repostedAt DESC")
     Page<PlaylistRepost> findByUserIdIn(@Param("userIds") List<Long> userIds, Pageable pageable);
+
+    @Query("SELECT pr.playlist.id FROM PlaylistRepost pr WHERE pr.user.id = :userId")
+    Set<Long> findPlaylistIdsByUserId(@Param("userId") Long userId);
 }
