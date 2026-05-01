@@ -22,6 +22,7 @@ import software.decibel.dtos.playlist.PlaylistResponse;
 import software.decibel.dtos.playlist.PlaylistSummaryResponse;
 import software.decibel.dtos.playlist.PlaylistTokenResponse;
 import software.decibel.dtos.playlist.ReorderTracksRequest;
+import software.decibel.dtos.playlist.SecretLinkResponse;
 import software.decibel.entities.Playlist;
 import software.decibel.entities.PlaylistRepost;
 import software.decibel.entities.Track;
@@ -38,6 +39,7 @@ import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.PlaylistLikeRepository;
 import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.PlaylistRepostRepository;
+import software.decibel.repositories.PlaylistTokenRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
@@ -61,6 +63,7 @@ public class PlaylistService {
     private final UserService userService;
     private final PlaylistLikeRepository playlistLikeRepository;
     private final PlaylistRepostRepository playlistRepostRepository;
+    private final PlaylistTokenRepository playlistTokenRepository;
     private final PlaylistTokenService playlistTokenService;
 
     // -------------------------------------------------------------------------
@@ -340,6 +343,7 @@ public class PlaylistService {
 
         playlistLikeRepository.deleteAllByPlaylistId(playlistId);
         playlistRepostRepository.deleteAllByPlaylistId(playlistId);
+        playlistTokenRepository.deleteAllByPlaylistId(playlistId);
         playlistRepository.delete(playlist);
 
         // Delete file from storage only AFTER the DB commit succeeds
@@ -616,4 +620,27 @@ public class PlaylistService {
         String secretToken = resolveSecretTokenForUser(playlist);
         return playlist;
     }
+
+    @Transactional
+    public SecretLinkResponse regenerateSecretLink(Long playlistId, Long userId) {
+        Playlist playlist = findPlaylistById(playlistId);
+        checkOwnership(playlist, userId);
+        String token = playlistTokenService.issueNewToken(playlist);
+        return new SecretLinkResponse(token);
+    }
+
+    public SecretLinkResponse getSecretLink(Long playlistId, Long userId) {
+        Playlist playlist = findPlaylistById(playlistId);
+
+        if (playlist.isPrivate()) {
+            checkOwnership(playlist, userId);
+        }
+
+        String token = playlistTokenService.resolveToken(playlistId);
+        if (token == null) {
+            throw new ResourceNotFoundException("No active secret token exists for playlist " + playlistId);
+        }
+        return new SecretLinkResponse(token);
+    }
+
 }

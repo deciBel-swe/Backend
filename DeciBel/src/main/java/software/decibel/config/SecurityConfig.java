@@ -65,6 +65,7 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/users/playlists/{playlistId}/like").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/playlists/{playlistId}/reposters").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{username}/playlists").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/users/{username}/playlists/{playlistId}").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{username}/tracks").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{username}/followers").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{username}/following").permitAll()
