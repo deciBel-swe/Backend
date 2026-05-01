@@ -67,7 +67,7 @@ public class AuthService {
 
     @Transactional
     public MessageResponse registerLocal(RegisterLocalRequest request) {
-        captchaService.validateCaptcha(request.captchaToken());
+        captchaService.validateCaptcha(request.captchaToken(), request.email());
         if (authIdentityRepository.existsByEmailIgnoreCase(request.email())
                 || authIdentityRepository.existsByEmailIgnoreCaseAndProviderAndType(
                         request.email(), AuthProvider.LOCAL, AuthType.PASSWORD)) {
