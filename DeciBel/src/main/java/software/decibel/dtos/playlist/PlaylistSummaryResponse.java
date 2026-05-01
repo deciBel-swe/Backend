@@ -3,13 +3,11 @@ package software.decibel.dtos.playlist;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import org.springframework.data.domain.Page;
-
 import software.decibel.dtos.track.TrackSummaryDTO;
 import software.decibel.dtos.user.UserSummaryDTO;
 import software.decibel.enums.PlaylistType;
 
-public record PlaylistResponse(
+public record PlaylistSummaryResponse(
         Long id,
         String title,
         PlaylistType type,
@@ -24,7 +22,7 @@ public record PlaylistResponse(
         UserSummaryDTO owner,
         List<String> genres,
         LocalDateTime createdAt,
-        Page<TrackSummaryDTO> trackSummaryDto,
+        List<TrackSummaryDTO> trackSummaryDto, // first 5 tracks
         String firstTrackWaveformUrl,
         String secretToken
         ) {

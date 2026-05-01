@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.playlist.PlaylistResponse;
+import software.decibel.dtos.playlist.PlaylistSummaryResponse;
 import software.decibel.dtos.user.UserProfile;
 import software.decibel.services.JwtService;
 import software.decibel.services.engagement.LikeService;
@@ -28,7 +29,7 @@ public class UserPlaylistController {
 
     // GET /users/{username}/playlists — public playlists of any user
     @GetMapping("/{username}/playlists")
-    public ResponseEntity<Page<PlaylistResponse>> getUserPlaylists(
+    public ResponseEntity<Page<PlaylistSummaryResponse>> getUserPlaylists(
             @PathVariable String username,
             Pageable pageable) {
         return ResponseEntity.ok(playlistService.getPublicPlaylistsByUsername(username, pageable));
@@ -46,7 +47,7 @@ public class UserPlaylistController {
 
     // GET /users/{username}/liked-playlists — playlists liked by any user
     @GetMapping("/{username}/liked-playlists")
-    public ResponseEntity<Page<PlaylistResponse>> getLikedPlaylistsByUsername(
+    public ResponseEntity<Page<PlaylistSummaryResponse>> getLikedPlaylistsByUsername(
             @PathVariable String username,
             Pageable pageable) {
         return ResponseEntity.ok(playlistService.getLikedPlaylistsByUsername(username, pageable));
@@ -54,7 +55,7 @@ public class UserPlaylistController {
 
     // GET /users/{username}/reposted-playlists — playlists reposted by any user
     @GetMapping("/{username}/reposted-playlists")
-    public ResponseEntity<Page<PlaylistResponse>> getRepostedPlaylistsByUsername(
+    public ResponseEntity<Page<PlaylistSummaryResponse>> getRepostedPlaylistsByUsername(
             @PathVariable String username,
             Pageable pageable) {
         return ResponseEntity.ok(playlistService.getRepostedPlaylistsByUsername(username, pageable));
@@ -63,7 +64,7 @@ public class UserPlaylistController {
     // ── CURRENT USER (me — includes private data) ─────────────────────────────
     // GET /users/me/playlists — all playlists (public + private) of the current user
     @GetMapping("/me/playlists")
-    public ResponseEntity<Page<PlaylistResponse>> getCurrentUserPlaylists(Pageable pageable) {
+    public ResponseEntity<Page<PlaylistSummaryResponse>> getCurrentUserPlaylists(Pageable pageable) {
         Long currentUserId = JwtService.getCurrentUserId();
         return ResponseEntity.ok(playlistService.getPlaylistsByUserId(currentUserId, pageable));
     }

@@ -14,6 +14,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.playlist.PlaylistResponse;
+import software.decibel.dtos.playlist.PlaylistSummaryResponse;
 import software.decibel.dtos.track.responses.LikeResponse;
 import software.decibel.dtos.user.UserProfile;
 import software.decibel.entities.Playlist;
@@ -31,6 +32,8 @@ import software.decibel.mappers.UserMapper;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.PlaylistLikeRepository;
 import software.decibel.repositories.PlaylistRepository;
+import software.decibel.repositories.PlaylistRepostRepository;
+import software.decibel.repositories.PlaylistTokenRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
@@ -56,7 +59,9 @@ public class LikeService {
     private final FollowRepository followRepository;
 
     private final PlaylistLikeRepository playlistLikeRepository;
+    private final PlaylistRepostRepository playlistRepostRepository;
     private final PlaylistRepository playlistRepository;
+    private final PlaylistTokenRepository playlistTokenRepository;
     private final PlaylistMapper playlistMapper;
     private final UserMappingUtility userMappingUtility;
 
@@ -162,7 +167,7 @@ public class LikeService {
         playlistRepository.save(playlist);
     }
 
-    public Page<PlaylistResponse> getLikedPlaylists(String username, Pageable playlistPageable) {
+    public Page<PlaylistSummaryResponse> getLikedPlaylists(String username, Pageable playlistPageable) {
         Long currentUserId = JwtService.getCurrentUserId();
         User user = userService.getUserIfExistsByUsername(username);
 
@@ -188,12 +193,24 @@ public class LikeService {
                 ? userService.getUserIfExistsById(currentUserId).getTier()
                 : AccountTier.FREE;
 
-        return likedPlaylists.map(
-                playlist -> playlistMapper.toResponse(
-                        playlist,
-                        trackLikes,
-                        trackReposts,
-                        currentViewerTier));
+        Set<Long> repostedPlaylistIds = currentUserId != null
+                ? playlistRepostRepository.findPlaylistIdsByUserId(currentUserId)
+                : Collections.emptySet();
+        return likedPlaylists.map(playlist -> {
+            String secretToken = playlistTokenRepository
+                    .findByPlaylistIdAndIsDeletedFalse(playlist.getId())
+                    .map(token -> token.getToken())
+                    .orElse(null); // Resolve the Optional to a String or null
+            return playlistMapper.toSummaryResponse(
+                    playlist,
+                    trackLikes,
+                    trackReposts,
+                    true,
+                    repostedPlaylistIds.contains(playlist.getId()),
+                    currentViewerTier,
+                    secretToken
+            );
+        });
     }
 
     private User findUser(Long userId) {
@@ -233,5 +250,12 @@ public class LikeService {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    public Set<Long> getLikedPlaylistIds(Long userId) {
+        if (userId == null) {
+            return Collections.emptySet();
+        }
+        return playlistLikeRepository.findPlaylistIdsByUserId(userId);
     }
 }
