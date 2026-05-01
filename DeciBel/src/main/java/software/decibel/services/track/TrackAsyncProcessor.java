@@ -12,6 +12,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import software.decibel.component.UploadStatusCache;
 import software.decibel.dtos.track.requests.TrackUploadRequest;
 import software.decibel.dtos.track.responses.TrackResponse;
 import software.decibel.dtos.track.responses.TrackStatusResponse;
@@ -48,6 +49,7 @@ public class TrackAsyncProcessor {
     private final AudioUtility audioUtility;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
+    private final UploadStatusCache uploadStatusCache;
     // Injecting TrackTokenService lazily to avoid circular dependency with TrackService
     @Lazy
     private final TrackTokenService trackTokenService;
@@ -136,8 +138,8 @@ public class TrackAsyncProcessor {
                 messagingTemplate.convertAndSend(
                         "/topic/track-status/" + uploadId,
                         new TrackStatusResponse(TrackState.FINISHED, trackId, 100, "Done", null, finalResponse));
-
-                return finalResponse; // <-- Changed from returning null
+                uploadStatusCache.clear(uploadId);
+                return finalResponse;
             });
         } catch (Exception e) {
             String errorMessage = (e.getMessage() != null && !e.getMessage().isBlank())
@@ -179,9 +181,10 @@ public class TrackAsyncProcessor {
     }
 
     private void broadcastProgress(Long trackId, String uploadId, TrackState state, Integer progress, String stepName) {
+        TrackStatusResponse response = new TrackStatusResponse(state, trackId, progress, stepName, null, null);
+        uploadStatusCache.saveStatus(uploadId, response);
         messagingTemplate.convertAndSend(
-                "/topic/track-status/" + uploadId,
-                new TrackStatusResponse(state, trackId, progress, stepName, null, null));
+                "/topic/track-status/" + uploadId, response);
     }
 
     @Transactional
