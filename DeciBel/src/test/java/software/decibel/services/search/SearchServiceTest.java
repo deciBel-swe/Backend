@@ -116,8 +116,9 @@ class SearchServiceTest {
     void search_withUserType_returnsUsers() {
         User user = new User();
         user.setId(1L);
+        user.setTier(AccountTier.FREE);
         Page<User> userPage = new PageImpl<>(List.of(user), PageRequest.of(0, 10), 1);
-
+        lenient().when(userService.getUserIfExistsById(any())).thenReturn(user);
         when(userRepository.searchPublicUsers(eq("test"), any(), any(Pageable.class))).thenReturn(userPage);
 
         // Mock UserMapper
@@ -135,6 +136,7 @@ class SearchServiceTest {
 
     @Test
     void search_withAll_callsAllRepositories() {
+
         when(trackRepository.searchPublicTracks(anyString(), any(), any(Pageable.class))).thenReturn(new PageImpl<>(Collections.emptyList()));
         when(playlistRepository.searchPublicPlaylists(anyString(), any(), any(Pageable.class))).thenReturn(new PageImpl<>(Collections.emptyList()));
         when(userRepository.searchPublicUsers(anyString(), any(), any(Pageable.class))).thenReturn(new PageImpl<>(Collections.emptyList()));
