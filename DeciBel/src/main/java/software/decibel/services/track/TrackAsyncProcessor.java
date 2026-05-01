@@ -57,6 +57,11 @@ public class TrackAsyncProcessor {
     @Async
     public void processTrackUploadAsync(Long trackId, String uploadId, TrackUploadRequest request, byte[] audioBytes,
             String audioOriginalFilename, byte[] coverBytes, String coverOriginalFilename, Long userId) {
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
         log.info(">>> ASYNC PROCESSOR ACTUALLY STARTED for track {}. Current Thread: {}",
                 trackId, Thread.currentThread().getName());
         processTrackUploadSync(trackId, uploadId, request, audioBytes, audioOriginalFilename, coverBytes, coverOriginalFilename, userId);
@@ -138,7 +143,6 @@ public class TrackAsyncProcessor {
                 messagingTemplate.convertAndSend(
                         "/topic/track-status/" + uploadId,
                         new TrackStatusResponse(TrackState.FINISHED, trackId, 100, "Done", null, finalResponse));
-                uploadStatusCache.clear(uploadId);
                 return finalResponse;
             });
         } catch (Exception e) {

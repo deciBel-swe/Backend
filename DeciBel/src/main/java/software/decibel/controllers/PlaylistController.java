@@ -155,7 +155,7 @@ public class PlaylistController {
         return ResponseEntity.ok(repostService.repostPlaylist(JwtService.getCurrentUserId(), playlistId));
     }
 
-    @DeleteMapping("/{playlistId}/reposts")
+    @DeleteMapping("/{playlistId}/repost")
     public ResponseEntity<Void> unrepostPlaylist(@PathVariable Long playlistId) {
         playlistService.unrepostPlaylist(JwtService.getCurrentUserId(), playlistId);
         return ResponseEntity.noContent().build();

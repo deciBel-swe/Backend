@@ -3,8 +3,11 @@ package software.decibel.services;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import software.decibel.dtos.auth.CaptchaRequest;
 import software.decibel.dtos.auth.CaptchaResponse;
 import software.decibel.exceptions.custom.CaptchaValidationException;
 
@@ -12,48 +15,103 @@ import software.decibel.exceptions.custom.CaptchaValidationException;
 @Service
 public class CaptchaService {
 
-    private static final String RECAPTCHA_VERIFY_URL = "https://www.google.com/recaptcha/api/siteverify";
-    private static final double MIN_SCORE = 0.5; // 0.0 = bot, 1.0 = human
+    private static final double MIN_SCORE = 0.5;
 
-    @Value("${google.recaptcha.secret:}") // put empty in production
-    private String bypassToken;
-
+    private final String bypassToken;
+    private final String bypassEmailDomain;
+    private final String projectId;
+    private final String apiKey;
+    private final String siteKey;
     private final RestClient restClient;
-    private final String recaptchaSecretKey;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public CaptchaService(
             RestClient.Builder restClientBuilder,
-            @Value("${google.recaptcha.secret}") String recaptchaSecretKey) {
-        this.restClient = restClientBuilder.baseUrl(RECAPTCHA_VERIFY_URL).build();
-        this.recaptchaSecretKey = recaptchaSecretKey;
+            @Value("${captcha.bypass-token:}") String bypassToken,
+            @Value("${email.bypass-domain:}") String bypassEmailDomain,
+            @Value("${google.recaptcha.enterprise.project-id:}") String projectId,
+            @Value("${google.recaptcha.enterprise.api-key:}") String apiKey,
+            @Value("${google.recaptcha.enterprise.site-key:}") String siteKey) {
+
+        this.bypassToken = bypassToken;
+        this.bypassEmailDomain = bypassEmailDomain;
+        this.projectId = projectId;
+        this.apiKey = apiKey;
+        this.siteKey = siteKey;
+
+        // Base URL for the Enterprise REST API
+        this.restClient = restClientBuilder
+                .baseUrl("https://recaptchaenterprise.googleapis.com/v1")
+                .build();
     }
 
-    public void validateCaptcha(String captchaToken) {
-        if (!bypassToken.isEmpty() && bypassToken.equals(captchaToken)) {
-            return; // Success! Skip Google verification.
-        }
-        // Skip validation in local/dev if secret key is not configured
-        if (recaptchaSecretKey == null || recaptchaSecretKey.isBlank()) {
-            log.warn("reCAPTCHA secret key not configured — skipping captcha validation");
+    public void validateCaptcha(String captchaToken, String email) {
+        String expectedAction = "register_local";
+
+        if (bypassToken != null && !bypassToken.isBlank() && bypassToken.equals(captchaToken)) {
+            log.debug("Captcha bypassed using configured bypass token.");
             return;
         }
 
-        CaptchaResponse response = restClient.post()
-                .uri(uriBuilder -> uriBuilder
-                .queryParam("secret", recaptchaSecretKey)
-                .queryParam("response", captchaToken)
-                .build())
-                .retrieve()
-                .body(CaptchaResponse.class);
-
-        if (response == null || !response.success()) {
-            throw new CaptchaValidationException("Captcha verification failed.");
+        if (bypassEmailDomain != null && !bypassEmailDomain.isBlank()
+                && email != null && email.endsWith("@" + bypassEmailDomain)) {
+            log.debug("Captcha bypassed for test email domain: {}", bypassEmailDomain);
+            return;
         }
 
-        if (response.score() < MIN_SCORE) {
-            throw new CaptchaValidationException("Captcha score too low. Possible bot activity detected.");
+        if (projectId.isBlank() || apiKey.isBlank() || siteKey.isBlank()) {
+            log.warn("reCAPTCHA Enterprise credentials not fully configured — skipping validation");
+            return;
         }
 
-        log.info("Captcha validated successfully. score={} action={}", response.score(), response.action());
+        try {
+            var requestBody = new CaptchaRequest(
+                    new CaptchaRequest.Event(captchaToken, siteKey, expectedAction)
+            );
+
+            String rawResponse = restClient.post()
+                    .uri("/projects/{projectId}/assessments?key={apiKey}", projectId, apiKey)
+                    .body(requestBody)
+                    .retrieve()
+                    .body(String.class);
+
+            log.info("RAW GOOGLE RESPONSE: {}", rawResponse);
+
+            if (rawResponse == null || rawResponse.isBlank()) {
+                throw new CaptchaValidationException("Empty response from reCAPTCHA Enterprise.");
+            }
+
+            CaptchaResponse response = objectMapper.readValue(rawResponse, CaptchaResponse.class);
+
+            if (response.tokenProperties() == null) {
+                throw new CaptchaValidationException("Missing tokenProperties in reCAPTCHA response.");
+            }
+
+            if (!response.tokenProperties().valid()) {
+                log.warn("Captcha invalid. Reason: {}", response.tokenProperties().invalidReason());
+                throw new CaptchaValidationException("Captcha verification failed.");
+            }
+
+            if (!expectedAction.equals(response.tokenProperties().action())) {
+                log.warn("Captcha action mismatch. Expected: {}, Got: {}",
+                        expectedAction, response.tokenProperties().action());
+                throw new CaptchaValidationException("Captcha action mismatch.");
+            }
+
+            Double score = response.riskAnalysis() != null ? response.riskAnalysis().score() : null;
+            if (score == null || score < MIN_SCORE) {
+                log.warn("Captcha score too low: {}", score);
+                throw new CaptchaValidationException("Captcha score too low. Possible bot activity detected.");
+            }
+
+            log.info("Enterprise Captcha validated successfully. score={} action={}", score, expectedAction);
+
+        } catch (RestClientException e) {
+            log.error("Failed to connect to Google reCAPTCHA Enterprise service", e);
+            throw new CaptchaValidationException("Unable to verify Captcha at this time.");
+        } catch (Exception e) {
+            log.error("Unexpected error during reCAPTCHA validation", e);
+            throw new CaptchaValidationException("Captcha validation encountered an unexpected error.");
+        }
     }
 }
