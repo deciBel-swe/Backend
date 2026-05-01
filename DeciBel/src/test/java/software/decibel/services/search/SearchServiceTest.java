@@ -35,6 +35,7 @@ import software.decibel.enums.AccountTier;
 import software.decibel.mappers.PlaylistMapper;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.mappers.UserMapper;
+import software.decibel.repositories.TrackLikeRepository;
 
 @ExtendWith(MockitoExtension.class)
 class SearchServiceTest {
@@ -52,7 +53,8 @@ class SearchServiceTest {
     private PlaylistMapper playlistMapper;
     @Mock
     private UserMapper userMapper;
-
+    @Mock
+    private TrackLikeRepository trackLikeRepository;
     @InjectMocks
     private SearchService searchService;
 
