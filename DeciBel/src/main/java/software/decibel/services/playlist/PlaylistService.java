@@ -562,12 +562,11 @@ public class PlaylistService {
         }
 
         // Auto-issue a fresh token whenever visibility transitions public → private
+        Playlist saved = playlistRepository.saveAndFlush(playlist);
         if (wasPublic && goingPrivate) {
-            playlistTokenService.issueNewToken(playlist);
+            playlistTokenService.issueNewToken(saved);
         }
-
-        //String secretToken = resolveSecretTokenForUser(playlist, userId);
-        return playlistRepository.saveAndFlush(playlist);
+        return saved;
     }
 
     private Playlist processAddTrack(Long userId, Long playlistId, Long trackId) {

@@ -93,7 +93,7 @@ public class Playlist {
     private List<Track> tracks = new ArrayList<>();
 
     // Slug history — soft deleted old slugs
-    @OneToMany(mappedBy = "playlist", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "playlist")
     @Builder.Default
     private List<PlaylistToken> slugHistory = new ArrayList<>();
 
