@@ -33,10 +33,12 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import software.decibel.dtos.playlist.PlaylistResponse;
+import software.decibel.dtos.playlist.PlaylistSummaryResponse;
 import software.decibel.dtos.user.UserSummaryDTO;
 import software.decibel.enums.PlaylistType;
 import software.decibel.services.playlist.PlaylistService;
-
+import software.decibel.services.engagement.LikeService;
+import software.decibel.services.engagement.RepostService;
 import software.decibel.services.JwtService;
 
 @ExtendWith(MockitoExtension.class)
@@ -44,6 +46,12 @@ class PlaylistControllerTest {
 
     @Mock
     private PlaylistService playlistService;
+
+    @Mock
+    private LikeService likeService;
+
+    @Mock
+    private RepostService repostService;
 
     @InjectMocks
     private PlaylistController controller;
@@ -75,10 +83,11 @@ class PlaylistControllerTest {
         }
     }
 
+    // ── Create Playlist ────────────────────────────────────────────────────────
     @Test
     void createPlaylist_whenRequestIsValid_returnsCreated() throws Exception {
         when(playlistService.createPlaylist(any(), any()))
-                .thenReturn(playlistResponse());
+                .thenReturn(playlistSummaryResponse());
 
         mockMvc.perform(multipart("/playlists")
                 .param("title", "My Playlist")
@@ -88,6 +97,20 @@ class PlaylistControllerTest {
                 .andExpect(jsonPath("$.title").value("My Playlist"))
                 .andExpect(jsonPath("$.type").value("PLAYLIST"))
                 .andExpect(jsonPath("$.trackCount").value(10));
+    }
+
+    @Test
+    void createPlaylistV2_whenRequestIsValid_returnsCreated() throws Exception {
+        when(playlistService.createPlaylistV2(any(), any(), any()))
+                .thenReturn(playlistResponse());
+
+        mockMvc.perform(multipart("/playlists/v2")
+                .param("title", "My Playlist")
+                .param("type", "PLAYLIST")
+                .param("isPrivate", "false"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.title").value("My Playlist"))
+                .andExpect(jsonPath("$.type").value("PLAYLIST"));
     }
 
     @Test
@@ -104,10 +127,11 @@ class PlaylistControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
+    // ── Patch Playlist ────────────────────────────────────────────────────────
     @Test
     void patchPlaylist_whenRequestIsValid_returnsOk() throws Exception {
         when(playlistService.patchPlaylist(any(), eq(10L), any()))
-                .thenReturn(playlistResponse());
+                .thenReturn(playlistSummaryResponse());
 
         mockMvc.perform(multipart("/playlists/10")
                 .param("title", "Updated Title")
@@ -120,8 +144,24 @@ class PlaylistControllerTest {
     }
 
     @Test
+    void patchPlaylistV2_whenRequestIsValid_returnsOk() throws Exception {
+        when(playlistService.patchPlaylistV2(any(), eq(10L), any(), any()))
+                .thenReturn(playlistResponse());
+
+        mockMvc.perform(multipart("/playlists/10/v2")
+                .param("title", "Updated Title")
+                .with(req -> {
+                    req.setMethod("PATCH");
+                    return req;
+                }))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1));
+    }
+
+    // ── Get Playlist ──────────────────────────────────────────────────────────
+    @Test
     void getPlaylist_whenExists_returnsOk() throws Exception {
-        when(playlistService.getPlaylist(eq(10L), any(), any(Pageable.class))).thenReturn(playlistResponse());
+        when(playlistService.getPlaylist(eq(10L), any())).thenReturn(playlistSummaryResponse());
 
         mockMvc.perform(get("/playlists/10"))
                 .andExpect(status().isOk())
@@ -130,8 +170,19 @@ class PlaylistControllerTest {
     }
 
     @Test
+    void getPlaylistV2_whenExists_returnsOk() throws Exception {
+        when(playlistService.getPlaylistV2(eq(10L), any(), any(Pageable.class))).thenReturn(playlistResponse());
+
+        mockMvc.perform(get("/playlists/10/v2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.title").value("My Playlist"));
+    }
+
+    // ── Add Track ─────────────────────────────────────────────────────────────
+    @Test
     void addTrack_whenValid_returnsOk() throws Exception {
-        PlaylistResponse response = playlistResponse();
+        PlaylistSummaryResponse response = playlistSummaryResponse();
 
         when(playlistService.addTrack(any(), eq(10L), eq(100L))).thenReturn(response);
 
@@ -144,17 +195,29 @@ class PlaylistControllerTest {
     }
 
     @Test
-    void removeTrack_whenValid_returnsOk() throws Exception {
-        when(playlistService.removeTrack(any(), eq(10L), eq(100L))).thenReturn(null);
+    void addTrackV2_whenValid_returnsOk() throws Exception {
+        PlaylistResponse response = playlistResponse();
 
+        when(playlistService.addTrackV2(any(), eq(10L), eq(100L), any())).thenReturn(response);
+
+        mockMvc.perform(post("/playlists/10/tracks/v2")
+                .param("trackId", "100"))
+                .andExpect(status().isOk());
+
+        verify(playlistService).addTrackV2(any(), eq(10L), eq(100L), any());
+    }
+
+    // ── Remove Track ──────────────────────────────────────────────────────────
+    @Test
+    void removeTrack_whenValid_returnsOk() throws Exception {
         mockMvc.perform(delete("/playlists/10/tracks/100"))
                 .andExpect(status().isNoContent());
 
         verify(playlistService).removeTrack(any(), eq(10L), eq(100L));
     }
 
-    // ── Helper ────────────────────────────────────────────────────────────────
-    private PlaylistResponse playlistResponse() {
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    private PlaylistSummaryResponse playlistSummaryResponse() {
         UserSummaryDTO owner = new UserSummaryDTO(
                 2L,
                 "testuser",
@@ -164,7 +227,7 @@ class PlaylistControllerTest {
                 0,
                 10
         );
-        return new PlaylistResponse(
+        return new PlaylistSummaryResponse(
                 1L, // id
                 "My Playlist", // title
                 PlaylistType.PLAYLIST, // type
@@ -179,9 +242,20 @@ class PlaylistControllerTest {
                 owner, // owner
                 List.of("Rock"), // genres
                 LocalDateTime.now(), // createdAt
-                null, // trackSummaryDto (Page<TrackSummaryDTO>)
+                List.of(), // trackSummaryDto (List<TrackSummaryDTO>)
                 "waveform-url", // firstTrackWaveformUrl
                 "secret-token" // secretToken
+        );
+    }
+
+    private PlaylistResponse playlistResponse() {
+        UserSummaryDTO owner = new UserSummaryDTO(2L, "testuser", "Test User", null, false, 0, 10);
+        return new PlaylistResponse(
+                1L, "My Playlist", PlaylistType.PLAYLIST, false, false, "Description", false,
+                "cover-image-url", "my-playlist-slug", 3600, 10, owner,
+                List.of("Rock"), LocalDateTime.now(),
+                null, // <--- CHANGE THIS FROM org.springframework.data.domain.Page.empty() TO null
+                "waveform-url", "secret-token"
         );
     }
 }
