@@ -136,6 +136,9 @@ class SearchServiceTest {
 
     @Test
     void search_withAll_callsAllRepositories() {
+        User mockUser = new User();
+        mockUser.setTier(AccountTier.FREE);
+        lenient().when(userService.getUserIfExistsById(any())).thenReturn(mockUser);
 
         when(trackRepository.searchPublicTracks(anyString(), any(), any(Pageable.class))).thenReturn(new PageImpl<>(Collections.emptyList()));
         when(playlistRepository.searchPublicPlaylists(anyString(), any(), any(Pageable.class))).thenReturn(new PageImpl<>(Collections.emptyList()));
