@@ -1,5 +1,6 @@
 package software.decibel.services.playlist;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -468,9 +469,6 @@ public class PlaylistService {
         Playlist playlist = playlistMapper.toEntity(request, user, slug, coverArtUrl);
         playlist.setTracks(new java.util.ArrayList<>());
         playlist.setGenres(new java.util.ArrayList<>());
-        // saveAndFlush assigns the playlist ID before issueNewToken inserts the
-        // token FK — both writes share this transaction (Propagation.REQUIRED)
-        // so a concurrent reader can never see the playlist without a token.
         playlist = playlistRepository.saveAndFlush(playlist);
         playlistTokenService.issueNewToken(playlist);
         return playlist;
