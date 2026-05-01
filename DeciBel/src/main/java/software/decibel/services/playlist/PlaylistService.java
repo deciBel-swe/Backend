@@ -559,15 +559,13 @@ public class PlaylistService {
             playlist.setCoverArtUrl(newCoverArtUrl);
         }
 
-        playlist = playlistRepository.save(playlist);
-
         // Auto-issue a fresh token whenever visibility transitions public → private
         if (wasPublic && goingPrivate) {
             playlistTokenService.issueNewToken(playlist);
         }
 
         //String secretToken = resolveSecretTokenForUser(playlist, userId);
-        return playlistRepository.save(playlist);
+        return playlist;
     }
 
     private Playlist processAddTrack(Long userId, Long playlistId, Long trackId) {
@@ -593,7 +591,7 @@ public class PlaylistService {
         }
 
         String secretToken = resolveSecretTokenForUser(playlist);
-        return playlistRepository.save(playlist);
+        return playlist;
     }
 
     private Playlist processReorderTracks(Long userId, Long playlistId, ReorderTracksRequest request) {
@@ -615,6 +613,6 @@ public class PlaylistService {
         playlist.setTracks(newOrder.stream().map(trackMap::get).collect(Collectors.toList()));
 
         String secretToken = resolveSecretTokenForUser(playlist);
-        return playlistRepository.save(playlist);
+        return playlist;
     }
 }

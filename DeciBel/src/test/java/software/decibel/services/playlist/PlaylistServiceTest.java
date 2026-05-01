@@ -307,11 +307,10 @@ class PlaylistServiceTest {
 
         when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
         when(trackRepository.findById(100L)).thenReturn(Optional.of(track));
-        when(playlistRepository.save(any())).thenReturn(playlist);
+
         when(playlistTokenService.resolveSecretToken(any(Playlist.class))).thenReturn("mock-token");
         when(userService.getUserIfExistsById(1L)).thenReturn(user);
 
-        // Mock engagement calls inside mapToSummaryWithEngagement
         when(trackLikeRepository.findTrackIdsByUserId(anyLong())).thenReturn(java.util.Collections.emptySet());
         when(trackRepostRepository.findTrackIdsByUserId(anyLong())).thenReturn(java.util.Collections.emptySet());
         when(playlistLikeRepository.existsByUserAndPlaylist(any(User.class), any(Playlist.class))).thenReturn(false);
@@ -325,15 +324,10 @@ class PlaylistServiceTest {
 
         when(playlistMapper.toSummaryResponse(any(Playlist.class), anySet(), anySet(), anyBoolean(), anyBoolean(), any(AccountTier.class), anyString())).thenReturn(mockResponse);
 
-        try (MockedStatic<JwtService> mockedJwt = mockStatic(JwtService.class)) {
-            mockedJwt.when(JwtService::getCurrentUserId).thenReturn(1L);
+        PlaylistSummaryResponse response = playlistService.addTrack(1L, 10L, 100L);
 
-            PlaylistSummaryResponse response = playlistService.addTrack(1L, 10L, 100L);
-
-            assertEquals(1, response.trackCount());
-            assertEquals(180, response.totalDurationSeconds());
-            verify(playlistRepository).save(any());
-        }
+        assertEquals(1, response.trackCount());
+        assertEquals(180, response.totalDurationSeconds());
     }
 
     // ── addTrack (V2) ─────────────────────────────────────────────────────────
@@ -346,11 +340,10 @@ class PlaylistServiceTest {
 
         when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
         when(trackRepository.findById(100L)).thenReturn(Optional.of(track));
-        when(playlistRepository.save(any())).thenReturn(playlist);
+
         when(playlistTokenService.resolveSecretToken(any(Playlist.class))).thenReturn("mock-token");
         when(userService.getUserIfExistsById(1L)).thenReturn(user);
 
-        // Mock engagement calls inside mapToResponseWithEngagement
         when(trackLikeRepository.findTrackIdsByUserId(anyLong())).thenReturn(java.util.Collections.emptySet());
         when(trackRepostRepository.findTrackIdsByUserId(anyLong())).thenReturn(java.util.Collections.emptySet());
         when(playlistLikeRepository.existsByUserAndPlaylist(any(User.class), any(Playlist.class))).thenReturn(false);
@@ -362,17 +355,11 @@ class PlaylistServiceTest {
                 new software.decibel.dtos.user.UserSummaryDTO(1L, "testuser_1", null, null, false, 0, 0),
                 List.of("Hip Hop"), null, org.springframework.data.domain.Page.empty(), null, "mock-token");
 
-        // USE THE LONG MAPPER SIGNATURE (8 args)
         when(playlistMapper.toResponse(any(Playlist.class), anySet(), anySet(), anyBoolean(), anyBoolean(), any(AccountTier.class), any(Pageable.class), anyString())).thenReturn(mockResponse);
 
-        try (MockedStatic<JwtService> mockedJwt = mockStatic(JwtService.class)) {
-            mockedJwt.when(JwtService::getCurrentUserId).thenReturn(1L);
+        PlaylistResponse response = playlistService.addTrackV2(1L, 10L, 100L, PageRequest.of(0, 20));
 
-            PlaylistResponse response = playlistService.addTrackV2(1L, 10L, 100L, PageRequest.of(0, 20));
-
-            assertEquals(1, response.trackCount());
-            verify(playlistRepository).save(any());
-        }
+        assertEquals(1, response.trackCount());
     }
 
     @Test
@@ -407,7 +394,6 @@ class PlaylistServiceTest {
         assertEquals(0, playlist.getTrackCount());
         assertEquals(0, playlist.getTotalDurationSeconds());
         assertTrue(playlist.getGenres().isEmpty());
-        verify(playlistRepository).save(any());
     }
 
     @Test
