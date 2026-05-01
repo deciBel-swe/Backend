@@ -41,9 +41,6 @@ public interface PlaylistRepository extends JpaRepository<Playlist, Long> {
     """)
     Page<Playlist> searchPublicPlaylists(@Param("query") String query, @Param("userId") Long userId, Pageable pageable);
 
-    @Query("SELECT p FROM Playlist p JOIN p.slugHistory pt WHERE pt.token = :token AND pt.isDeleted = false")
-    Optional<Playlist> findByToken(@Param("token") String token);
-
     @Query("SELECT p.id FROM Playlist p WHERE p.slug = :slug")
     Optional<Long> findIdBySlug(@Param("slug") String slug);
 
