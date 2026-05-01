@@ -15,7 +15,7 @@ public class CaptchaService {
     private static final String RECAPTCHA_VERIFY_URL = "https://www.google.com/recaptcha/api/siteverify";
     private static final double MIN_SCORE = 0.5; // 0.0 = bot, 1.0 = human
 
-    @Value("${captcha.bypass-token:}") // put empty in production
+    @Value("${google.recaptcha.secret:}") // put empty in production
     private String bypassToken;
 
     private final RestClient restClient;
@@ -23,7 +23,7 @@ public class CaptchaService {
 
     public CaptchaService(
             RestClient.Builder restClientBuilder,
-            @Value("${app.recaptcha.secret-key:}") String recaptchaSecretKey) {
+            @Value("${google.recaptcha.secret}") String recaptchaSecretKey) {
         this.restClient = restClientBuilder.baseUrl(RECAPTCHA_VERIFY_URL).build();
         this.recaptchaSecretKey = recaptchaSecretKey;
     }
