@@ -31,6 +31,8 @@ import software.decibel.repositories.TrackRepostRepository;
 import software.decibel.repositories.UserRepository;
 import software.decibel.services.JwtService;
 import software.decibel.services.playlist.PlaylistTokenService;
+import software.decibel.enums.AccountTier;
+import software.decibel.services.user.UserService;
 
 @Service
 @RequiredArgsConstructor
@@ -42,6 +44,7 @@ public class SearchService {
     private final TrackMapper trackMapper;
     private final PlaylistMapper playlistMapper;
     private final UserMapper userMapper;
+    private final UserService userService;
     private final PlaylistTokenService playlistTokenService;
     private final TrackLikeRepository trackLikeRepository;
     private final TrackRepostRepository trackRepostRepository;
@@ -101,23 +104,28 @@ public class SearchService {
         Set<Long> repostedTrackIds = Collections.emptySet();
         Set<Long> likedPlaylistIds = Collections.emptySet();
         Set<Long> repostedPlaylistIds = Collections.emptySet();
+        AccountTier userTier = AccountTier.FREE;
 
         if (userId != null) {
             likedTrackIds = trackLikeRepository.findTrackIdsByUserId(userId);
             repostedTrackIds = trackRepostRepository.findTrackIdsByUserId(userId);
             likedPlaylistIds = playlistLikeRepository.findPlaylistIdsByUserId(userId);
             repostedPlaylistIds = playlistRepostRepository.findPlaylistIdsByUserId(userId);
+            userTier = userService.getUserIfExistsById(userId).getTier();
         }
         final Set<Long> finalLikedTrackIds = likedTrackIds;
         final Set<Long> finalRepostedTrackIds = repostedTrackIds;
         final Set<Long> finalLikedPlaylistIds = likedPlaylistIds;
         final Set<Long> finalRepostedPlaylistIds = repostedPlaylistIds;
+        final AccountTier finalUserTier = userTier;
 
         List<ResourceItemDto> content = new ArrayList<>();
         tracks.getContent().forEach(t -> content.add(ResourceItemDto.of(
                 trackMapper.toTrackResponse(t,
                         finalLikedTrackIds.contains(t.getId()),
-                        finalRepostedTrackIds.contains(t.getId())))));
+                        finalRepostedTrackIds.contains(t.getId()),
+                        finalUserTier
+                ))));
 
         playlists.getContent().forEach(p -> content.add(ResourceItemDto.of(
                 playlistMapper.toSummaryResponse(p,
@@ -125,7 +133,7 @@ public class SearchService {
                         finalRepostedTrackIds,
                         finalLikedPlaylistIds.contains(p.getId()),
                         finalRepostedPlaylistIds.contains(p.getId()),
-                        software.decibel.enums.AccountTier.FREE,
+                        finalUserTier,
                         playlistTokenService.resolveToken(p.getId()))
         )));
 
@@ -156,18 +164,21 @@ public class SearchService {
 
         java.util.Set<Long> likedTrackIds = java.util.Collections.emptySet();
         java.util.Set<Long> repostedTrackIds = java.util.Collections.emptySet();
+        AccountTier userTier = AccountTier.FREE;
         if (userId != null) {
             likedTrackIds = trackLikeRepository.findTrackIdsByUserId(userId);
             repostedTrackIds = trackRepostRepository.findTrackIdsByUserId(userId);
+            userTier = userService.getUserIfExistsById(userId).getTier();
         }
 
         final java.util.Set<Long> finalLikedTrackIds = likedTrackIds;
         final java.util.Set<Long> finalRepostedTrackIds = repostedTrackIds;
-
+        final AccountTier finalUserTier = userTier;
         List<ResourceItemDto> content = tracks.getContent().stream()
                 .map(t -> ResourceItemDto.of(trackMapper.toTrackResponse(t,
                 finalLikedTrackIds.contains(t.getId()),
-                finalRepostedTrackIds.contains(t.getId()))))
+                finalRepostedTrackIds.contains(t.getId()),
+                finalUserTier)))
                 .collect(Collectors.toList());
         return toSearchResponse(tracks, content);
     }
@@ -182,13 +193,16 @@ public class SearchService {
 
         java.util.Set<Long> likedPlaylistIds = java.util.Collections.emptySet();
         java.util.Set<Long> repostedPlaylistIds = java.util.Collections.emptySet();
+        AccountTier userTier = AccountTier.FREE;
         if (userId != null) {
             likedPlaylistIds = playlistLikeRepository.findPlaylistIdsByUserId(userId);
             repostedPlaylistIds = playlistRepostRepository.findPlaylistIdsByUserId(userId);
+            userTier = userService.getUserIfExistsById(userId).getTier();
         }
 
         final Set<Long> finalLikedPlaylistIds = likedPlaylistIds;
         final Set<Long> finalRepostedPlaylistIds = repostedPlaylistIds;
+        final AccountTier finalUserTier = userTier;
 
         List<ResourceItemDto> content = playlists.getContent().stream()
                 .map(p -> ResourceItemDto.of(playlistMapper.toSummaryResponse(p,
@@ -196,7 +210,7 @@ public class SearchService {
                 java.util.Collections.emptySet(),
                 finalLikedPlaylistIds.contains(p.getId()),
                 finalRepostedPlaylistIds.contains(p.getId()),
-                software.decibel.enums.AccountTier.FREE,
+                finalUserTier,
                 playlistTokenService.resolveToken(p.getId()))))
                 .collect(Collectors.toList());
         return toSearchResponse(playlists, content);
@@ -226,18 +240,21 @@ public class SearchService {
 
         java.util.Set<Long> likedTrackIds = java.util.Collections.emptySet();
         java.util.Set<Long> repostedTrackIds = java.util.Collections.emptySet();
+        AccountTier userTier = AccountTier.FREE;
         if (userId != null) {
             likedTrackIds = trackLikeRepository.findTrackIdsByUserId(userId);
             repostedTrackIds = trackRepostRepository.findTrackIdsByUserId(userId);
+            userTier = userService.getUserIfExistsById(userId).getTier();
         }
 
         final java.util.Set<Long> finalLikedTrackIds = likedTrackIds;
         final java.util.Set<Long> finalRepostedTrackIds = repostedTrackIds;
-
+        final AccountTier finalUserTier = userTier;
         List<ResourceItemDto> content = tracks.getContent().stream()
                 .map(t -> ResourceItemDto.of(trackMapper.toTrackResponse(t,
                 finalLikedTrackIds.contains(t.getId()),
-                finalRepostedTrackIds.contains(t.getId()))))
+                finalRepostedTrackIds.contains(t.getId()),
+                finalUserTier)))
                 .collect(Collectors.toList());
         return toSearchResponse(tracks, content);
     }

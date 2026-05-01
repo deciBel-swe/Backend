@@ -24,7 +24,6 @@ import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.CommentMapper;
 import software.decibel.repositories.CommentRepository;
 import software.decibel.repositories.TrackRepository;
-import software.decibel.services.BlockService;
 import software.decibel.services.notification.InAppNotificationService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.TrackChecksUtil;
@@ -55,15 +54,15 @@ public class CommentService {
             throw new InvalidTimestampException(request.timestampSeconds(), track.getDurationSeconds());
         }
 
-    // Check if user is blocked by track uploader
-    if (blockService.hasUserBlocked(track.getUploader().getId(), userId)) {
-      throw new AccessDeniedException("You cannot comment on tracks from users who blocked you.");
-    }
+        // Check if user is blocked by track uploader
+        if (blockService.hasUserBlocked(track.getUploader().getId(), userId)) {
+            throw new AccessDeniedException("You cannot comment on tracks from users who blocked you.");
+        }
 
-    // Check if user has blocked the track uploader
-    if (blockService.hasUserBlocked(userId, track.getUploader().getId())) {
-      throw new AccessDeniedException("You cannot comment on tracks from user you blocked.");
-    }
+        // Check if user has blocked the track uploader
+        if (blockService.hasUserBlocked(userId, track.getUploader().getId())) {
+            throw new AccessDeniedException("You cannot comment on tracks from user you blocked.");
+        }
 
         // update comment count
         track.setCommentCount(track.getCommentCount() + 1);
@@ -108,15 +107,15 @@ public class CommentService {
             throw new ReplyToReplyNotAllowedException();
         }
 
-    // Check if user is blocked by track uploader
-    if (blockService.hasUserBlocked(parentComment.getTrack().getUploader().getId(), userId)) {
-      throw new AccessDeniedException("You cannot reply on tracks from users who blocked you.");
-    }
+        // Check if user is blocked by track uploader
+        if (blockService.hasUserBlocked(parentComment.getTrack().getUploader().getId(), userId)) {
+            throw new AccessDeniedException("You cannot reply on tracks from users who blocked you.");
+        }
 
-    // Check if user has blocked the track uploader
-    if (blockService.hasUserBlocked(userId, parentComment.getTrack().getUploader().getId())) {
-      throw new AccessDeniedException("You cannot reply on tracks from user you blocked.");
-    }
+        // Check if user has blocked the track uploader
+        if (blockService.hasUserBlocked(userId, parentComment.getTrack().getUploader().getId())) {
+            throw new AccessDeniedException("You cannot reply on tracks from user you blocked.");
+        }
 
         Comment reply
                 = commentMapper.toReplyEntity(request, user, parentComment.getTrack(), parentComment);
@@ -125,8 +124,8 @@ public class CommentService {
         Track track = reply.getTrack();
         track.setCommentCount(track.getCommentCount() + 1);
         trackRepository.save(track);
-    // notification
-    if (parentComment.getUser() != null) {
+        // notification
+        if (parentComment.getUser() != null) {
             inAppNotificationService.createNotification(
                     parentComment.getUser().getId(), // Recipient (Author of the parent comment)
                     userId, // Actor (User replying)

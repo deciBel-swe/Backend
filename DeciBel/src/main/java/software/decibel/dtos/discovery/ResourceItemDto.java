@@ -1,6 +1,5 @@
 package software.decibel.dtos.discovery;
 
-import software.decibel.dtos.playlist.PlaylistResponse;
 import software.decibel.dtos.playlist.PlaylistSummaryResponse;
 import software.decibel.dtos.track.responses.TrackResponse;
 import software.decibel.dtos.user.UserSummaryDTO;

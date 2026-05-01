@@ -16,9 +16,9 @@ public class AsyncConfig {
     @Primary
     public Executor taskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(5);      // Minimum number of worker threads
+        executor.setCorePoolSize(15);      // Minimum number of worker threads
         executor.setMaxPoolSize(15);      // Maximum number of worker threads
-        executor.setQueueCapacity(100);   // How many tasks can wait in line before throwing an error
+        executor.setQueueCapacity(50);   // How many tasks can wait in line before throwing an error
         executor.setThreadNamePrefix("TrackUpload-");
         executor.initialize();
         return executor;

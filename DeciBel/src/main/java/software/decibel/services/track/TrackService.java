@@ -57,6 +57,7 @@ import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
 import software.decibel.services.JwtService;
 import software.decibel.services.TagService;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import software.decibel.services.engagement.LikeService;
 import software.decibel.services.engagement.RepostService;
 import software.decibel.services.user.UserService;
@@ -91,6 +92,7 @@ public class TrackService {
     private final TrackChecksUtil trackChecksUtil;
 
     private final PlaylistRepository playlistRepository;
+    private final ThreadPoolTaskExecutor taskExecutor;
 
     //Async Processor
     private final TrackAsyncProcessor trackAsyncProcessor;
@@ -290,6 +292,10 @@ public class TrackService {
 
     //upload track and subscribe via ID sent by the front/cross
     public TrackUploadResponse uploadTrackAsync(TrackUploadRequest request, String uploadId) {
+        log.info("[THREAD POOL STATS] Active Threads: {}, Waiting in Queue: {}, Pool Size: {}",
+                taskExecutor.getActiveCount(),
+                taskExecutor.getThreadPoolExecutor().getQueue().size(),
+                taskExecutor.getPoolSize());
         Track createdTrack = initializeTrackUpload(request, uploadId);
         Long userId = JwtService.getCurrentUserId();
 

@@ -18,7 +18,6 @@ import software.decibel.exceptions.custom.UnauthorizedActionException;
 import software.decibel.mappers.UserMapper;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.UserRepository;
-import software.decibel.services.BlockService;
 import software.decibel.services.notification.InAppNotificationService;
 import software.decibel.services.user.UserService;
 

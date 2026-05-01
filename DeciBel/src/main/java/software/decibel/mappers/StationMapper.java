@@ -3,12 +3,14 @@ package software.decibel.mappers;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.mapstruct.Mapper;
+
 import org.springframework.data.domain.Page;
 import software.decibel.dtos.discovery.StationPageResponse;
 import software.decibel.dtos.track.TrackSummaryDTO;
 import software.decibel.dtos.user.UserSummaryDTO;
 import software.decibel.entities.Track;
+import software.decibel.enums.AccountTier;
+
 import org.mapstruct.*;
 
 @Mapper(
@@ -25,7 +27,9 @@ public interface StationMapper {
             Set<Long> likedIds,
             Set<Long> repostedIds,
             Map<Long, String> tokenMap,
-            Set<Long> followingArtistIds) {
+            Set<Long> followingArtistIds,
+            AccountTier userTier,
+            TrackMapper trackMapper) {
 
         // i turn page's content into a stream and generate tracksummarydto for each track
         // i also mark inside the track summary dto if the track is liked or reposted by user
@@ -33,7 +37,7 @@ public interface StationMapper {
                 = page.getContent().stream()
                         .map(
                                 track -> {
-                                    TrackSummaryDTO dto = toTrackSummary(track);
+                                    TrackSummaryDTO dto = trackMapper.toTrackSummaryDTO(track, likedIds, repostedIds, userTier);
                                     return new TrackSummaryDTO(
                                             dto.id(),
                                             dto.title(),

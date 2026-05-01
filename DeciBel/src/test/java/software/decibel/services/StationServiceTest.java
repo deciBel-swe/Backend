@@ -24,8 +24,11 @@ import org.springframework.data.domain.PageRequest;
 
 import software.decibel.dtos.discovery.StationPageResponse;
 import software.decibel.entities.Track;
+import software.decibel.entities.User;
+import software.decibel.enums.AccountTier;
 import software.decibel.exceptions.custom.NoStationResultsException;
 import software.decibel.mappers.StationMapper;
+import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.TrackLikeRepository;
@@ -51,6 +54,8 @@ class StationServiceTest {
     @Mock
     private StationMapper stationMapper;
     @Mock
+    private TrackMapper trackMapper; // <-- Added TrackMapper Mock
+    @Mock
     private UserService userService;
     @Mock
     private PlaylistRepository playlistRepository;
@@ -72,13 +77,17 @@ class StationServiceTest {
         jwtMock.close();
     }
 
-    //  helpers
-    // you can pass an array of tracks
     private Page<Track> pageOf(Track... tracks) {
         return new PageImpl<>(List.of(tracks));
     }
 
     private void mockBuildDependencies(Set<Long> trackIds) {
+        // Assume StationService was also updated to get the User tier like UserHistoryService was
+        User mockUser = new User();
+        mockUser.setId(mockUserId);
+        mockUser.setTier(AccountTier.FREE);
+        when(userService.getUserIfExistsById(mockUserId)).thenReturn(mockUser);
+
         when(trackLikeRepository.findTrackIdsByUserId(mockUserId)).thenReturn(Set.of());
         when(trackRepostRepository.findTrackIdsByUserId(mockUserId)).thenReturn(Set.of());
         when(trackTokenRepository.findActiveTokensByTrackIds(trackIds)).thenReturn(List.of());
@@ -96,7 +105,9 @@ class StationServiceTest {
 
         when(trackRepository.findGenreStation(eq(mockUserId), any(PageRequest.class))).thenReturn(page);
         mockBuildDependencies(Set.of(1L));
-        when(stationMapper.toPageResponse(any(Page.class), any(), any(), any(), any())).thenReturn(mockResponse);
+
+        // Added the 2 extra any() matchers for AccountTier and TrackMapper
+        when(stationMapper.toPageResponse(any(Page.class), any(), any(), any(), any(), any(), any())).thenReturn(mockResponse);
 
         // Act
         StationPageResponse response = stationService.getGenreStation(0, 20);
@@ -130,7 +141,9 @@ class StationServiceTest {
         when(trackRepository.findArtistStation(eq(mockUserId), any(PageRequest.class)))
                 .thenReturn(page);
         mockBuildDependencies(Set.of(10L));
-        when(stationMapper.toPageResponse(any(Page.class), any(), any(), any(), any())).thenReturn(mockResponse);
+
+        // Added the 2 extra any() matchers
+        when(stationMapper.toPageResponse(any(Page.class), any(), any(), any(), any(), any(), any())).thenReturn(mockResponse);
 
         // Act
         StationPageResponse response = stationService.getArtistStation(0, 20);
@@ -163,7 +176,9 @@ class StationServiceTest {
 
         when(trackRepository.findLikesStation(eq(mockUserId), any(PageRequest.class))).thenReturn(page);
         mockBuildDependencies(Set.of(5L));
-        when(stationMapper.toPageResponse(any(Page.class), any(), any(), any(), any())).thenReturn(mockResponse);
+
+        // Added the 2 extra any() matchers
+        when(stationMapper.toPageResponse(any(Page.class), any(), any(), any(), any(), any(), any())).thenReturn(mockResponse);
 
         // Act
         StationPageResponse response = stationService.getLikesStation(0, 20);

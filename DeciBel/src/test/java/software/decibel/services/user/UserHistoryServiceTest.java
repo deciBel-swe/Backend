@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mockStatic;
 
 import java.util.List;
 import java.util.Map;
@@ -22,20 +23,21 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import static org.mockito.Mockito.mockStatic;
 
 import software.decibel.dtos.discovery.StationPageResponse;
 import software.decibel.entities.ListeningHistory;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
+import software.decibel.enums.AccountTier;
 import software.decibel.mappers.StationMapper;
+import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.ListeningHistoryRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepostRepository;
 import software.decibel.repositories.TrackTokenRepository;
 import software.decibel.services.JwtService;
-import software.decibel.projections.TrackTokenProjection; // Ensure this import exists
+import software.decibel.projections.TrackTokenProjection;
 
 class UserHistoryServiceTest {
 
@@ -53,6 +55,8 @@ class UserHistoryServiceTest {
     private FollowRepository followRepository;
     @Mock
     private StationMapper stationMapper;
+    @Mock
+    private TrackMapper trackMapper;
     @Mock
     private UserService userService;
 
@@ -75,7 +79,7 @@ class UserHistoryServiceTest {
 
     @Test
     void getMyListeningHistory_returnsMappedPageWhenHistoryExists() {
-        User user = User.builder().id(USER_ID).build();
+        User user = User.builder().id(USER_ID).tier(AccountTier.FREE).build();
         Track track = Track.builder().id(15L).build();
         ListeningHistory item = ListeningHistory.builder().user(user).track(track).build();
         Page<ListeningHistory> historyPage = new PageImpl<>(List.of(item), PageRequest.of(0, 20), 1);
@@ -84,12 +88,10 @@ class UserHistoryServiceTest {
         Set<Long> repostedIds = Set.of();
         Set<Long> followingIds = Set.of(3L);
 
-        // 1. Mock the Projection
         TrackTokenProjection mockProjection = mock(TrackTokenProjection.class);
         when(mockProjection.getTrackId()).thenReturn(15L);
         when(mockProjection.getToken()).thenReturn("secret-token");
 
-        // 2. The map that the service will build internally from the list
         Map<Long, String> expectedInternalMap = Map.of(15L, "secret-token");
         StationPageResponse expected = mock(StationPageResponse.class);
 
@@ -100,12 +102,10 @@ class UserHistoryServiceTest {
         when(trackRepostRepository.findTrackIdsByUserId(USER_ID)).thenReturn(repostedIds);
         when(followRepository.findFollowingIdsByFollowerId(USER_ID)).thenReturn(List.of(3L));
 
-        // 3. Return a List of projections from repo
         when(trackTokenRepository.findActiveTokensByTrackIds(Set.of(15L)))
                 .thenReturn(List.of(mockProjection));
 
-        // 4. Mapper still receives the Map
-        when(stationMapper.toPageResponse(any(Page.class), eq(likedIds), eq(repostedIds), eq(expectedInternalMap), eq(followingIds)))
+        when(stationMapper.toPageResponse(any(Page.class), eq(likedIds), eq(repostedIds), eq(expectedInternalMap), eq(followingIds), eq(AccountTier.FREE), eq(trackMapper)))
                 .thenReturn(expected);
 
         StationPageResponse result = userHistoryService.getMyListeningHistory(0, 20);
@@ -116,7 +116,7 @@ class UserHistoryServiceTest {
 
     @Test
     void getMyListeningHistory_skipsTokenLookupWhenHistoryIsEmpty() {
-        User user = User.builder().id(USER_ID).build();
+        User user = User.builder().id(USER_ID).tier(AccountTier.FREE).build();
         Page<ListeningHistory> historyPage = Page.empty(PageRequest.of(0, 20));
         StationPageResponse expected = mock(StationPageResponse.class);
 
@@ -127,8 +127,7 @@ class UserHistoryServiceTest {
         when(trackRepostRepository.findTrackIdsByUserId(USER_ID)).thenReturn(Set.of());
         when(followRepository.findFollowingIdsByFollowerId(USER_ID)).thenReturn(List.of());
 
-        // No call to trackTokenRepository should happen
-        when(stationMapper.toPageResponse(any(Page.class), eq(Set.of()), eq(Set.of()), eq(Map.of()), eq(Set.of())))
+        when(stationMapper.toPageResponse(any(Page.class), eq(Set.of()), eq(Set.of()), eq(Map.of()), eq(Set.of()), eq(AccountTier.FREE), eq(trackMapper)))
                 .thenReturn(expected);
 
         StationPageResponse result = userHistoryService.getMyListeningHistory(0, 20);

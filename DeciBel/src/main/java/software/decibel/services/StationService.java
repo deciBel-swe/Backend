@@ -13,8 +13,10 @@ import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.discovery.StationPageResponse;
 import software.decibel.entities.Track;
+import software.decibel.enums.AccountTier;
 import software.decibel.exceptions.custom.NoStationResultsException;
 import software.decibel.mappers.StationMapper;
+import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
@@ -35,14 +37,15 @@ public class StationService {
     private final FollowRepository followRepository;
     private final StationMapper stationMapper;
     private final UserService userService;
+    private final TrackMapper trackMapper;
 
     // Tracks with same genres as ones you liked + filtering
     public StationPageResponse getGenreStation(int page, int size) {
         Long userId = JwtService.getCurrentUserId();
-        List<Track> trackList = trackRepository.findGenreStation(userId, PageRequest.of(0, 50)).getContent();
+        List<Track> trackList = trackRepository.findGenreStation(userId, PageRequest.of(0, MAX_STATION_TRACKS)).getContent();
         //fallback
         if (trackList.isEmpty()) {
-            trackList = trackRepository.findMostPopularTracks(PageRequest.of(0, 50)).getContent();
+            trackList = trackRepository.findMostPopularTracks(PageRequest.of(0, MAX_STATION_TRACKS)).getContent();
         }
 
         Page<Track> tracks = paginateList(trackList, page, size);
@@ -52,10 +55,10 @@ public class StationService {
     // Tracks with same genres as ones posted by artists you follow + filtering
     public StationPageResponse getArtistStation(int page, int size) {
         Long userId = JwtService.getCurrentUserId();
-        List<Track> trackList = trackRepository.findArtistStation(userId, PageRequest.of(0, 50)).getContent();
+        List<Track> trackList = trackRepository.findArtistStation(userId, PageRequest.of(0, MAX_STATION_TRACKS)).getContent();
         //fallback
         if (trackList.isEmpty()) {
-            trackList = trackRepository.findMostPopularArtistTracks(PageRequest.of(0, 50)).getContent();
+            trackList = trackRepository.findMostPopularArtistTracks(PageRequest.of(0, MAX_STATION_TRACKS)).getContent();
         }
         Page<Track> tracks = paginateList(trackList, page, size);
         return buildStationResponse(tracks, userId);
@@ -65,9 +68,9 @@ public class StationService {
     public StationPageResponse getLikesStation(int page, int size) {
         Long userId = JwtService.getCurrentUserId();
         //fallback
-        List<Track> trackList = trackRepository.findLikesStation(userId, PageRequest.of(0, 50)).getContent();
+        List<Track> trackList = trackRepository.findLikesStation(userId, PageRequest.of(0, MAX_STATION_TRACKS)).getContent();
         if (trackList.isEmpty()) {
-            trackList = trackRepository.findMostLikedTracks(PageRequest.of(0, 50)).getContent();
+            trackList = trackRepository.findMostLikedTracks(PageRequest.of(0, MAX_STATION_TRACKS)).getContent();
         }
         Page<Track> tracks = paginateList(trackList, page, size);
         return buildStationResponse(tracks, userId);
@@ -97,8 +100,9 @@ public class StationService {
                     ));
         }
         Set<Long> followingArtistIds = Set.copyOf(followRepository.findFollowingIdsByFollowerId(userId));
+        AccountTier userTier = userService.getUserIfExistsById(userId).getTier();
 
-        return stationMapper.toPageResponse(tracks, likedIds, repostedIds, tokenMap, followingArtistIds);
+        return stationMapper.toPageResponse(tracks, likedIds, repostedIds, tokenMap, followingArtistIds, userTier, trackMapper);
     }
 
     //helper for pagination

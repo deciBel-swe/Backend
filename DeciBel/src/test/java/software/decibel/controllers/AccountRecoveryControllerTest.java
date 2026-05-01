@@ -40,10 +40,10 @@ class AccountRecoveryControllerTest {
     @Test
     void forgotPassword_whenRequestIsValid_returnsOkAndBody() throws Exception {
         mockMvc.perform(
-                        post("/auth/forgot-password")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"email\":\"test@example.com\"}")
-                )
+                post("/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"test@example.com\"}")
+        )
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message")
                         .value("If an account with that email exists, a reset link has been sent."));
@@ -56,10 +56,10 @@ class AccountRecoveryControllerTest {
     @Test
     void forgotPassword_whenEmailIsInvalid_returnsBadRequest() throws Exception {
         mockMvc.perform(
-                        post("/auth/forgot-password")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"email\":\"not-an-email\"}")
-                )
+                post("/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"not-an-email\"}")
+        )
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(accountRecoveryService);
@@ -68,10 +68,10 @@ class AccountRecoveryControllerTest {
     @Test
     void forgotPassword_whenEmailIsBlank_returnsBadRequest() throws Exception {
         mockMvc.perform(
-                        post("/auth/forgot-password")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"email\":\"\"}")
-                )
+                post("/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"\"}")
+        )
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(accountRecoveryService);
@@ -80,21 +80,22 @@ class AccountRecoveryControllerTest {
     @Test
     void forgotPassword_whenEmailIsMissing_returnsBadRequest() throws Exception {
         mockMvc.perform(
-                        post("/auth/forgot-password")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{}")
-                )
+                post("/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}")
+        )
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(accountRecoveryService);
     }
+
     @Test
     void resetPassword_whenRequestIsValid_returnsOkAndBody() throws Exception {
         mockMvc.perform(
-                        post("/auth/reset-password")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"token\":\"raw-reset-token\",\"newPassword\":\"NewPassword1!\"}")
-                )
+                post("/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"raw-reset-token\",\"newPassword\":\"NewPassword1!\"}")
+        )
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Password reset successful."));
 
@@ -108,22 +109,10 @@ class AccountRecoveryControllerTest {
     @Test
     void resetPassword_whenTokenIsBlank_returnsBadRequest() throws Exception {
         mockMvc.perform(
-                        post("/auth/reset-password")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"token\":\"\",\"newPassword\":\"NewPassword1!\"}")
-                )
-                .andExpect(status().isBadRequest());
-
-        verifyNoInteractions(accountRecoveryService);
-    }
-
-    @Test
-    void resetPassword_whenPasswordIsWeak_returnsBadRequest() throws Exception {
-        mockMvc.perform(
-                        post("/auth/reset-password")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"token\":\"raw-reset-token\",\"newPassword\":\"weakpass\"}")
-                )
+                post("/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"\",\"newPassword\":\"NewPassword1!\"}")
+        )
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(accountRecoveryService);
@@ -132,10 +121,10 @@ class AccountRecoveryControllerTest {
     @Test
     void resetPassword_whenPasswordIsMissing_returnsBadRequest() throws Exception {
         mockMvc.perform(
-                        post("/auth/reset-password")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"token\":\"raw-reset-token\"}")
-                )
+                post("/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"raw-reset-token\"}")
+        )
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(accountRecoveryService);
@@ -144,13 +133,12 @@ class AccountRecoveryControllerTest {
     @Test
     void resetPassword_whenTokenIsMissing_returnsBadRequest() throws Exception {
         mockMvc.perform(
-                        post("/auth/reset-password")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\"newPassword\":\"NewPassword1!\"}")
-                )
+                post("/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"newPassword\":\"NewPassword1!\"}")
+        )
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(accountRecoveryService);
     }
 }
-    

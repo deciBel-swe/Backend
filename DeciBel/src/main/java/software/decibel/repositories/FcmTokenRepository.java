@@ -2,7 +2,6 @@ package software.decibel.repositories;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import jakarta.transaction.Transactional;
 import software.decibel.entities.FcmToken;
 
 import java.util.List;

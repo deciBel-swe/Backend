@@ -55,6 +55,8 @@ public class TrackAsyncProcessor {
     @Async
     public void processTrackUploadAsync(Long trackId, String uploadId, TrackUploadRequest request, byte[] audioBytes,
             String audioOriginalFilename, byte[] coverBytes, String coverOriginalFilename, Long userId) {
+        log.info(">>> ASYNC PROCESSOR ACTUALLY STARTED for track {}. Current Thread: {}",
+                trackId, Thread.currentThread().getName());
         processTrackUploadSync(trackId, uploadId, request, audioBytes, audioOriginalFilename, coverBytes, coverOriginalFilename, userId);
     }
 

@@ -66,6 +66,7 @@ public interface TrackRepository extends JpaRepository<Track, Long> {
     )
     AND t.visibility = 'PUBLIC'
     AND t.state = 'FINISHED'
+    AND t.access = 'PLAYABLE'
     AND t.uploader.id != :userId
     AND t.id NOT IN (
         SELECT tl.track.id FROM TrackLike tl WHERE tl.user.id = :userId
@@ -124,6 +125,7 @@ public interface TrackRepository extends JpaRepository<Track, Long> {
     )
     AND t.visibility = 'PUBLIC'
     AND t.state = 'FINISHED'
+    AND t.access = 'PLAYABLE'
     AND t.uploader.id != :userId
     AND t.id NOT IN (
         SELECT tl.track.id FROM TrackLike tl WHERE tl.user.id = :userId
@@ -158,6 +160,7 @@ public interface TrackRepository extends JpaRepository<Track, Long> {
     //     Public
     //     Published
     //     FINISHED
+    //     PLAYABLE
     // - Exclude tracks that are:
     //     Uploaded by the current user
     //     Already liked by the user
@@ -184,6 +187,7 @@ public interface TrackRepository extends JpaRepository<Track, Long> {
     )
     AND t.visibility = 'PUBLIC'
     AND t.state = 'FINISHED'
+    AND t.access = 'PLAYABLE'
     AND t.uploader.id != :userId
     AND t.id NOT IN (
         SELECT tl.track.id FROM TrackLike tl WHERE tl.user.id = :userId
@@ -237,7 +241,7 @@ public interface TrackRepository extends JpaRepository<Track, Long> {
 // Fallback for Genre Station: Most popular tracks overall (Plays & Likes)
     @Query("""
         SELECT t FROM Track t 
-        WHERE t.visibility = 'PUBLIC' AND t.state = 'FINISHED' 
+        WHERE t.visibility = 'PUBLIC' AND t.state = 'FINISHED' AND t.access = 'PLAYABLE'
         ORDER BY t.playCount DESC, t.likeCount DESC
     """)
     Page<Track> findMostPopularTracks(Pageable pageable);
@@ -245,7 +249,7 @@ public interface TrackRepository extends JpaRepository<Track, Long> {
     // Fallback for Artist Station: Highly engaged/viral tracks (Reposts & Comments)
     @Query("""
         SELECT t FROM Track t 
-        WHERE t.visibility = 'PUBLIC' AND t.state = 'FINISHED' 
+        WHERE t.visibility = 'PUBLIC' AND t.state = 'FINISHED' AND t.access = 'PLAYABLE'
         ORDER BY t.repostCount DESC, t.commentCount DESC, t.playCount DESC
     """)
     Page<Track> findMostPopularArtistTracks(Pageable pageable);
@@ -253,7 +257,7 @@ public interface TrackRepository extends JpaRepository<Track, Long> {
     // Fallback for Likes Station: Most liked tracks overall
     @Query("""
         SELECT t FROM Track t 
-        WHERE t.visibility = 'PUBLIC' AND t.state = 'FINISHED' 
+        WHERE t.visibility = 'PUBLIC' AND t.state = 'FINISHED' AND t.access = 'PLAYABLE'
         ORDER BY t.likeCount DESC, t.playCount DESC
     """)
     Page<Track> findMostLikedTracks(Pageable pageable);
