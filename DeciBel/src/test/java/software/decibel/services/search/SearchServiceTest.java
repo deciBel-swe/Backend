@@ -83,6 +83,8 @@ class SearchServiceTest {
 
     @Test
     void search_withTrackType_returnsTracks() {
+        User mockUser = new User();
+        mockUser.setTier(AccountTier.FREE);
         Track track = new Track();
         track.setId(1L);
         Page<Track> trackPage = new PageImpl<>(List.of(track), PageRequest.of(0, 10), 1);
@@ -92,7 +94,7 @@ class SearchServiceTest {
         // Create a mock TrackResponse to prevent NPEs when SearchService calls .id()
         TrackResponse mockTrackResponse = mock(TrackResponse.class);
         lenient().when(mockTrackResponse.id()).thenReturn(1L);
-
+        lenient().when(userService.getUserIfExistsById(any())).thenReturn(mockUser);
         // Mock both potential overloaded signatures of toTrackResponse
         lenient().when(trackMapper.toTrackResponse(
                 any(Track.class), any(AccountTier.class), any(), any())
