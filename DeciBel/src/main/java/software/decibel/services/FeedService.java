@@ -7,6 +7,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
@@ -45,8 +46,13 @@ public class FeedService {
             return new FeedPageResponse(Collections.emptyList(), pageable.getPageNumber(), pageable.getPageSize(), 0, 0, true);
         }
 
-        Page<software.decibel.entities.TrackRepost> trackRepostsPage = trackRepostRepository.findByUserIdIn(followingIds, pageable);
-        Page<software.decibel.entities.PlaylistRepost> playlistRepostsPage = playlistRepostRepository.findByUserIdIn(followingIds, pageable);
+        // Calculate total items needed across both tables to ensure accurate cross-table sorting
+        int limit = pageable.getPageSize() * (pageable.getPageNumber() + 1);
+        Pageable fetchPageable = PageRequest.of(0, limit);
+
+        // Fetch from 0 up to the necessary limit
+        Page<software.decibel.entities.TrackRepost> trackRepostsPage = trackRepostRepository.findByUserIdIn(followingIds, fetchPageable);
+        Page<software.decibel.entities.PlaylistRepost> playlistRepostsPage = playlistRepostRepository.findByUserIdIn(followingIds, fetchPageable);
 
         Set<Long> likedTrackIds = likeService.getLikedTrackIds(currentUser.getId());
         Set<Long> repostedTrackIds = repostService.getRepostedTrackIds(currentUser.getId());
@@ -59,7 +65,7 @@ public class FeedService {
                 tr.getId(),
                 "TRACK_POSTED",
                 ResourceItemDto.of(trackMapper.toTrackResponse(tr.getTrack(), currentUser.getTier(), likedTrackIds, repostedTrackIds)),
-                userMapper.toUserSummaryDto(tr.getUser()), // CHANGED: Using toUserSummaryDto
+                userMapper.toUserSummaryDto(tr.getUser()),
                 tr.getRepostedAt()
         ));
 
@@ -76,13 +82,14 @@ public class FeedService {
                         repostedPlaylistIds.contains(pr.getPlaylist().getId()),
                         currentUser.getTier(),
                         playlistTokenService.resolveToken(pr.getPlaylist().getId()))),
-                userMapper.toUserSummaryDto(pr.getUser()), // CHANGED: Using toUserSummaryDto
+                userMapper.toUserSummaryDto(pr.getUser()),
                 pr.getRepostedAt()
         ));
 
-        // Concatenate, sort by 'createdAt' in FeedItemDto
+        // Concatenate, sort by 'createdAt' DESC globally, then skip/limit locally to get the correct slice
         List<FeedItemDto> feedItems = Stream.concat(trackStream, playlistStream)
                 .sorted(Comparator.comparing(FeedItemDto::createdAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed())
+                .skip(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .toList();
 
