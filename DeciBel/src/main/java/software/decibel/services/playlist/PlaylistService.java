@@ -1,5 +1,6 @@
 package software.decibel.services.playlist;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -465,10 +466,17 @@ public class PlaylistService {
             coverArtUrl = fileUtilityAzure.saveFile(request.coverArt(), FileType.TRACK_COVERS);
         }
         Playlist playlist = playlistMapper.toEntity(request, user, slug, coverArtUrl);
-        playlist = playlistRepository.save(playlist);
+        if (playlist.getTracks() == null) {
+            playlist.setTracks(new ArrayList<>());
+        }
+        if (playlist.getGenres() == null) {
+            playlist.setGenres(new ArrayList<>());
+        }
+
         if (request.isPrivate()) {
             playlistTokenService.issueNewToken(playlist);
         }
+        playlist = playlistRepository.save(playlist);
         return playlist;
     }
 
