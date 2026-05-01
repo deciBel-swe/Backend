@@ -49,7 +49,7 @@ public interface TrackMapper {
     @Mapping(target = "completedPlayCount", source = "track.completedPlayCount")
     @Mapping(target = "commentCount", expression = "java(mapCommentCount(track))")
     @Mapping(target = "secretToken", expression = "java(mapSecretToken(track))")
-    @Mapping(target = "access", expression = "java(track.getVisibility() == Visibility.PUBLIC ? software.decibel.enums.TrackAccess.PLAYABLE : software.decibel.enums.TrackAccess.PREVIEW)")
+    @Mapping(target = "access", expression = "java(resolveAccess(userTier, track.getAccess()))")
     @Mapping(target = "trackUrl", expression = "java(resolveTrackUrl(userTier, track))")
     @Mapping(target = "trackPreviewUrl", expression = "java(resolvePreviewUrl(userTier, track))")
     @Mapping(target = "trackSlug", expression = "java(track.getSlug())")
@@ -79,12 +79,14 @@ public interface TrackMapper {
     @Mapping(target = "isPrivate", expression = "java(track.getVisibility() == Visibility.PRIVATE)")
     @Mapping(target = "playCount", source = "track.playCount")
     @Mapping(target = "commentCount", expression = "java(mapCommentCount(track))")
-    @Mapping(target = "access", expression = "java(track.getVisibility() == Visibility.PUBLIC ? software.decibel.enums.TrackAccess.PLAYABLE : software.decibel.enums.TrackAccess.PREVIEW)")
+    @Mapping(target = "access", expression = "java(resolveAccess(userTier, track.getAccess()))")
     @Mapping(target = "secretToken", expression = "java(mapSecretToken(track))")
-    @Mapping(target = "trackPreviewUrl", source = "track.trackUrl")
+    @Mapping(target = "trackUrl", expression = "java(resolveTrackUrl(userTier, track))")
+    @Mapping(target = "trackPreviewUrl", expression = "java(resolvePreviewUrl(userTier, track))")
     @Mapping(target = "trackSlug", source = "track.slug")
-    TrackResponse toTrackResponse(Track track, boolean isLiked, boolean isReposted);
+    TrackResponse toTrackResponse(Track track, boolean isLiked, boolean isReposted, AccountTier userTier);
 
+    
     default int mapCommentCount(Track track) {
         if (track == null || track.getComments() == null) {
             return 0;
