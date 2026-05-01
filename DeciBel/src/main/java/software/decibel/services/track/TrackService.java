@@ -38,6 +38,7 @@ import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
 import software.decibel.enums.AccountTier;
+import org.springframework.beans.factory.annotation.Qualifier;
 import software.decibel.enums.FileType;
 import software.decibel.enums.ResourceType;
 import software.decibel.enums.TrackAccess;
@@ -92,6 +93,7 @@ public class TrackService {
     private final TrackChecksUtil trackChecksUtil;
 
     private final PlaylistRepository playlistRepository;
+    @Qualifier("taskExecutor")
     private final ThreadPoolTaskExecutor taskExecutor;
 
     //Async Processor
