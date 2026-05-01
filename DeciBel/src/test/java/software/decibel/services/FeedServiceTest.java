@@ -160,7 +160,7 @@ class FeedServiceTest {
                 "secret-token"
         );
 
-        org.mockito.Mockito.lenient().when(playlistTokenService.resolveSecretToken(any())).thenReturn("secret-token");
+        org.mockito.Mockito.lenient().when(playlistTokenService.resolveToken(any())).thenReturn("secret-token");
         org.mockito.Mockito.lenient().when(playlistMapper.toSummaryResponse(any(Playlist.class), any()))
                 .thenReturn(playlistSummaryResponse);
         org.mockito.Mockito.lenient().when(playlistMapper.toSummaryResponse(any(Playlist.class), any(), any(), org.mockito.ArgumentMatchers.anyBoolean(), org.mockito.ArgumentMatchers.anyBoolean(), any(), any()))

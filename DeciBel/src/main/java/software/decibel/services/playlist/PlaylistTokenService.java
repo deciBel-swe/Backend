@@ -5,7 +5,7 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.playlist.PlaylistTokenResponse;
 import software.decibel.entities.Playlist;
@@ -59,37 +59,28 @@ public class PlaylistTokenService {
      */
     @Transactional
     public String issueNewToken(Playlist playlist) {
-        // Soft-delete any currently active token
-        List<PlaylistToken> activeTokens = playlistTokenRepository
-                .findAllByPlaylistIdAndIsDeletedFalse(playlist.getId());
-
-        // Soft delete every single active token found
+        List<PlaylistToken> activeTokens
+                = playlistTokenRepository.findAllByPlaylistIdAndIsDeletedFalse(playlist.getId());
         for (PlaylistToken existing : activeTokens) {
             existing.setDeleted(true);
         }
         if (!activeTokens.isEmpty()) {
             playlistTokenRepository.saveAll(activeTokens);
         }
-
         String raw = UUID.randomUUID().toString();
-
-        // Explicitly set isDeleted to false to prevent @Builder null bugs
-        PlaylistToken newToken = PlaylistToken.builder()
-                .token(raw)
-                .playlist(playlist)
-                .isDeleted(false)
-                .build();
-
-        playlistTokenRepository.save(newToken);
-
+        playlistTokenRepository.save(
+                PlaylistToken.builder()
+                        .token(raw)
+                        .playlist(playlist)
+                        .isDeleted(false)
+                        .build());
         return raw;
     }
 
-    @Transactional
-    public String resolveSecretToken(Playlist playlist) {
+    public String resolveToken(Long playlistId) {
         return playlistTokenRepository
-                .findFirstByPlaylistIdAndIsDeletedFalseOrderByIdDesc(playlist.getId())
-                .map(software.decibel.entities.PlaylistToken::getToken)
+                .findFirstByPlaylistIdAndIsDeletedFalseOrderByIdDesc(playlistId)
+                .map(PlaylistToken::getToken)
                 .orElse(null);
     }
 

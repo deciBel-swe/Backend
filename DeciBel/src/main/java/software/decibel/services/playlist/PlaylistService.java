@@ -312,7 +312,7 @@ public class PlaylistService {
         playlist.setGenres(updatedGenres);
 
         String secretToken = resolveSecretTokenForUser(playlist);
-        return playlistMapper.toResponse(playlistRepository.save(playlist), Pageable.ofSize(20), secretToken);
+        return playlistMapper.toResponse(playlistRepository.saveAndFlush(playlist), Pageable.ofSize(20), secretToken);
     }
 
     @Transactional
@@ -454,21 +454,25 @@ public class PlaylistService {
     }
 
     public String resolveSecretTokenForUser(Playlist playlist) {
-        return playlistTokenService.resolveSecretToken(playlist);
+        return playlistTokenService.resolveToken(playlist.getId());
     }
 
     private Playlist processCreatePlaylist(Long userId, CreatePlaylistRequest request) {
         User user = userService.getUserIfExistsById(userId);
         String slug = SlugUtility.generateUniqueSlug(request.title(), playlistRepository::existsBySlug);
+
         String coverArtUrl = null;
         if (request.coverArt() != null && !request.coverArt().isEmpty()) {
             coverArtUrl = fileUtilityAzure.saveFile(request.coverArt(), FileType.TRACK_COVERS);
         }
         Playlist playlist = playlistMapper.toEntity(request, user, slug, coverArtUrl);
-        playlist = playlistRepository.save(playlist);
-        if (request.isPrivate()) {
-            playlistTokenService.issueNewToken(playlist);
-        }
+        playlist.setTracks(new java.util.ArrayList<>());
+        playlist.setGenres(new java.util.ArrayList<>());
+        // saveAndFlush assigns the playlist ID before issueNewToken inserts the
+        // token FK — both writes share this transaction (Propagation.REQUIRED)
+        // so a concurrent reader can never see the playlist without a token.
+        playlist = playlistRepository.saveAndFlush(playlist);
+        playlistTokenService.issueNewToken(playlist);
         return playlist;
     }
 
@@ -565,7 +569,7 @@ public class PlaylistService {
         }
 
         //String secretToken = resolveSecretTokenForUser(playlist, userId);
-        return playlist;
+        return playlistRepository.saveAndFlush(playlist);
     }
 
     private Playlist processAddTrack(Long userId, Long playlistId, Long trackId) {
@@ -591,7 +595,7 @@ public class PlaylistService {
         }
 
         String secretToken = resolveSecretTokenForUser(playlist);
-        return playlist;
+        return playlistRepository.saveAndFlush(playlist);
     }
 
     private Playlist processReorderTracks(Long userId, Long playlistId, ReorderTracksRequest request) {
