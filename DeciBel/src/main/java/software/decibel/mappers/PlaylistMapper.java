@@ -31,6 +31,17 @@ public abstract class PlaylistMapper {
     @Autowired
     protected PlaylistTokenService playlistTokenService;
 
+    @Mapping(target = "user", source = "owner")
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "trackCount", ignore = true)
+    @Mapping(target = "likeCount", ignore = true)
+    @Mapping(target = "repostCount", ignore = true)
+    @Mapping(target = "totalDurationSeconds", ignore = true)
+    @Mapping(target = "isLiked", ignore = true)
+    @Mapping(target = "tracks", ignore = true)
+    @Mapping(target = "genres", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
     public abstract Playlist toEntity(CreatePlaylistRequest request, User owner, String slug, String coverArtUrl);
 
     // ── V2 RESPONSE (PAGINATED) ────────────────────────────────────────────────

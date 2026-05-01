@@ -92,11 +92,6 @@ public class Playlist {
     @Builder.Default
     private List<Track> tracks = new ArrayList<>();
 
-    // Slug history — soft deleted old slugs
-    @OneToMany(mappedBy = "playlist")
-    @Builder.Default
-    private List<PlaylistToken> slugHistory = new ArrayList<>();
-
     @CreationTimestamp
     private LocalDateTime createdAt;
 
