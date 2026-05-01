@@ -24,6 +24,7 @@ import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
 import software.decibel.services.engagement.LikeService;
 import software.decibel.services.engagement.RepostService;
+import software.decibel.services.playlist.PlaylistTokenService;
 
 @Service
 @RequiredArgsConstructor
@@ -38,6 +39,7 @@ public class FeedService {
     private final RepostService repostService;
     private final TrackMapper trackMapper;
     private final PlaylistMapper playlistMapper;
+    private final PlaylistTokenService playlistTokenService;
     private final software.decibel.mappers.UserMapper userMapper;
 
     public FeedPageResponse getFeed(User currentUser, Pageable pageable) {
@@ -52,6 +54,8 @@ public class FeedService {
 
         Set<Long> likedTrackIds = likeService.getLikedTrackIds(currentUser.getId());
         Set<Long> repostedTrackIds = repostService.getRepostedTrackIds(currentUser.getId());
+        Set<Long> likedPlaylistIds = likeService.getLikedPlaylistIds(currentUser.getId());
+        Set<Long> repostedPlaylistIds = repostService.getRepostedPlaylistIds(currentUser.getId());
 
         // Map Tracks to FeedItemDto
         Stream<FeedItemDto> trackStream = trackRepostsPage.getContent().stream()
@@ -68,7 +72,14 @@ public class FeedService {
                 .map(pr -> new FeedItemDto(
                 pr.getId(),
                 "PLAYLIST_POSTED",
-                ResourceItemDto.of(playlistMapper.toResponse(pr.getPlaylist())),
+                ResourceItemDto.of(playlistMapper.toSummaryResponse(
+                        pr.getPlaylist(),
+                        likedTrackIds,
+                        repostedTrackIds,
+                        likedPlaylistIds.contains(pr.getPlaylist().getId()),
+                        repostedPlaylistIds.contains(pr.getPlaylist().getId()),
+                        currentUser.getTier(),
+                        playlistTokenService.resolveSecretToken(pr.getPlaylist()))),
                 userMapper.toUserSummaryDto(pr.getUser()), // CHANGED: Using toUserSummaryDto
                 pr.getRepostedAt()
         ));

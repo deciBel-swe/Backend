@@ -24,7 +24,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import software.decibel.dtos.discovery.FeedPageResponse;
-import software.decibel.dtos.playlist.PlaylistResponse;
 import software.decibel.dtos.track.responses.TrackResponse;
 import software.decibel.entities.Playlist;
 import software.decibel.entities.Track;
@@ -32,18 +31,12 @@ import software.decibel.entities.User;
 import software.decibel.mappers.PlaylistMapper;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.repositories.FollowRepository;
-import software.decibel.repositories.PlaylistRepository;
-import software.decibel.repositories.TrackRepository;
 import software.decibel.services.engagement.LikeService;
 import software.decibel.services.engagement.RepostService;
 
 @ExtendWith(MockitoExtension.class)
 class FeedServiceTest {
 
-    @Mock
-    private TrackRepository trackRepository;
-    @Mock
-    private PlaylistRepository playlistRepository;
     @Mock
     private FollowRepository followRepository;
     @Mock
@@ -60,6 +53,8 @@ class FeedServiceTest {
     private PlaylistMapper playlistMapper;
     @Mock
     private software.decibel.mappers.UserMapper userMapper;
+    @Mock
+    private software.decibel.services.playlist.PlaylistTokenService playlistTokenService;
 
     @InjectMocks
     private FeedService feedService;
@@ -145,13 +140,33 @@ class FeedServiceTest {
         );
         when(trackMapper.toTrackResponse(any(), any(), any(), any())).thenReturn(trackResponse);
 
-        PlaylistResponse playlistResponse = new PlaylistResponse(
-                20L, "Playlist Title", software.decibel.enums.PlaylistType.PLAYLIST, false, "desc", false, "cover",
-                "playlist-slug", 0, 0, null, java.util.Collections.emptyList(), LocalDateTime.now(), null, null
+        software.decibel.dtos.playlist.PlaylistSummaryResponse playlistSummaryResponse = new software.decibel.dtos.playlist.PlaylistSummaryResponse(
+                20L,
+                "Playlist Title",
+                software.decibel.enums.PlaylistType.PLAYLIST,
+                false,
+                false, // isReposted
+                "desc",
+                false,
+                "cover",
+                "playlist-slug",
+                0,
+                0,
+                null, // owner
+                java.util.Collections.emptyList(),
+                LocalDateTime.now(),
+                java.util.Collections.emptyList(),
+                "waveform-url",
+                "secret-token"
         );
-        when(playlistMapper.toResponse(playlist)).thenReturn(playlistResponse);
 
-        // FIX 1: Updated the mocked method name and returned the fully populated UserSummaryDTO
+        org.mockito.Mockito.lenient().when(playlistTokenService.resolveSecretToken(any())).thenReturn("secret-token");
+        org.mockito.Mockito.lenient().when(playlistMapper.toSummaryResponse(any(Playlist.class), any()))
+                .thenReturn(playlistSummaryResponse);
+        org.mockito.Mockito.lenient().when(playlistMapper.toSummaryResponse(any(Playlist.class), any(), any(), org.mockito.ArgumentMatchers.anyBoolean(), org.mockito.ArgumentMatchers.anyBoolean(), any(), any()))
+                .thenReturn(playlistSummaryResponse);
+        // ------------------------
+
         when(userMapper.toUserSummaryDto(any())).thenReturn(
                 new software.decibel.dtos.user.UserSummaryDTO(2L, "user2", "User Two", "avatar", false, 0, 0)
         );
@@ -161,11 +176,9 @@ class FeedServiceTest {
         assertNotNull(response);
         assertEquals(2, response.content().size());
 
-        // FIX 2: Updated the assertions to match the new FeedItemDto type strings
-        assertEquals("PLAYLIST_POSTED", response.content().get(0).type()); // Playlist is more recent
+        assertEquals("PLAYLIST_POSTED", response.content().get(0).type());
         assertEquals("TRACK_POSTED", response.content().get(1).type());
 
-        // Optional: You can also verify the inner resource type works correctly
         assertEquals("PLAYLIST", response.content().get(0).resource().type());
         assertEquals("TRACK", response.content().get(1).resource().type());
 

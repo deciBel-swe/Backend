@@ -48,8 +48,8 @@ public class UserProfileController {
             @RequestParam(defaultValue = "5") int limit
     ) {
         Long currentUserId = JwtService.getCurrentUserId();
-        // get the user object from repository
-        User currentUser = userRepository.getReferenceById(currentUserId);
+        // get the user object from repository and check if logged in
+        User currentUser = (currentUserId != null) ? userRepository.getReferenceById(currentUserId) : null;
 
         // fetch suggestions through service
         List<UserFollowDto> suggestions = userSuggestionService.getSuggestedUsers(currentUser, limit);
