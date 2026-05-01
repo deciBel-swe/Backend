@@ -30,8 +30,6 @@ import software.decibel.services.playlist.PlaylistTokenService;
 @RequiredArgsConstructor
 public class FeedService {
 
-    private final TrackRepository trackRepository;
-    private final PlaylistRepository playlistRepository;
     private final FollowRepository followRepository;
     private final TrackRepostRepository trackRepostRepository;
     private final PlaylistRepostRepository playlistRepostRepository;

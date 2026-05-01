@@ -12,7 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 import software.decibel.dtos.discovery.StationPageResponse;
 import software.decibel.entities.ListeningHistory;
 import software.decibel.entities.Track;
+import software.decibel.entities.User;
 import software.decibel.mappers.StationMapper;
+import software.decibel.mappers.TrackMapper;
 import software.decibel.projections.TrackTokenProjection;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.ListeningHistoryRepository;
@@ -31,12 +33,13 @@ public class UserHistoryService {
     private final TrackTokenRepository trackTokenRepository;
     private final FollowRepository followRepository;
     private final StationMapper stationMapper;
+    private final TrackMapper trackMapper;
     private final UserService userService;
 
     @Transactional(readOnly = true)
     public StationPageResponse getMyListeningHistory(int page, int size) {
         Long userId = JwtService.getCurrentUserId();
-        userService.getUserIfExistsById(userId);
+        User user = userService.getUserIfExistsById(userId);
 
         Page<ListeningHistory> historyPage = listeningHistoryRepository.findByUserIdOrderByPlayedAtDesc(
                 userId,
@@ -61,6 +64,7 @@ public class UserHistoryService {
                             TrackTokenProjection::getToken
                     ));
         }
-        return stationMapper.toPageResponse(tracks, likedIds, repostedIds, tokenMap, followingArtistIds);
+        return stationMapper.toPageResponse(
+                tracks, likedIds, repostedIds, tokenMap, followingArtistIds, user.getTier(), trackMapper);
     }
 }
