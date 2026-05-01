@@ -79,7 +79,7 @@ public class FeedService {
                         likedPlaylistIds.contains(pr.getPlaylist().getId()),
                         repostedPlaylistIds.contains(pr.getPlaylist().getId()),
                         currentUser.getTier(),
-                        playlistTokenService.resolveSecretToken(pr.getPlaylist()))),
+                        playlistTokenService.resolveToken(pr.getPlaylist().getId()))),
                 userMapper.toUserSummaryDto(pr.getUser()), // CHANGED: Using toUserSummaryDto
                 pr.getRepostedAt()
         ));

@@ -126,7 +126,7 @@ public class SearchService {
                         finalLikedPlaylistIds.contains(p.getId()),
                         finalRepostedPlaylistIds.contains(p.getId()),
                         software.decibel.enums.AccountTier.FREE,
-                        playlistTokenService.resolveSecretToken(p))
+                        playlistTokenService.resolveToken(p.getId()))
         )));
 
         // CHANGED: Using toUserSummaryDto to ensure followerCount & trackCount populate
@@ -197,7 +197,7 @@ public class SearchService {
                 finalLikedPlaylistIds.contains(p.getId()),
                 finalRepostedPlaylistIds.contains(p.getId()),
                 software.decibel.enums.AccountTier.FREE,
-                playlistTokenService.resolveSecretToken(p))))
+                playlistTokenService.resolveToken(p.getId()))))
                 .collect(Collectors.toList());
         return toSearchResponse(playlists, content);
     }

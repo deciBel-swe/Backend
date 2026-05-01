@@ -185,7 +185,7 @@ public class LikeService {
         return likedPlaylists.map(playlist -> {
 
             // Fetch the token universally, no matter who is looking
-            String token = playlistTokenService.resolveSecretToken(playlist);
+            String token = playlistTokenService.resolveToken(playlist.getId());
 
             if (currentUserId == null) {
                 return playlistMapper.toSummaryResponse(playlist, token);
