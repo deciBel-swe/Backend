@@ -63,9 +63,16 @@ class SearchServiceTest {
     private UserMapper userMapper;
     @Mock
     private TrackLikeRepository trackLikeRepository;
-
     @Mock
     private TrackRepostRepository trackRepostRepository;
+    @Mock
+    private PlaylistLikeRepository playlistLikeRepository;
+    @Mock
+    private PlaylistRepostRepository playlistRepostRepository;
+    @Mock
+    private PlaylistTokenService playlistTokenService;
+    @Mock
+    private UserService userService;
     @InjectMocks
     private SearchService searchService;
 
