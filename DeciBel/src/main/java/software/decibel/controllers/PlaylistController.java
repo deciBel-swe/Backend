@@ -17,6 +17,7 @@ import software.decibel.dtos.playlist.PlaylistResponse;
 import software.decibel.dtos.playlist.PlaylistSummaryResponse;
 import software.decibel.dtos.playlist.PlaylistTokenResponse;
 import software.decibel.dtos.playlist.ReorderTracksRequest;
+import software.decibel.dtos.playlist.SecretLinkResponse;
 import software.decibel.dtos.track.responses.LikeResponse;
 import software.decibel.dtos.track.responses.RepostResponse;
 import software.decibel.services.JwtService;
@@ -169,5 +170,19 @@ public class PlaylistController {
     @GetMapping("/resolve/{playlistSlug}")
     public ResponseEntity<Resource> resolvePlaylistSlug(@PathVariable String playlistSlug) {
         return ResponseEntity.ok(playlistService.resolvePlaylistSlug(playlistSlug));
+    }
+
+    @PostMapping("/{playlistId}/secret-link/regenerate")
+    public ResponseEntity<SecretLinkResponse> regenerateSecretLink(@PathVariable Long playlistId) {
+        return ResponseEntity.ok(
+                playlistService.regenerateSecretLink(playlistId, JwtService.getCurrentUserId())
+        );
+    }
+
+    @GetMapping("/{playlistId}/secret-link")
+    public ResponseEntity<SecretLinkResponse> getSecretLink(@PathVariable Long playlistId) {
+        return ResponseEntity.ok(
+                playlistService.getSecretLink(playlistId, JwtService.getCurrentUserId())
+        );
     }
 }

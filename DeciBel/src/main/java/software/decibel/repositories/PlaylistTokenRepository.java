@@ -19,5 +19,7 @@ public interface PlaylistTokenRepository extends JpaRepository<PlaylistToken, Lo
 
     void deleteByPlaylistId(Long playlistId);
 
+    void deleteAllByPlaylistId(Long playlistId);
+
     Optional<PlaylistToken> findFirstByPlaylistIdOrderByIdDesc(Long playlistId);
 }
