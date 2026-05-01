@@ -1,6 +1,5 @@
 package software.decibel.services.playlist;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -595,7 +594,6 @@ public class PlaylistService {
             playlist.getGenres().add(track.getGenre());
         }
 
-        String secretToken = resolveSecretTokenForUser(playlist);
         return playlistRepository.saveAndFlush(playlist);
     }
 
@@ -617,7 +615,6 @@ public class PlaylistService {
 
         playlist.setTracks(newOrder.stream().map(trackMap::get).collect(Collectors.toList()));
 
-        String secretToken = resolveSecretTokenForUser(playlist);
         return playlist;
     }
 

@@ -42,10 +42,10 @@ public class StationService {
     // Tracks with same genres as ones you liked + filtering
     public StationPageResponse getGenreStation(int page, int size) {
         Long userId = JwtService.getCurrentUserId();
-        List<Track> trackList = trackRepository.findGenreStation(userId, PageRequest.of(0, 50)).getContent();
+        List<Track> trackList = trackRepository.findGenreStation(userId, PageRequest.of(0, MAX_STATION_TRACKS)).getContent();
         //fallback
         if (trackList.isEmpty()) {
-            trackList = trackRepository.findMostPopularTracks(PageRequest.of(0, 50)).getContent();
+            trackList = trackRepository.findMostPopularTracks(PageRequest.of(0, MAX_STATION_TRACKS)).getContent();
         }
 
         Page<Track> tracks = paginateList(trackList, page, size);
@@ -55,10 +55,10 @@ public class StationService {
     // Tracks with same genres as ones posted by artists you follow + filtering
     public StationPageResponse getArtistStation(int page, int size) {
         Long userId = JwtService.getCurrentUserId();
-        List<Track> trackList = trackRepository.findArtistStation(userId, PageRequest.of(0, 50)).getContent();
+        List<Track> trackList = trackRepository.findArtistStation(userId, PageRequest.of(0, MAX_STATION_TRACKS)).getContent();
         //fallback
         if (trackList.isEmpty()) {
-            trackList = trackRepository.findMostPopularArtistTracks(PageRequest.of(0, 50)).getContent();
+            trackList = trackRepository.findMostPopularArtistTracks(PageRequest.of(0, MAX_STATION_TRACKS)).getContent();
         }
         Page<Track> tracks = paginateList(trackList, page, size);
         return buildStationResponse(tracks, userId);
@@ -68,9 +68,9 @@ public class StationService {
     public StationPageResponse getLikesStation(int page, int size) {
         Long userId = JwtService.getCurrentUserId();
         //fallback
-        List<Track> trackList = trackRepository.findLikesStation(userId, PageRequest.of(0, 50)).getContent();
+        List<Track> trackList = trackRepository.findLikesStation(userId, PageRequest.of(0, MAX_STATION_TRACKS)).getContent();
         if (trackList.isEmpty()) {
-            trackList = trackRepository.findMostLikedTracks(PageRequest.of(0, 50)).getContent();
+            trackList = trackRepository.findMostLikedTracks(PageRequest.of(0, MAX_STATION_TRACKS)).getContent();
         }
         Page<Track> tracks = paginateList(trackList, page, size);
         return buildStationResponse(tracks, userId);

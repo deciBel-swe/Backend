@@ -5,7 +5,6 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -13,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import lombok.RequiredArgsConstructor;
-import software.decibel.dtos.playlist.PlaylistResponse;
 import software.decibel.dtos.playlist.PlaylistSummaryResponse;
 import software.decibel.dtos.track.responses.LikeResponse;
 import software.decibel.dtos.user.UserProfile;
@@ -33,7 +31,6 @@ import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.PlaylistLikeRepository;
 import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.PlaylistRepostRepository;
-import software.decibel.repositories.PlaylistTokenRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
@@ -62,7 +59,6 @@ public class LikeService {
     private final PlaylistLikeRepository playlistLikeRepository;
     private final PlaylistRepostRepository playlistRepostRepository;
     private final PlaylistRepository playlistRepository;
-    private final PlaylistTokenRepository playlistTokenRepository;
     private final PlaylistMapper playlistMapper;
     private final UserMappingUtility userMappingUtility;
     private final PlaylistTokenService playlistTokenService;

@@ -15,7 +15,6 @@ import software.decibel.dtos.playlist.CreatePlaylistRequest;
 import software.decibel.dtos.playlist.PatchPlaylistRequest;
 import software.decibel.dtos.playlist.PlaylistResponse;
 import software.decibel.dtos.playlist.PlaylistSummaryResponse;
-import software.decibel.dtos.playlist.PlaylistTokenResponse;
 import software.decibel.dtos.playlist.ReorderTracksRequest;
 import software.decibel.dtos.playlist.SecretLinkResponse;
 import software.decibel.dtos.track.responses.LikeResponse;
