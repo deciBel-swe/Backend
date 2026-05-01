@@ -36,4 +36,7 @@ public interface PlaylistLikeRepository extends JpaRepository<PlaylistLike, Long
     @Query("SELECT pl.playlist.id FROM PlaylistLike pl WHERE pl.user.id = :userId")
     Set<Long> findPlaylistIdsByUserId(@Param("userId") Long userId);
 
+    @Query("SELECT pl.playlist FROM PlaylistLike pl WHERE pl.user.id = :userId")
+    Page<Playlist> findPlaylistsByUserId(@Param("userId") Long userId, Pageable pageable);
+
 }

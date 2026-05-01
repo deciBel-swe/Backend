@@ -40,6 +40,7 @@ import software.decibel.repositories.TrackRepostRepository;
 import software.decibel.services.BlockService;
 import software.decibel.services.JwtService;
 import software.decibel.services.notification.InAppNotificationService;
+import software.decibel.services.playlist.PlaylistTokenService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.UserMappingUtility;
 
@@ -64,6 +65,7 @@ public class LikeService {
     private final PlaylistTokenRepository playlistTokenRepository;
     private final PlaylistMapper playlistMapper;
     private final UserMappingUtility userMappingUtility;
+    private final PlaylistTokenService playlistTokenService;
 
     // track like methods
     @Transactional
@@ -167,48 +169,37 @@ public class LikeService {
         playlistRepository.save(playlist);
     }
 
-    public Page<PlaylistSummaryResponse> getLikedPlaylists(String username, Pageable playlistPageable) {
-        Long currentUserId = JwtService.getCurrentUserId();
+    public Page<PlaylistSummaryResponse> getLikedPlaylists(String username, Pageable pageable) {
+        // 1. Get the target user
         User user = userService.getUserIfExistsByUsername(username);
 
-        //check if user has been blocked 
-        if (blockService.isBlockRelationshipActive(currentUserId, user.getId())) {
-            // Hide the fact that the user exists/has playlists by throwing a 404
-            throw new ResourceNotFoundException("User not found: " + username);
-        }
+        // 2. Fetch the page of liked playlists
+        Page<Playlist> likedPlaylists = playlistLikeRepository.findPlaylistsByUserId(user.getId(), pageable);
 
-        Page<Playlist> likedPlaylists = playlistLikeRepository.findLikedPlaylistsByUserId(user.getId(), playlistPageable);
+        // 3. Get the CURRENT logged-in user context
+        Long currentUserId = JwtService.getCurrentUserId();
+        User currentUser = currentUserId != null ? userService.getUserIfExistsById(currentUserId) : null;
+        AccountTier tier = currentUser != null ? currentUser.getTier() : AccountTier.FREE;
 
-        Pageable trackPageable = PageRequest.of(0, 15);
-
-        Set<Long> trackLikes = currentUserId != null
-                ? trackLikeRepository.findTrackIdsByUserId(currentUserId)
-                : Collections.emptySet();
-
-        Set<Long> trackReposts = currentUserId != null
-                ? trackRepostRepository.findTrackIdsByUserId(currentUserId)
-                : Collections.emptySet();
-
-        AccountTier currentViewerTier = currentUserId != null
-                ? userService.getUserIfExistsById(currentUserId).getTier()
-                : AccountTier.FREE;
-
-        Set<Long> repostedPlaylistIds = currentUserId != null
-                ? playlistRepostRepository.findPlaylistIdsByUserId(currentUserId)
-                : Collections.emptySet();
+        // 4. Map EACH playlist individually and attach the token for EVERYONE
         return likedPlaylists.map(playlist -> {
-            String secretToken = playlistTokenRepository
-                    .findByPlaylistIdAndIsDeletedFalse(playlist.getId())
-                    .map(token -> token.getToken())
-                    .orElse(null); // Resolve the Optional to a String or null
+
+            // Fetch the token universally, no matter who is looking
+            String token = playlistTokenService.resolveSecretToken(playlist);
+
+            if (currentUserId == null) {
+                return playlistMapper.toSummaryResponse(playlist, token);
+            }
+
+            // Return the fully mapped DTO with the universally fetched token
             return playlistMapper.toSummaryResponse(
                     playlist,
-                    trackLikes,
-                    trackReposts,
-                    true,
-                    repostedPlaylistIds.contains(playlist.getId()),
-                    currentViewerTier,
-                    secretToken
+                    trackLikeRepository.findTrackIdsByUserId(currentUserId),
+                    trackRepostRepository.findTrackIdsByUserId(currentUserId),
+                    true, // We know it's true because it's the liked playlists endpoint
+                    playlistRepostRepository.existsByUserAndPlaylist(currentUser, playlist),
+                    tier,
+                    token // <-- Pass the token here
             );
         });
     }

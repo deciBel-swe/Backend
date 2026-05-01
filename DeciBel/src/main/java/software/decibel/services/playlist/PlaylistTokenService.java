@@ -1,6 +1,7 @@
 package software.decibel.services.playlist;
 
 import java.util.UUID;
+import java.util.List;
 
 import org.springframework.stereotype.Service;
 
@@ -23,7 +24,7 @@ public class PlaylistTokenService {
     // -------------------------------------------------------------------------
     public PlaylistTokenResponse getActiveToken(Long playlistId) {
         PlaylistToken token = playlistTokenRepository
-                .findByPlaylistIdAndIsDeletedFalse(playlistId)
+                .findFirstByPlaylistIdAndIsDeletedFalseOrderByIdDesc(playlistId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                 "No active secret token exists for playlist " + playlistId
                 + ". Use POST /secret-link/regenerate to create one."));
@@ -59,19 +60,27 @@ public class PlaylistTokenService {
     @Transactional
     public String issueNewToken(Playlist playlist) {
         // Soft-delete any currently active token
-        playlistTokenRepository
-                .findByPlaylistIdAndIsDeletedFalse(playlist.getId())
-                .ifPresent(existing -> {
-                    existing.setDeleted(true);
-                    playlistTokenRepository.save(existing);
-                });
+        List<PlaylistToken> activeTokens = playlistTokenRepository
+                .findAllByPlaylistIdAndIsDeletedFalse(playlist.getId());
+
+        // Soft delete every single active token found
+        for (PlaylistToken existing : activeTokens) {
+            existing.setDeleted(true);
+        }
+        if (!activeTokens.isEmpty()) {
+            playlistTokenRepository.saveAll(activeTokens);
+        }
 
         String raw = UUID.randomUUID().toString();
-        playlistTokenRepository.save(
-                PlaylistToken.builder()
-                        .token(raw)
-                        .playlist(playlist)
-                        .build());
+
+        // Explicitly set isDeleted to false to prevent @Builder null bugs
+        PlaylistToken newToken = PlaylistToken.builder()
+                .token(raw)
+                .playlist(playlist)
+                .isDeleted(false)
+                .build();
+
+        playlistTokenRepository.save(newToken);
 
         return raw;
     }
@@ -79,7 +88,7 @@ public class PlaylistTokenService {
     @Transactional
     public String resolveSecretToken(Playlist playlist) {
         return playlistTokenRepository
-                .findByPlaylistIdAndIsDeletedFalse(playlist.getId())
+                .findFirstByPlaylistIdAndIsDeletedFalseOrderByIdDesc(playlist.getId())
                 .map(software.decibel.entities.PlaylistToken::getToken)
                 .orElse(null);
     }

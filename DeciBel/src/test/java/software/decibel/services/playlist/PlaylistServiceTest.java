@@ -10,7 +10,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mapstruct.factory.Mappers;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -34,6 +33,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import software.decibel.dtos.playlist.CreatePlaylistRequest;
 import software.decibel.dtos.playlist.PatchPlaylistRequest;
 import software.decibel.dtos.playlist.PlaylistResponse;
+import software.decibel.dtos.playlist.PlaylistSummaryResponse;
 import software.decibel.entities.Playlist;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
@@ -62,19 +62,14 @@ class PlaylistServiceTest {
 
     @Mock
     private PlaylistRepository playlistRepository;
-
     @Mock
     private TrackRepository trackRepository;
-
     @Mock
     private FileUtilityAzure fileUtilityAzure;
-
     @Mock
     private PlaylistTokenRepository playlistTokenRepository;
-
     @Mock
     private BlockRepository blockRepository;
-
     @Mock
     private TrackLikeRepository trackLikeRepository;
     @Mock
@@ -83,16 +78,12 @@ class PlaylistServiceTest {
     private PlaylistLikeRepository playlistLikeRepository;
     @Mock
     private PlaylistRepostRepository playlistRepostRepository;
-
     @Mock
     private UserService userService;
-
     @Mock
     private TrackMapper trackMapper;
-
     @Mock
     private PlaylistTokenService playlistTokenService;
-
     @Mock
     private PlaylistMapper playlistMapper;
 
@@ -104,11 +95,14 @@ class PlaylistServiceTest {
         ReflectionTestUtils.setField(playlistService, "playlistTokenService", playlistTokenService);
         ReflectionTestUtils.setField(playlistService, "playlistLikeRepository", playlistLikeRepository);
         ReflectionTestUtils.setField(playlistService, "playlistRepostRepository", playlistRepostRepository);
+        ReflectionTestUtils.setField(playlistService, "trackLikeRepository", trackLikeRepository);
+        ReflectionTestUtils.setField(playlistService, "trackRepostRepository", trackRepostRepository);
+        ReflectionTestUtils.setField(playlistService, "blockRepository", blockRepository);
     }
 
-    // ── createPlaylist ────────────────────────────────────────────────────────
+    // ── createPlaylist (V1) ───────────────────────────────────────────────────
     @Test
-    void createPlaylist_whenRequestIsValid_returnsPlaylistResponse() {
+    void createPlaylist_whenRequestIsValid_returnsPlaylistSummaryResponse() {
         User user = user(1L);
         Playlist playlist = new Playlist();
         playlist.setId(10L);
@@ -119,19 +113,52 @@ class PlaylistServiceTest {
         when(playlistMapper.toEntity(any(CreatePlaylistRequest.class), eq(user), anyString(), isNull())).thenReturn(playlist);
         when(playlistRepository.save(any(Playlist.class))).thenReturn(playlist);
         when(playlistTokenService.resolveSecretToken(any(Playlist.class))).thenReturn("mock-token");
-        PlaylistResponse mockResponse = new PlaylistResponse(
+
+        PlaylistSummaryResponse mockResponse = new PlaylistSummaryResponse(
                 10L, "My Playlist", PlaylistType.PLAYLIST, false, false, null, false,
                 null, null, 0, 0,
                 new software.decibel.dtos.user.UserSummaryDTO(1L, "testuser_1", null, null, false, 0, 0),
-                List.of(), null, null, "mock-token", null);
-        when(playlistMapper.toResponse(eq(playlist), any(Pageable.class), anyString())).thenReturn(mockResponse);
+                List.of(), null, List.of(), null, "mock-token");
+
+        when(playlistMapper.toSummaryResponse(eq(playlist), anyString())).thenReturn(mockResponse);
 
         CreatePlaylistRequest request = new CreatePlaylistRequest(
                 "My Playlist", "desc", PlaylistType.PLAYLIST, false, null);
 
-        PlaylistResponse response = playlistService.createPlaylist(1L, request);
+        PlaylistSummaryResponse response = playlistService.createPlaylist(1L, request);
 
         assertEquals("My Playlist", response.title());
+        verify(playlistRepository).save(any(Playlist.class));
+    }
+
+    // ── createPlaylist (V2) ───────────────────────────────────────────────────
+    @Test
+    void createPlaylistV2_whenRequestIsValid_returnsPlaylistResponse() {
+        User user = user(1L);
+        Playlist playlist = new Playlist();
+        playlist.setId(10L);
+        playlist.setTitle("My Playlist V2");
+
+        when(userService.getUserIfExistsById(anyLong())).thenReturn(user);
+        when(playlistRepository.existsBySlug(anyString())).thenReturn(false);
+        when(playlistMapper.toEntity(any(CreatePlaylistRequest.class), eq(user), anyString(), isNull())).thenReturn(playlist);
+        when(playlistRepository.save(any(Playlist.class))).thenReturn(playlist);
+        when(playlistTokenService.resolveSecretToken(any(Playlist.class))).thenReturn("mock-token");
+
+        PlaylistResponse mockResponse = new PlaylistResponse(
+                10L, "My Playlist V2", PlaylistType.PLAYLIST, false, false, null, false,
+                null, null, 0, 0,
+                new software.decibel.dtos.user.UserSummaryDTO(1L, "testuser_1", null, null, false, 0, 0),
+                List.of(), null, org.springframework.data.domain.Page.empty(), null, "mock-token");
+
+        when(playlistMapper.toResponse(eq(playlist), any(Pageable.class), anyString())).thenReturn(mockResponse);
+
+        CreatePlaylistRequest request = new CreatePlaylistRequest(
+                "My Playlist V2", "desc", PlaylistType.PLAYLIST, false, null);
+
+        PlaylistResponse response = playlistService.createPlaylistV2(1L, request, PageRequest.of(0, 20));
+
+        assertEquals("My Playlist V2", response.title());
         verify(playlistRepository).save(any(Playlist.class));
     }
 
@@ -170,14 +197,16 @@ class PlaylistServiceTest {
         when(playlistRepository.save(any(Playlist.class))).thenReturn(playlist);
         when(playlistTokenService.issueNewToken(any(Playlist.class))).thenReturn("mock-token");
         when(playlistTokenService.resolveSecretToken(any(Playlist.class))).thenReturn("mock-token");
-        PlaylistResponse mockResponse = new PlaylistResponse(
+
+        PlaylistSummaryResponse mockResponse = new PlaylistSummaryResponse(
                 11L, "My Album", PlaylistType.ALBUM, true, false, null, true,
                 "https://azure.com/cover.jpg", null, 0, 0,
                 new software.decibel.dtos.user.UserSummaryDTO(1L, "testuser_1", null, null, false, 0, 0),
-                List.of(), null, null, "mock-token", null);
-        when(playlistMapper.toResponse(eq(playlist), any(Pageable.class), anyString())).thenReturn(mockResponse);
+                List.of(), null, List.of(), null, "mock-token");
 
-        PlaylistResponse response = playlistService.createPlaylist(user.getId(), request);
+        when(playlistMapper.toSummaryResponse(eq(playlist), anyString())).thenReturn(mockResponse);
+
+        PlaylistSummaryResponse response = playlistService.createPlaylist(user.getId(), request);
 
         assertEquals("https://azure.com/cover.jpg", response.coverArtUrl());
         verify(fileUtilityAzure).saveFile(any(), any());
@@ -209,40 +238,70 @@ class PlaylistServiceTest {
                 () -> playlistService.patchPlaylist(1L, 99L, request));
     }
 
-    // ── getPlaylist ───────────────────────────────────────────────────────────
+    // ── getPlaylist (V1) ──────────────────────────────────────────────────────
     @Test
-    void getPlaylist_whenExists_returnsPlaylistResponse() {
+    void getPlaylist_whenExists_returnsPlaylistSummaryResponse() {
         User user = user(1L);
         user.setTier(AccountTier.FREE);
         Playlist playlist = playlist(user);
+
         when(userService.getUserIfExistsById(user.getId())).thenReturn(user);
         when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
         when(trackLikeRepository.findTrackIdsByUserId(anyLong())).thenReturn(java.util.Collections.emptySet());
         when(trackRepostRepository.findTrackIdsByUserId(anyLong())).thenReturn(java.util.Collections.emptySet());
+        when(playlistLikeRepository.existsByUserAndPlaylist(any(User.class), any(Playlist.class))).thenReturn(false);
+        when(playlistRepostRepository.existsByUserAndPlaylist(any(User.class), any(Playlist.class))).thenReturn(false);
         when(blockRepository.existsByBlocker_IdAndBlocked_Id(anyLong(), anyLong())).thenReturn(false);
         when(playlistTokenService.resolveSecretToken(any(Playlist.class))).thenReturn("mock-token");
-        PlaylistResponse mockResponse = new PlaylistResponse(
+
+        PlaylistSummaryResponse mockResponse = new PlaylistSummaryResponse(
                 10L, "Old Title", PlaylistType.PLAYLIST, false, false, null, false,
                 null, null, 0, 0,
                 new software.decibel.dtos.user.UserSummaryDTO(1L, "testuser_1", null, null, false, 0, 0),
-                List.of(), null, null, "mock-token", null);
-        when(playlistMapper.toResponse(any(Playlist.class), anySet(), anySet(), anyBoolean(), anyBoolean(), any(AccountTier.class), any(Pageable.class), anyString())).thenReturn(mockResponse);
+                List.of(), null, List.of(), null, "mock-token");
 
-        try (MockedStatic<JwtService> mockedJwt = mockStatic(JwtService.class)) {
-            mockedJwt.when(JwtService::getCurrentUserId).thenReturn(1L);
+        when(playlistMapper.toSummaryResponse(any(Playlist.class), anySet(), anySet(), anyBoolean(), anyBoolean(), any(AccountTier.class), anyString())).thenReturn(mockResponse);
 
-            Pageable pageable = PageRequest.of(0, 10);
-            PlaylistResponse response = playlistService.getPlaylist(10L, 1L, pageable);
+        PlaylistSummaryResponse response = playlistService.getPlaylist(10L, 1L);
 
-            assertEquals(10L, response.id());
-            assertEquals(1L, response.owner().id());
-        }
+        assertEquals(10L, response.id());
+        assertEquals("Old Title", response.title());
     }
 
-    // ── addTrack ──────────────────────────────────────────────────────────────
+    // ── getPlaylist (V2) ──────────────────────────────────────────────────────
+    @Test
+    void getPlaylistV2_whenExists_returnsPlaylistResponse() {
+        User user = user(1L);
+        user.setTier(AccountTier.FREE);
+        Playlist playlist = playlist(user);
+
+        when(userService.getUserIfExistsById(user.getId())).thenReturn(user);
+        when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
+        when(trackLikeRepository.findTrackIdsByUserId(anyLong())).thenReturn(java.util.Collections.emptySet());
+        when(trackRepostRepository.findTrackIdsByUserId(anyLong())).thenReturn(java.util.Collections.emptySet());
+        when(playlistLikeRepository.existsByUserAndPlaylist(any(User.class), any(Playlist.class))).thenReturn(false);
+        when(playlistRepostRepository.existsByUserAndPlaylist(any(User.class), any(Playlist.class))).thenReturn(false);
+        when(blockRepository.existsByBlocker_IdAndBlocked_Id(anyLong(), anyLong())).thenReturn(false);
+        when(playlistTokenService.resolveSecretToken(any(Playlist.class))).thenReturn("mock-token");
+
+        PlaylistResponse mockResponse = new PlaylistResponse(
+                10L, "Old Title V2", PlaylistType.PLAYLIST, false, false, null, false,
+                null, null, 0, 0,
+                new software.decibel.dtos.user.UserSummaryDTO(1L, "testuser_1", null, null, false, 0, 0),
+                List.of(), null, org.springframework.data.domain.Page.empty(), null, "mock-token");
+
+        when(playlistMapper.toResponse(any(Playlist.class), anySet(), anySet(), anyBoolean(), anyBoolean(), any(AccountTier.class), any(Pageable.class), anyString())).thenReturn(mockResponse);
+
+        PlaylistResponse response = playlistService.getPlaylistV2(10L, 1L, PageRequest.of(0, 20));
+
+        assertEquals(10L, response.id());
+    }
+
+    // ── addTrack (V1) ─────────────────────────────────────────────────────────
     @Test
     void addTrack_whenValid_addsTrackAndUpdatesCounts() {
         User user = user(1L);
+        user.setTier(AccountTier.FREE);
         Playlist playlist = playlist(user);
         Track track = track(100L, "Hip Hop", 180, user);
 
@@ -250,20 +309,68 @@ class PlaylistServiceTest {
         when(trackRepository.findById(100L)).thenReturn(Optional.of(track));
         when(playlistRepository.save(any())).thenReturn(playlist);
         when(playlistTokenService.resolveSecretToken(any(Playlist.class))).thenReturn("mock-token");
-        PlaylistResponse mockResponse = new PlaylistResponse(
+        when(userService.getUserIfExistsById(1L)).thenReturn(user);
+
+        // Mock engagement calls inside mapToSummaryWithEngagement
+        when(trackLikeRepository.findTrackIdsByUserId(anyLong())).thenReturn(java.util.Collections.emptySet());
+        when(trackRepostRepository.findTrackIdsByUserId(anyLong())).thenReturn(java.util.Collections.emptySet());
+        when(playlistLikeRepository.existsByUserAndPlaylist(any(User.class), any(Playlist.class))).thenReturn(false);
+        when(playlistRepostRepository.existsByUserAndPlaylist(any(User.class), any(Playlist.class))).thenReturn(false);
+
+        PlaylistSummaryResponse mockResponse = new PlaylistSummaryResponse(
                 10L, "Old Title", PlaylistType.PLAYLIST, false, false, null, false,
                 null, null, 180, 1,
                 new software.decibel.dtos.user.UserSummaryDTO(1L, "testuser_1", null, null, false, 0, 0),
-                List.of("Hip Hop"), null, null, "mock-token", null);
-        when(playlistMapper.toResponse(any(Playlist.class), any(Pageable.class), anyString())).thenReturn(mockResponse);
+                List.of("Hip Hop"), null, List.of(), null, "mock-token");
+
+        when(playlistMapper.toSummaryResponse(any(Playlist.class), anySet(), anySet(), anyBoolean(), anyBoolean(), any(AccountTier.class), anyString())).thenReturn(mockResponse);
 
         try (MockedStatic<JwtService> mockedJwt = mockStatic(JwtService.class)) {
             mockedJwt.when(JwtService::getCurrentUserId).thenReturn(1L);
 
-            PlaylistResponse response = playlistService.addTrack(1L, 10L, 100L);
+            PlaylistSummaryResponse response = playlistService.addTrack(1L, 10L, 100L);
 
             assertEquals(1, response.trackCount());
             assertEquals(180, response.totalDurationSeconds());
+            verify(playlistRepository).save(any());
+        }
+    }
+
+    // ── addTrack (V2) ─────────────────────────────────────────────────────────
+    @Test
+    void addTrackV2_whenValid_addsTrackAndUpdatesCounts() {
+        User user = user(1L);
+        user.setTier(AccountTier.FREE);
+        Playlist playlist = playlist(user);
+        Track track = track(100L, "Hip Hop", 180, user);
+
+        when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
+        when(trackRepository.findById(100L)).thenReturn(Optional.of(track));
+        when(playlistRepository.save(any())).thenReturn(playlist);
+        when(playlistTokenService.resolveSecretToken(any(Playlist.class))).thenReturn("mock-token");
+        when(userService.getUserIfExistsById(1L)).thenReturn(user);
+
+        // Mock engagement calls inside mapToResponseWithEngagement
+        when(trackLikeRepository.findTrackIdsByUserId(anyLong())).thenReturn(java.util.Collections.emptySet());
+        when(trackRepostRepository.findTrackIdsByUserId(anyLong())).thenReturn(java.util.Collections.emptySet());
+        when(playlistLikeRepository.existsByUserAndPlaylist(any(User.class), any(Playlist.class))).thenReturn(false);
+        when(playlistRepostRepository.existsByUserAndPlaylist(any(User.class), any(Playlist.class))).thenReturn(false);
+
+        PlaylistResponse mockResponse = new PlaylistResponse(
+                10L, "Old Title", PlaylistType.PLAYLIST, false, false, null, false,
+                null, null, 180, 1,
+                new software.decibel.dtos.user.UserSummaryDTO(1L, "testuser_1", null, null, false, 0, 0),
+                List.of("Hip Hop"), null, org.springframework.data.domain.Page.empty(), null, "mock-token");
+
+        // USE THE LONG MAPPER SIGNATURE (8 args)
+        when(playlistMapper.toResponse(any(Playlist.class), anySet(), anySet(), anyBoolean(), anyBoolean(), any(AccountTier.class), any(Pageable.class), anyString())).thenReturn(mockResponse);
+
+        try (MockedStatic<JwtService> mockedJwt = mockStatic(JwtService.class)) {
+            mockedJwt.when(JwtService::getCurrentUserId).thenReturn(1L);
+
+            PlaylistResponse response = playlistService.addTrackV2(1L, 10L, 100L, PageRequest.of(0, 20));
+
+            assertEquals(1, response.trackCount());
             verify(playlistRepository).save(any());
         }
     }
@@ -274,16 +381,10 @@ class PlaylistServiceTest {
         Playlist playlist = playlist(owner);
 
         when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
-
         when(trackRepository.findById(999L)).thenReturn(Optional.empty());
 
-        try (MockedStatic<JwtService> mockedJwt = mockStatic(JwtService.class)) {
-            mockedJwt.when(JwtService::getCurrentUserId).thenReturn(10L);
-
-            assertThrows(ResourceNotFoundException.class,
-                    () -> playlistService.addTrack(10L, 10L, 999L));
-
-        }
+        assertThrows(ResourceNotFoundException.class,
+                () -> playlistService.addTrack(10L, 10L, 999L));
     }
 
     // ── removeTrack ───────────────────────────────────────────────────────────
@@ -300,7 +401,6 @@ class PlaylistServiceTest {
         when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
         when(trackRepository.findById(100L)).thenReturn(Optional.of(track));
         when(playlistRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(playlistTokenService.resolveSecretToken(any(Playlist.class))).thenReturn("mock-token");
 
         playlistService.removeTrack(1L, 10L, 100L);
 
@@ -324,12 +424,11 @@ class PlaylistServiceTest {
 
     @Test
     void removeTrack_whenUserIsNotOwner_throwsForbidden() {
-        User owner = user(10L); // FIX: Passed ID
+        User owner = user(10L);
         Playlist playlist = playlist(owner);
 
         when(playlistRepository.findById(10L)).thenReturn(Optional.of(playlist));
 
-        // FIX: Changed Expected Exception to PlaylistAccessDeniedException
         assertThrows(PlaylistAccessDeniedException.class,
                 () -> playlistService.removeTrack(99L, 10L, 100L));
     }

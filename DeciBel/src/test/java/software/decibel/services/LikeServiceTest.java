@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -44,6 +45,7 @@ import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
 import software.decibel.services.engagement.LikeService;
+import software.decibel.services.playlist.PlaylistService;
 import software.decibel.services.user.UserService;
 
 @ExtendWith(MockitoExtension.class)
@@ -67,6 +69,8 @@ class LikeServiceTest {
     private PlaylistMapper playlistMapper;
     @Mock
     private PlaylistTokenRepository playlistTokenRepository;
+    @Mock
+    private PlaylistService playlistService;
     @Mock
     private TrackRepostRepository trackRepostRepository;
     @Mock
@@ -188,7 +192,6 @@ class LikeServiceTest {
         User user = new User();
         user.setId(1L);
         user.setTier(AccountTier.FREE);
-
         user.setUsername("testuser");
 
         Playlist playlist = new Playlist();
@@ -196,12 +199,11 @@ class LikeServiceTest {
 
         Pageable pageable = PageRequest.of(0, 10);
 
-        // FIX 1: Create a PlaylistSummaryResponse instead of PlaylistResponse
         software.decibel.dtos.playlist.PlaylistSummaryResponse dummySummaryResponse = new software.decibel.dtos.playlist.PlaylistSummaryResponse(
                 10L,
                 "Test Playlist",
                 software.decibel.enums.PlaylistType.PLAYLIST,
-                true, // isLiked (it is a liked playlist!)
+                true, // isLiked 
                 false, // isReposted
                 "A playlist for testing", // description 
                 false, // isPrivate 
@@ -211,40 +213,41 @@ class LikeServiceTest {
                 5, // trackCount 
                 null, // owner 
                 java.util.Collections.emptyList(), // genres 
-                LocalDateTime.now(), // createdAt 
-                java.util.Collections.emptyList(), // trackSummaryDto - List instead of Page for summary
+                java.time.LocalDateTime.now(), // createdAt 
+                java.util.Collections.emptyList(), // trackSummaryDto
                 "waveform-url", // firstTrackWaveformUrl
-                "secret-token" // secretToken instead of cache-key
+                "secret-token" // secretToken
         );
 
         when(userService.getUserIfExistsByUsername("testuser")).thenReturn(user);
         when(userService.getUserIfExistsById(1L)).thenReturn(user);
-        when(blockService.isBlockRelationshipActive(any(), any())).thenReturn(false);
+        org.mockito.Mockito.lenient().when(blockService.isBlockRelationshipActive(any(), any())).thenReturn(false);
 
-        when(playlistLikeRepository.findLikedPlaylistsByUserId(eq(1L), eq(pageable)))
-                .thenReturn(new PageImpl<>(List.of(playlist)));
+        // Keep ONLY this mock for the repository (removed the duplicate above it)
+        when(playlistLikeRepository.findPlaylistsByUserId(eq(1L), eq(pageable)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(java.util.List.of(playlist)));
 
-        when(trackLikeRepository.findTrackIdsByUserId(1L)).thenReturn(Collections.emptySet());
-        when(trackRepostRepository.findTrackIdsByUserId(1L)).thenReturn(Collections.emptySet());
-        org.mockito.Mockito.lenient().when(playlistTokenService.resolveSecretToken(any())).thenReturn("secret-token");
-        org.mockito.Mockito.lenient().when(playlistRepostRepository.findPlaylistIdsByUserId(any())).thenReturn(Collections.emptySet());
+        org.mockito.Mockito.lenient().when(trackLikeRepository.findTrackIdsByUserId(org.mockito.ArgumentMatchers.anyLong())).thenReturn(java.util.Collections.emptySet());
+        org.mockito.Mockito.lenient().when(trackRepostRepository.findTrackIdsByUserId(org.mockito.ArgumentMatchers.anyLong())).thenReturn(java.util.Collections.emptySet());
+        org.mockito.Mockito.lenient().when(playlistRepostRepository.existsByUserAndPlaylist(any(), any())).thenReturn(false);
 
-        // FIX 2: Mock the correct toSummaryResponse methods!
-        // We use lenient() to ensure it catches whichever overload LikeService is calling
+        org.mockito.Mockito.lenient().when(playlistService.resolveSecretTokenForUser(any())).thenReturn("secret-token");
+        org.mockito.Mockito.lenient().when(playlistRepostRepository.findPlaylistIdsByUserId(any())).thenReturn(java.util.Collections.emptySet());
+
         org.mockito.Mockito.lenient().when(playlistMapper.toSummaryResponse(any(Playlist.class), any()))
                 .thenReturn(dummySummaryResponse);
         org.mockito.Mockito.lenient().when(playlistMapper.toSummaryResponse(any(Playlist.class), any(), any(), org.mockito.ArgumentMatchers.anyBoolean(), org.mockito.ArgumentMatchers.anyBoolean(), any(), any()))
                 .thenReturn(dummySummaryResponse);
 
-        try (MockedStatic<JwtService> mockedJwt = mockStatic(JwtService.class)) {
-            mockedJwt.when(JwtService::getCurrentUserId).thenReturn(1L);
+        try (org.mockito.MockedStatic<software.decibel.services.JwtService> mockedJwt = org.mockito.Mockito.mockStatic(software.decibel.services.JwtService.class)) {
+            mockedJwt.when(software.decibel.services.JwtService::getCurrentUserId).thenReturn(1L);
 
-            Page<software.decibel.dtos.playlist.PlaylistSummaryResponse> result = likeService.getLikedPlaylists("testuser", pageable);
+            org.springframework.data.domain.Page<software.decibel.dtos.playlist.PlaylistSummaryResponse> result = likeService.getLikedPlaylists("testuser", pageable);
 
             //ASSERTIONS
-            assertNotNull(result);
-            assertEquals(1, result.getTotalElements());
-            assertEquals(10L, result.getContent().get(0).id());
+            org.junit.jupiter.api.Assertions.assertNotNull(result);
+            org.junit.jupiter.api.Assertions.assertEquals(1, result.getTotalElements());
+            org.junit.jupiter.api.Assertions.assertEquals(10L, result.getContent().get(0).id());
         }
     }
 }
