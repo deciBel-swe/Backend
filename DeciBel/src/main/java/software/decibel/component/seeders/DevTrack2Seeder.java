@@ -1,4 +1,4 @@
-package software.decibel.config;
+package software.decibel.component.seeders;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -130,10 +130,10 @@ public class DevTrack2Seeder implements CommandLineRunner {
                         .durationSeconds(duration)
                         .releaseDate(LocalDate.now())
                         .state(TrackState.FINISHED)
-                        .access(access) // ✅ important
+                        .access(access)
                         .visibility(Visibility.PUBLIC)
                         .trackUrl(audioUrl)
-                        .trackPreviewUrl(previewUrl) // ✅ added
+                        .trackPreviewUrl(previewUrl)
                         .coverUrl(coverUrl)
                         .waveformUrl("https://example.com/waveforms/default.json")
                         .slug(slug)
