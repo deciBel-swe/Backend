@@ -57,13 +57,6 @@ public class TrackAsyncProcessor {
     @Async
     public void processTrackUploadAsync(Long trackId, String uploadId, TrackUploadRequest request, byte[] audioBytes,
             String audioOriginalFilename, byte[] coverBytes, String coverOriginalFilename, Long userId) {
-        try {
-            Thread.sleep(500);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-        log.info(">>> ASYNC PROCESSOR ACTUALLY STARTED for track {}. Current Thread: {}",
-                trackId, Thread.currentThread().getName());
         processTrackUploadSync(trackId, uploadId, request, audioBytes, audioOriginalFilename, coverBytes, coverOriginalFilename, userId);
     }
 
@@ -149,7 +142,6 @@ public class TrackAsyncProcessor {
             String errorMessage = (e.getMessage() != null && !e.getMessage().isBlank())
                     ? e.getMessage()
                     : "An unexpected error occurred during track processing";
-            log.error("Error during upload for trackId: {}", trackId, e);
             updateDbAndBroadcast(trackId, uploadId, TrackState.FAILED, null, null, errorMessage, null);
             throw new RuntimeException(errorMessage, e); // Throw so the sync controller can handle the HTTP 500 error
         }
