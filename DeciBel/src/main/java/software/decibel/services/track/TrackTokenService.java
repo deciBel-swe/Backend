@@ -69,8 +69,8 @@ public class TrackTokenService {
         String tokenString = UUID.randomUUID().toString();
         TrackToken newToken = TrackToken.builder().track(track).token(tokenString).build();
 
-        trackTokenMapper.toTrackTokenResponse(trackTokenRepository.save(newToken));
-        return newToken;
+        TrackToken savedToken = trackTokenRepository.save(newToken);
+        return savedToken;
     }
 
     @Transactional
@@ -108,22 +108,23 @@ public class TrackTokenService {
         Long userId = null;
         boolean isLiked = false;
         boolean isReposted = false;
+        AccountTier tier = AccountTier.FREE;
         try {
             userId = JwtService.getCurrentUserId();
             isLiked = likeRepository.existsByUserIdAndTrackId(userId, track.getId());
             isReposted = repostRepository.existsByUserIdAndTrackId(userId, track.getId());
-            var tier = userService.getUserIfExistsById(userId).getTier();
+            tier = userService.getUserIfExistsById(userId).getTier();
         } catch (Exception e) {
             trackMapper.toTrackResponseSingle(
                     track,
-                    AccountTier.FREE,
+                    tier,
                     false,
                     false);
         }
 
         return trackMapper.toTrackResponseSingle(
                 track,
-                userService.getUserIfExistsById(JwtService.getCurrentUserId()).getTier(),
+                tier,
                 isLiked,
                 isReposted);
     }

@@ -3,7 +3,7 @@ package software.decibel.services.track;
 import java.io.ByteArrayInputStream;
 import java.util.List;
 
-import org.hibernate.validator.internal.util.stereotypes.Lazy;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
