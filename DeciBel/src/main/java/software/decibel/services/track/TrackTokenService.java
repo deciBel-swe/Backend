@@ -16,6 +16,7 @@ import software.decibel.exceptions.custom.UnauthorizedActionException;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.mappers.TrackTokenMapper;
 import software.decibel.repositories.TrackLikeRepository;
+import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
 import software.decibel.repositories.TrackTokenRepository;
 import software.decibel.services.JwtService;
@@ -33,6 +34,7 @@ public class TrackTokenService {
     private final UserService userService;
     private final TrackTokenMapper trackTokenMapper;
     private final TrackMapper trackMapper;
+    private final TrackRepository trackRepository;
 
     public TrackTokenResponse getActiveToken(Long trackId) {
 
@@ -49,8 +51,8 @@ public class TrackTokenService {
 
     @Transactional
     public TrackToken generateToken(Long trackId, Long userId) {
-        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
-
+        Track track = trackRepository.findById(trackId)
+                .orElseThrow(() -> new ResourceNotFoundException("Track with id " + trackId + " not found"));
         // Check user trying to regenerate token is the uploader
         if (!track.getUploader().getId().equals(userId)) {
             throw new UnauthorizedActionException("You are not allowed to modify this track.");
