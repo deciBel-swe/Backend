@@ -3,6 +3,7 @@ package software.decibel.services.track;
 import java.io.ByteArrayInputStream;
 import java.util.List;
 
+import org.springframework.context.annotation.Lazy;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -11,10 +12,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import software.decibel.component.UploadStatusCache;
 import software.decibel.dtos.track.requests.TrackUploadRequest;
 import software.decibel.dtos.track.responses.TrackResponse;
 import software.decibel.dtos.track.responses.TrackStatusResponse;
 import software.decibel.entities.Track;
+import software.decibel.entities.TrackToken;
 import software.decibel.entities.User;
 import software.decibel.enums.FileType;
 import software.decibel.enums.TrackState;
@@ -46,6 +49,10 @@ public class TrackAsyncProcessor {
     private final AudioUtility audioUtility;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
+    private final UploadStatusCache uploadStatusCache;
+    // Injecting TrackTokenService lazily to avoid circular dependency with TrackService
+    @Lazy
+    private final TrackTokenService trackTokenService;
 
     @Async
     public void processTrackUploadAsync(Long trackId, String uploadId, TrackUploadRequest request, byte[] audioBytes,
@@ -103,10 +110,12 @@ public class TrackAsyncProcessor {
 
             final String finalCoverUrl = coverUrl;
             final String finalPreviewUrl = previewUrl;
-
             // RETURN the result from the transaction template
             return transactionTemplate.execute(status -> {
                 Track track = trackRepository.findById(trackId).orElseThrow();
+                TrackToken secretToken = trackTokenService.generateToken(trackId, userId);
+                track.getTokens().add(secretToken);
+                secretToken.setTrack(track);
                 track.setTrackUrl(trackUrl);
                 track.setCoverUrl(finalCoverUrl);
                 track.setWaveformUrl(waveformUrl);
@@ -127,14 +136,12 @@ public class TrackAsyncProcessor {
                 messagingTemplate.convertAndSend(
                         "/topic/track-status/" + uploadId,
                         new TrackStatusResponse(TrackState.FINISHED, trackId, 100, "Done", null, finalResponse));
-
-                return finalResponse; // <-- Changed from returning null
+                return finalResponse;
             });
         } catch (Exception e) {
             String errorMessage = (e.getMessage() != null && !e.getMessage().isBlank())
                     ? e.getMessage()
                     : "An unexpected error occurred during track processing";
-            log.error("Error during upload for trackId: {}", trackId, e);
             updateDbAndBroadcast(trackId, uploadId, TrackState.FAILED, null, null, errorMessage, null);
             throw new RuntimeException(errorMessage, e); // Throw so the sync controller can handle the HTTP 500 error
         }
@@ -170,9 +177,10 @@ public class TrackAsyncProcessor {
     }
 
     private void broadcastProgress(Long trackId, String uploadId, TrackState state, Integer progress, String stepName) {
+        TrackStatusResponse response = new TrackStatusResponse(state, trackId, progress, stepName, null, null);
+        uploadStatusCache.saveStatus(uploadId, response);
         messagingTemplate.convertAndSend(
-                "/topic/track-status/" + uploadId,
-                new TrackStatusResponse(state, trackId, progress, stepName, null, null));
+                "/topic/track-status/" + uploadId, response);
     }
 
     @Transactional

@@ -1,10 +1,22 @@
 package software.decibel.services;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.any;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -17,9 +29,9 @@ import org.springframework.web.server.ResponseStatusException;
 import software.decibel.dtos.admin.AnalyticsResponse;
 import software.decibel.dtos.admin.BanUserRequest;
 import software.decibel.dtos.admin.BannedUserResponse;
-import software.decibel.dtos.auth.AdminPrincipal;
 import software.decibel.dtos.admin.ReportResponse;
 import software.decibel.dtos.admin.UpdateReportStatusRequest;
+import software.decibel.dtos.auth.AdminPrincipal;
 import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.entities.Report;
 import software.decibel.entities.User;
@@ -30,15 +42,9 @@ import software.decibel.mappers.ReportMapper;
 import software.decibel.repositories.ReportRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.admin.AdminModerationService;
 import software.decibel.services.track.TrackService;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import software.decibel.utils.FileUtilityAzure;
 
 @ExtendWith(MockitoExtension.class)
 class AdminModerationServiceTest {
@@ -48,6 +54,12 @@ class AdminModerationServiceTest {
 
     @Mock
     private ReportMapper reportMapper;
+
+    @Mock
+    private FileUtilityAzure fileUtilityAzure;
+
+    @Mock
+    private software.decibel.repositories.CommentRepository commentRepository;
 
     @Mock
     private TrackService trackService;
@@ -82,11 +94,17 @@ class AdminModerationServiceTest {
                 .build();
     }
 
+    @AfterEach
+    void tearDown() {
+        // Clear SecurityContext to prevent AdminPrincipal from polluting other tests
+        SecurityContextHolder.clearContext();
+    }
+
     @Test
     void getAllReports_returnsReportList() {
         Page<Report> page = new PageImpl<>(List.of(report));
         when(reportRepository.findAll(any(PageRequest.class))).thenReturn(page);
-        
+
         ReportResponse response = ReportResponse.builder()
                 .id(1L)
                 .build();
@@ -97,6 +115,23 @@ class AdminModerationServiceTest {
         assertEquals(1, result.size());
         assertEquals(1L, result.get(0).id());
         verify(reportRepository).findAll(PageRequest.of(0, 10, Sort.by("createdAt").descending()));
+    }
+
+    @Test
+    void getReportById_whenReportExists_returnsMappedResponse() {
+        report.setTargetType(software.decibel.enums.ReportTargetType.USER);
+        report.setTargetId(2L);
+        report.setReporterId(7L);
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(report));
+        when(userRepository.findById(7L)).thenReturn(Optional.of(user));
+        
+        User targetUser = User.builder().id(2L).username("target").displayName("Target").build();
+        when(userRepository.findById(2L)).thenReturn(Optional.of(targetUser));
+
+        software.decibel.dtos.admin.DetailedReportResponse result = adminModerationService.getReportById(1L);
+
+        assertEquals(1L, result.id());
+        assertEquals("target", result.targetUsername());
     }
 
     @Test
@@ -112,13 +147,26 @@ class AdminModerationServiceTest {
     }
 
     @Test
+    void updateReportStatus_whenRequestedStatusMatchesCurrent_throwsConflict() {
+        UpdateReportStatusRequest request = new UpdateReportStatusRequest(ReportStatus.OPEN);
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(report));
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> adminModerationService.updateReportStatus(1L, request));
+
+        assertEquals(409, exception.getStatusCode().value());
+        verify(reportRepository, never()).save(any());
+    }
+
+    @Test
     void updateReportStatus_whenReportDoesNotExist_throwsException() {
         UpdateReportStatusRequest request = new UpdateReportStatusRequest(ReportStatus.RESOLVED);
         when(reportRepository.findById(1L)).thenReturn(Optional.empty());
 
-        assertThrows(ResourceNotFoundException.class, () -> 
-            adminModerationService.updateReportStatus(1L, request));
-        
+        assertThrows(ResourceNotFoundException.class, ()
+                -> adminModerationService.updateReportStatus(1L, request));
+
         verify(reportRepository, never()).save(any());
     }
 
@@ -200,6 +248,9 @@ class AdminModerationServiceTest {
         when(trackRepository.sumPlayCount()).thenReturn(120L);
         when(trackRepository.averagePlayThroughRate()).thenReturn(73.5);
 
+        when(fileUtilityAzure.getTotalStorageUsed()).thenReturn(0L);
+        when(fileUtilityAzure.getTotalStorageCapacity()).thenReturn(53687091200L);
+
         AnalyticsResponse result = adminModerationService.getPlatformAnalytics();
 
         assertEquals(10L, result.totalUsers());
@@ -207,6 +258,7 @@ class AdminModerationServiceTest {
         assertEquals(120L, result.totalPlays());
         assertEquals(73.5, result.playThroughRate());
         assertEquals(0L, result.totalStorageUsedBytes());
+        assertEquals(53687091200L, result.totalStorageCapacityBytes());
     }
 
     private void mockAdminAuth() {

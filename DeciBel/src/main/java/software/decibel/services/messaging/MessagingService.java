@@ -19,6 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.google.api.core.ApiFuture;
 import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.AggregateQuery;
+import com.google.cloud.firestore.CollectionReference;
 import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.FieldValue;
@@ -27,6 +28,7 @@ import com.google.cloud.firestore.Query;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.google.cloud.firestore.QuerySnapshot;
 import com.google.cloud.firestore.SetOptions;
+import com.google.cloud.firestore.WriteBatch;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,11 +38,13 @@ import software.decibel.dtos.messaging.ConversationResponse;
 import software.decibel.dtos.messaging.MessagePageResponse;
 import software.decibel.dtos.messaging.MessageResponse;
 import software.decibel.dtos.messaging.SendMessageRequest;
+import software.decibel.dtos.user.UserSummaryDTO;
 import software.decibel.entities.User;
 import software.decibel.enums.NotificationType;
 import software.decibel.enums.ResourceType;
-import software.decibel.repositories.BlockRepository;
+import software.decibel.mappers.UserMapper;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.BlockService;
 import software.decibel.services.notification.FcmNotificationService;
 import software.decibel.services.notification.InAppNotificationService;
 import software.decibel.services.user.UserService;
@@ -52,13 +56,14 @@ public class MessagingService {
 
     private final ObjectProvider<Firestore> firestoreProvider;
     private final UserRepository userRepository;
-    private final BlockRepository blockRepository;
     private final InAppNotificationService inAppNotificationService;
     private final UserService userService;
+    private final BlockService blockService;
 
     private static final String CONVERSATIONS_COLLECTION = "conversations";
     private static final String MESSAGES_COLLECTION = "messages";
     private final FcmNotificationService fcmNotificationService;
+    private final UserMapper userMapper;
 
     public ConversationResponse startConversation(Authentication authentication, Long recipientId) {
         Firestore firestore = firestoreProvider.getObject();
@@ -77,14 +82,15 @@ public class MessagingService {
         }
 
         // Block checks
-        if (blockRepository.existsByBlocker_IdAndBlocked_Id(senderId, recipientId)) {
+        if (blockService.hasUserBlocked(senderId, recipientId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You have blocked this user");
         }
-        if (blockRepository.existsByBlocker_IdAndBlocked_Id(recipientId, senderId)) {
+        if (blockService.hasUserBlocked(recipientId, senderId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This user has blocked you");
         }
 
         String conversationId = getConversationId(senderId, recipientId);
+        UserSummaryDTO sendToDto = userMapper.toUserSummaryDto(recipient);
 
         try {
             DocumentReference docRef = firestore.collection(CONVERSATIONS_COLLECTION).document(conversationId);
@@ -101,9 +107,10 @@ public class MessagingService {
 
                 return new ConversationResponse(
                         conversationId,
-                        Arrays.asList(senderId, recipientId),
+                        sendToDto,
                         "",
-                        LocalDateTime.now()
+                        LocalDateTime.now(),
+                        0L
                 );
             } else {
                 log.info("Conversation already exists: {}", conversationId);
@@ -124,9 +131,10 @@ public class MessagingService {
 
                 return new ConversationResponse(
                         conversationId,
-                        participants,
+                        sendToDto,
                         snapshot.getString("lastMessage"),
-                        ldt
+                        ldt,
+                        0L
                 );
             }
         } catch (InterruptedException | ExecutionException e) {
@@ -178,10 +186,10 @@ public class MessagingService {
         }
 
         // Block checks
-        if (blockRepository.existsByBlocker_IdAndBlocked_Id(senderId, recipientId)) {
+        if (blockService.hasUserBlocked(senderId, recipientId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You have blocked this user");
         }
-        if (blockRepository.existsByBlocker_IdAndBlocked_Id(recipientId, senderId)) {
+        if (blockService.hasUserBlocked(recipientId, senderId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This user has blocked you");
         }
 
@@ -192,6 +200,7 @@ public class MessagingService {
         messageData.put("recipientId", recipientId);
         messageData.put("content", request.content());
         messageData.put("timestamp", FieldValue.serverTimestamp());
+        messageData.put("isRead", false);
 
         try {
             DocumentReference docRef = firestore.collection(CONVERSATIONS_COLLECTION)
@@ -225,13 +234,14 @@ public class MessagingService {
                     sender.getUsername(), // Or "User " + senderId if you don't have getUsername()
                     request.content()
             );
+            UserSummaryDTO senderDto = userMapper.toUserSummaryDto(sender);
 
             return new MessageResponse(
                     docRef.getId(),
-                    senderId,
-                    recipientId,
+                    senderDto,
                     request.content(),
-                    LocalDateTime.now()
+                    LocalDateTime.now(),
+                    false
             );
         } catch (InterruptedException | ExecutionException e) {
             log.error("Error sending message to Firestore for conversationId: {}", conversationId, e);
@@ -269,15 +279,18 @@ public class MessagingService {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         Long currentUserId = principal.getId();
 
-        // Security check: user must be a participant of the conversation
+        // 1. Security check: user must be a participant of the conversation
         // conversationId is "minId_maxId"
         String[] ids = conversationId.split("_");
         if (ids.length != 2) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid conversation ID");
         }
+
+        Long id1;
+        Long id2;
         try {
-            Long id1 = Long.parseLong(ids[0]);
-            Long id2 = Long.parseLong(ids[1]);
+            id1 = Long.parseLong(ids[0]);
+            id2 = Long.parseLong(ids[1]);
             if (!currentUserId.equals(id1) && !currentUserId.equals(id2)) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not a participant of this conversation");
             }
@@ -285,11 +298,21 @@ public class MessagingService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid conversation ID format");
         }
 
+        // 3. CACHE: Fetch both users once to prevent hitting the SQL database 20 times during the map loop
+        Map<Long, UserSummaryDTO> userCache = new HashMap<>();
         try {
-            // Firestore pagination is usually cursor-based, but we'll use offset for simplicity if size is small,
-            // or just fetch with limit if we want simple pagination.
-            // Requirement says "paginated response of the chat".
 
+            User user1 = userService.getUserIfExistsById(id1);
+            User user2 = userService.getUserIfExistsById(id2);
+            userCache.put(id1, userMapper.toUserSummaryDto(user1));
+            userCache.put(id2, userMapper.toUserSummaryDto(user2));
+        } catch (Exception e) {
+            log.error("Failed to load user summaries for conversation: {}", conversationId, e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to load participant data.");
+        }
+
+        // 4. Fetch the paginated messages from Firestore
+        try {
             Query query = firestore.collection(CONVERSATIONS_COLLECTION)
                     .document(conversationId)
                     .collection(MESSAGES_COLLECTION)
@@ -306,26 +329,33 @@ public class MessagingService {
                         LocalDateTime ldt = ts != null
                                 ? ts.toDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime()
                                 : LocalDateTime.now();
+
+                        // Extract senderId to get the cached UserSummaryDTO
+                        Long senderId = doc.getLong("senderId");
+                        UserSummaryDTO senderDto = userCache.get(senderId);
+
+                        // Extract isRead safely (fallback to false if missing)
+                        Boolean isReadRaw = doc.getBoolean("isRead");
+                        boolean isRead = isReadRaw != null ? isReadRaw : false;
+                        // Return the new DTO structure
                         return new MessageResponse(
                                 doc.getId(),
-                                doc.getLong("senderId"),
-                                doc.getLong("recipientId"),
+                                senderDto,
                                 doc.getString("content"),
-                                ldt
+                                ldt,
+                                isRead
                         );
                     })
                     .collect(Collectors.toList());
-
-            // For total elements, we might need another query or just use the count from metadata if we stored it
-            // For now, let's just provide what we have. 
-            // Better to use Firestore's aggregation for count if needed.
-            long totalElements = 0; // Simple placeholder or actual count
+            //Mark all unread messages as read
+            markUnreadMessagesAsRead(conversationId, currentUserId);
+            // 5. Calculate pagination elements
+            long totalElements = 0;
             AggregateQuery countQuery = firestore.collection(CONVERSATIONS_COLLECTION)
                     .document(conversationId)
                     .collection(MESSAGES_COLLECTION)
                     .count();
             totalElements = countQuery.get().get().getCount();
-
             int totalPages = (int) Math.ceil((double) totalElements / size);
 
             return new MessagePageResponse(
@@ -399,12 +429,35 @@ public class MessagingService {
                         } else {
                             participants = Collections.emptyList();
                         }
+                        long unreadCount = 0;
+                        // Count unread messages for this specific conversation
+                        try {
+                            AggregateQuery countQuery = firestore.collection("conversations")
+                                    .document(doc.getId())
+                                    .collection("messages")
+                                    .whereEqualTo("recipientId", currentUserId) // Only count messages sent TO current user
+                                    .whereEqualTo("isRead", false) // Only count unread
+                                    .count();
+
+                            // Note: .get().get() resolves the ApiFuture
+                            unreadCount = countQuery.get().get().getCount();
+                        } catch (Exception e) {
+                            log.error("Failed to fetch unread count for conversation: {}", doc.getId(), e);
+                            System.err.println("\n\n🔥 FIRESTORE INDEX URL: " + e.getMessage() + "\n\n");
+                        }
+                        Long otherUserId = participants.stream()
+                                .filter(id -> !id.equals(currentUserId))
+                                .findFirst()
+                                .orElse(currentUserId);
+                        User otherUserEntity = userService.getUserIfExistsById(otherUserId);
+                        UserSummaryDTO sendToDto = userMapper.toUserSummaryDto(otherUserEntity);
 
                         return new ConversationResponse(
                                 doc.getId(),
-                                participants,
+                                sendToDto,
                                 doc.getString("lastMessage"),
-                                ldt
+                                ldt,
+                                unreadCount
                         );
                     })
                     .collect(Collectors.toList());
@@ -451,6 +504,35 @@ public class MessagingService {
                 }
             }
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error: " + e.getMessage());
+        }
+    }
+
+    private void markUnreadMessagesAsRead(String conversationId, Long currentUserId) {
+        try {
+            Firestore firestore = firestoreProvider.getObject();
+            CollectionReference messagesRef = firestore.collection("conversations")
+                    .document(conversationId)
+                    .collection("messages");
+
+            // Find all messages sent TO the current user that are NOT read
+            ApiFuture<QuerySnapshot> future = messagesRef
+                    .whereEqualTo("recipientId", currentUserId)
+                    .whereEqualTo("isRead", false)
+                    .get();
+
+            List<QueryDocumentSnapshot> unreadDocs = future.get().getDocuments();
+
+            if (!unreadDocs.isEmpty()) {
+                WriteBatch batch = firestore.batch();
+                for (DocumentSnapshot doc : unreadDocs) {
+                    batch.update(doc.getReference(), "isRead", true);
+                }
+                // Commit the batch update asynchronously so it doesn't slow down the GET request
+                batch.commit();
+            }
+        } catch (Exception e) {
+            log.error("Failed to mark messages as read for conversation: {}", conversationId, e);
+            System.err.println("\n\n🔥 FIRESTORE INDEX URL: " + e.getMessage() + "\n\n");
         }
     }
 

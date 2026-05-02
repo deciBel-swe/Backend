@@ -5,5 +5,6 @@ public record AnalyticsResponse(
         Long totalTracks,
         Long totalPlays,
         Double playThroughRate,
-        Long totalStorageUsedBytes) {
+        Long totalStorageUsedBytes,
+        Long totalStorageCapacityBytes) {
 }

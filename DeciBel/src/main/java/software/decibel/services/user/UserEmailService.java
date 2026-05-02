@@ -64,7 +64,6 @@ public class UserEmailService {
             pendingEmailChangeRepository.delete(existingRequest);
             tokenService.deleteToken(existingRequest.getToken());
         });
-        tokenService.deleteTokensForUserAndType(currentUser, TokenType.EMAIL_CHANGE);
 
         IssuedToken issuedToken = tokenService.createEmailChangeToken(currentUser);
         PendingEmailChange pendingEmailChange = PendingEmailChange.builder()
@@ -135,7 +134,7 @@ public class UserEmailService {
 
         final long userId;
         try {
-            userId = Long.parseLong(principal);
+            userId = userService.getUserIfExistsByUsername(principal).getId();
         } catch (NumberFormatException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid ID format");
         }

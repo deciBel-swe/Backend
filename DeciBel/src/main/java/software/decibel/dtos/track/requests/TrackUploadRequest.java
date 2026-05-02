@@ -40,9 +40,15 @@ public record TrackUploadRequest(
         @NotNull(message = "Release date is required")
         @DateTimeFormat(pattern = "yyyy-MM-dd")
         LocalDate releaseDate,
-        @NotNull(message = "Track Access is required: PLAYABLE, BLOCKED, PREVIEW")
         TrackAccess access,
         @NotBlank(message = "Upload ID is required for progress tracking")
         String uploadId) {
+    //for handling old V1 upload
+
+    public TrackUploadRequest {
+        if (access == null) {
+            access = TrackAccess.PLAYABLE;
+        }
+    }
 
 }

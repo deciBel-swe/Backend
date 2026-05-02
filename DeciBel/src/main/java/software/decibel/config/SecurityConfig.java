@@ -46,15 +46,26 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/users/username/**").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/profile/token/**").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/playlists/{playlistId}").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/playlists/{playlistId}/secret-link").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/playlists/resolve/{playlist-slug}").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/tracks/resolve/{track-slug}").permitAll()
                                 .requestMatchers(HttpMethod.POST, "/auth/refreshtoken").permitAll()
                                 .requestMatchers(HttpMethod.POST, "/tracks/upload").permitAll()
+                                .requestMatchers(HttpMethod.POST, "/tracks/{trackId}/play").permitAll()
+                                .requestMatchers(HttpMethod.POST, "/tracks/{trackId}/secret-token").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{userId}/tracks").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/tracks/{trackId}").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/playlists/token/{token}").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/tracks/token/{token}").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/playlists/token/{token}").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/tracks/resolve/{trackSlug}").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/tracks/{trackId}/like").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/playlists/resolve/{playlistSlug}").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/tracks/{trackId}/reposters").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/playlists/{playlistId}/like").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/playlists/{playlistId}/reposters").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{username}/playlists").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/users/{username}/playlists/{playlistId}").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{username}/tracks").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{username}/followers").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/users/{username}/following").permitAll()
@@ -67,6 +78,7 @@ public class SecurityConfig {
                                 .requestMatchers("/webhook/**").permitAll()
                                 //needed for api docs
                                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                                .requestMatchers("/actuator/**").permitAll() // Allow actuator endpoints for monitoring
                                 .anyRequest().authenticated())
                 // Use stateless sessions for JWT authentication
                 .sessionManagement(
@@ -119,3 +131,4 @@ public class SecurityConfig {
         return source;
     }
 }
+//ba69457a-1c6c-4af4-b6e0-57a641af384f      ba69457a-1c6c-4af4-b6e0-57a641af384f

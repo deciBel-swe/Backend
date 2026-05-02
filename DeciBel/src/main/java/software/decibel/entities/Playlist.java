@@ -8,7 +8,6 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -20,7 +19,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.Builder;
 import lombok.Data;
@@ -53,7 +51,9 @@ public class Playlist {
     private PlaylistType type;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean isPrivate = false;
+    @Builder.Default
     private boolean isLiked = false;
 
     private String coverArtUrl;
@@ -89,11 +89,6 @@ public class Playlist {
     )
     @Builder.Default
     private List<Track> tracks = new ArrayList<>();
-
-    // Slug history — soft deleted old slugs
-    @OneToMany(mappedBy = "playlist", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<PlaylistToken> slugHistory = new ArrayList<>();
 
     @CreationTimestamp
     private LocalDateTime createdAt;

@@ -7,6 +7,7 @@ import software.decibel.dtos.user.BlockedUserDto;
 import software.decibel.dtos.user.UserFollowDto;
 import software.decibel.dtos.user.UserProfile;
 import software.decibel.dtos.user.UserSummary;
+import software.decibel.dtos.user.UserSummaryDTO;
 import software.decibel.entities.User;
 import software.decibel.utils.UserMappingUtility;
 
@@ -24,7 +25,7 @@ public interface UserMapper {
     default UserProfile toUserProfile(User target, User currentViewer,
             UserMappingUtility userMappingUtility,
             software.decibel.repositories.FollowRepository followRepository,
-            software.decibel.repositories.BlockRepository blockRepository) {
+            software.decibel.services.BlockService blockService) {
 
         boolean isFollowed = false;
         boolean isFollowing = false;
@@ -33,11 +34,16 @@ public interface UserMapper {
         if (currentViewer != null && !currentViewer.getId().equals(target.getId())) {
             isFollowed = followRepository.existsByFollowerAndFollowing(currentViewer, target);
             isFollowing = followRepository.existsByFollowerAndFollowing(target, currentViewer);
-            isBlocked = blockRepository.existsByBlockerAndBlocked(currentViewer, target);
+            isBlocked = blockService.hasUserBlocked(currentViewer.getId(), target.getId());
         }
 
         return userMappingUtility.toUserProfile(target, isFollowed, isFollowing, isBlocked);
     }
 
-  UserSummary toUserSummary(User user);
+    UserSummary toUserSummary(User user);
+
+    @Mapping(target = "isFollowing", ignore = true)
+    @Mapping(target = "followerCount", source = "followerCount")
+    @Mapping(target = "trackCount", source = "trackCount")
+    UserSummaryDTO toUserSummaryDto(User user);
 }

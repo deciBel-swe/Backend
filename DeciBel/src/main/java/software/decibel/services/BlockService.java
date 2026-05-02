@@ -10,7 +10,6 @@ import software.decibel.dtos.user.BlockedUserDto;
 import software.decibel.entities.Block;
 import software.decibel.entities.Follow;
 import software.decibel.entities.User;
-import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.UserMapper;
 import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.FollowRepository;
@@ -104,5 +103,16 @@ public class BlockService {
             userRepository.save(following);
             userRepository.save(follower);
         }
+    }
+
+    public boolean hasUserBlocked(Long blockerId, Long blockedId) {
+        if (blockerId == null || blockedId == null) return false;
+        return blockRepository.existsByBlocker_IdAndBlocked_Id(blockerId, blockedId);
+    }
+
+    public boolean isBlockRelationshipActive(Long userId1, Long userId2) {
+        if (userId1 == null || userId2 == null) return false;
+        return blockRepository.existsByBlocker_IdAndBlocked_Id(userId1, userId2) ||
+               blockRepository.existsByBlocker_IdAndBlocked_Id(userId2, userId1);
     }
 }

@@ -1,8 +1,10 @@
 package software.decibel.services.track;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -20,6 +22,8 @@ import org.springframework.web.server.ResponseStatusException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import software.decibel.dtos.Resource;
+import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.track.requests.TrackPatchRequest;
 import software.decibel.dtos.track.requests.TrackUploadRequest;
 import software.decibel.dtos.track.responses.TrackPageResponse;
@@ -29,31 +33,39 @@ import software.decibel.dtos.track.responses.TrackResponse;
 import software.decibel.dtos.track.responses.TrackStatusResponse;
 import software.decibel.dtos.track.responses.TrackUploadResponse;
 import software.decibel.dtos.track.responses.TrackWaveFormUrlResponse;
+import software.decibel.entities.ListeningHistory;
 import software.decibel.entities.Tag;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
 import software.decibel.enums.AccountTier;
+import org.springframework.beans.factory.annotation.Qualifier;
 import software.decibel.enums.FileType;
+import software.decibel.enums.ResourceType;
 import software.decibel.enums.TrackAccess;
 import software.decibel.enums.TrackState;
 import software.decibel.enums.Visibility;
+import software.decibel.exceptions.custom.CooldownActiveException;
+import software.decibel.exceptions.custom.NoStationResultsException;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.exceptions.custom.TrackAlreadyPublishedException;
 import software.decibel.exceptions.custom.UnauthorizedActionException;
 import software.decibel.mappers.TrackMapper;
-import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.CommentRepository;
+import software.decibel.repositories.ListeningHistoryRepository;
+import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
 import software.decibel.services.JwtService;
 import software.decibel.services.TagService;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import software.decibel.services.engagement.LikeService;
 import software.decibel.services.engagement.RepostService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.FileUtilityAzure;
 import software.decibel.utils.SlugUtility;
 import software.decibel.utils.TagUtility;
+import software.decibel.utils.TrackChecksUtil;
 
 @Service
 @RequiredArgsConstructor
@@ -65,30 +77,102 @@ public class TrackService {
     private final TrackRepostRepository repostRepository;
     private final CommentRepository commentRepository;
     private final UserService userService;
-    private final BlockRepository blockRepository;
+    private final ListeningHistoryRepository listeningHistoryRepository;
 
     private final TrackPlaybackService trackPlaybackService;
 
     private final LikeService likeService;
     private final RepostService repostService;
+    private final TrackTokenService trackTokenService;
 
     private final FileUtilityAzure fileUtilityAzure;
     private final TrackMapper trackMapper;
 
     private final TagService tagService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final TrackChecksUtil trackChecksUtil;
+
+    private final PlaylistRepository playlistRepository;
+    @Qualifier("taskExecutor")
+    private final ThreadPoolTaskExecutor taskExecutor;
 
     //Async Processor
     private final TrackAsyncProcessor trackAsyncProcessor;
 
     public TrackStatusResponse getTrackStatus(Long trackId) {
-        return trackMapper.toTrackStatusResponse(getTrackIfExistsById(trackId));
+        return trackMapper.toTrackStatusResponse(trackChecksUtil.getTrackIfExistsById(trackId));
+    }
+
+    @Transactional
+    public MessageResponse recordTrackPlay(Long trackId) {
+        Track track = getTrackIfExistsById(trackId);
+        Long currentUserId = JwtService.getCurrentUserId();
+
+        if (currentUserId != null) {
+            User user = userService.getUserIfExistsById(currentUserId);
+            enforcePlayCooldown(currentUserId, track);
+
+            boolean isRepeat = listeningHistoryRepository
+                    .findTopByUserIdOrderByPlayedAtDesc(currentUserId)
+                    .map(last -> last.getTrack().getId().equals(trackId))
+                    .orElse(false);
+
+            if (!isRepeat) {
+                listeningHistoryRepository.save(
+                        ListeningHistory.builder()
+                                .user(user)
+                                .track(track)
+                                .completed(false)
+                                .build());
+            }
+        }
+        /*
+        Assumed that Guest users can also play tracks, but we won't record their plays in listening history 
+        (since we have no user to associate it with) 
+        and we won't enforce cooldowns on them. 
+        We will still increment the play count for the track though.
+         */
+        track.setPlayCount(track.getPlayCount() + 1);
+        trackRepository.save(track);
+
+        return new MessageResponse("Play recorded");
+    }
+
+    @Transactional
+    public MessageResponse recordTrackCompletion(Long trackId) {
+        Long currentUserId = JwtService.getCurrentUserId();
+        userService.getUserIfExistsById(currentUserId);
+
+        Track track = getTrackIfExistsById(trackId);
+        listeningHistoryRepository.findTopByUserIdAndTrackIdAndCompletedFalseOrderByPlayedAtDesc(currentUserId, trackId)
+                .ifPresent(history -> {
+                    history.setCompleted(true);
+                    listeningHistoryRepository.save(history);
+                    if (track.getCompletedPlayCount() < track.getPlayCount()) {
+                        track.setCompletedPlayCount(track.getCompletedPlayCount() + 1);
+                    }
+                });
+
+        if (track.getPlayCount() > 0) {
+            track.setPlayThroughRate((double) track.getCompletedPlayCount() / track.getPlayCount());
+        } else {
+            track.setPlayThroughRate(0.0);
+        }
+
+        trackRepository.save(track);
+        return new MessageResponse("Full listen recorded");
     }
 
     //delete track
     @Transactional
     public void deleteTrack(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
+
+        User uploader = track.getUploader();
+        Long currentUserId = JwtService.getCurrentUserId();
+        if (!Objects.equals(currentUserId, uploader.getId())) {
+            throw new UnauthorizedActionException("You cannot delete a track you didn't upload.");
+        }
 
         //fetch track url data before deleting
         final String audioUrl = track.getTrackUrl();
@@ -98,13 +182,14 @@ public class TrackService {
         likeRepository.deleteAllByTrackId(trackId);
         repostRepository.deleteAllByTrackId(trackId);
         commentRepository.deleteAllByTrackId(trackId);
-        User user = track.getUploader();
-        //update track count
-        user.setTrackCount(user.getTrackCount() - 1);
+        playlistRepository.removeTrackFromAllPlaylists(trackId);
 
-        // if free user deleted a nn-blocked track they free a slot
-        if (track.getAccess() != TrackAccess.BLOCKED && user.getTier() == AccountTier.FREE) {
-            user.setFreeTracksLeft(user.getFreeTracksLeft() + 1);
+        // update track count
+        uploader.setTrackCount(uploader.getTrackCount() - 1);
+
+        // if free uploader deleted a nn-blocked track they free a slot
+        if (track.getAccess() != TrackAccess.BLOCKED && uploader.getTier() == AccountTier.FREE) {
+            uploader.setFreeTracksLeft(uploader.getFreeTracksLeft() + 1);
         }
 
         trackRepository.delete(track);
@@ -148,6 +233,7 @@ public class TrackService {
         likeRepository.deleteAllByTrackId(trackId);
         repostRepository.deleteAllByTrackId(trackId);
         commentRepository.deleteAllByTrackId(trackId);
+        playlistRepository.removeTrackFromAllPlaylists(trackId);
         trackRepository.delete(track);
 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -185,6 +271,10 @@ public class TrackService {
         }
         track.setGenre(WordUtils.capitalize(track.getGenre().trim().toLowerCase().replaceAll("\\s+", " ")));
 
+        // Generate unique slug
+        String slug = SlugUtility.generateUniqueSlug(track.getTitle(), s -> trackRepository.existsBySlug(s));
+        track.setSlug(slug);
+
         Track createdTrack = createUploadingTrack(track, uploadId);
 
         try {
@@ -212,6 +302,10 @@ public class TrackService {
 
     //upload track and subscribe via ID sent by the front/cross
     public TrackUploadResponse uploadTrackAsync(TrackUploadRequest request, String uploadId) {
+        log.info("[THREAD POOL STATS] Active Threads: {}, Waiting in Queue: {}, Pool Size: {}",
+                taskExecutor.getActiveCount(),
+                taskExecutor.getThreadPoolExecutor().getQueue().size(),
+                taskExecutor.getPoolSize());
         Track createdTrack = initializeTrackUpload(request, uploadId);
         Long userId = JwtService.getCurrentUserId();
 
@@ -250,7 +344,14 @@ public class TrackService {
 
     @Transactional
     public void deleteTrackCover(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
+
+        User uploader = track.getUploader();
+        Long currentUserId = JwtService.getCurrentUserId();
+        if (!Objects.equals(currentUserId, uploader.getId())) {
+            throw new UnauthorizedActionException(
+                    "You cannot delete the cover for track you didn't upload.");
+        }
         if (track.getCoverUrl() != null) {
             fileUtilityAzure.deleteFileByUrl(track.getCoverUrl());
             track.setCoverUrl(null);
@@ -260,7 +361,7 @@ public class TrackService {
 
     @Transactional
     public void deleteTrackAudio(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
         if (track.getTrackUrl() != null) {
             fileUtilityAzure.deleteFileByUrl(track.getTrackUrl());
             track.setTrackUrl(null);
@@ -270,7 +371,7 @@ public class TrackService {
 
     @Transactional
     public void deleteTrackWaveformData(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
         if (track.getWaveformUrl() != null) {
             fileUtilityAzure.deleteFileByUrl(track.getWaveformUrl());
             track.setWaveformUrl(null);
@@ -287,10 +388,15 @@ public class TrackService {
 
     @Transactional
     public TrackPatchResponse updateTrack(Long trackId, TrackPatchRequest request) {
-        Track track = getTrackIfExistsById(trackId);
-        Long userId = JwtService.getCurrentUserId();
-        User uploader = userService.getUserIfExistsById(userId);
 
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
+        Long userId = JwtService.getCurrentUserId();
+        User user = userService.getUserIfExistsById(userId);
+
+        // only uploader can patch
+        if (!Objects.equals(userId, track.getUploader().getId())) {
+            throw new UnauthorizedActionException("You cannot update a track you didn't upload.");
+        }
         if (request.title() != null) {
             track.setTitle(request.title());
         }
@@ -305,7 +411,14 @@ public class TrackService {
             track.setReleaseDate(request.releaseDate());
         }
         if (request.isPrivate() != null) {
-            track.setVisibility(request.isPrivate() ? Visibility.PRIVATE : Visibility.PUBLIC);
+            Visibility newVisibility = request.isPrivate() ? Visibility.PRIVATE : Visibility.PUBLIC;
+
+            // If transitioning from PUBLIC to PRIVATE, issue a new secret token
+            if (track.getVisibility() == Visibility.PUBLIC && newVisibility == Visibility.PRIVATE) {
+                trackTokenService.regenerateToken(track.getId());
+            }
+
+            track.setVisibility(newVisibility);
         }
 
         if (request.coverImage() != null && !request.coverImage().isEmpty()) {
@@ -321,10 +434,10 @@ public class TrackService {
 
         if (request.access() != null) {
             TrackAccess finalAccess
-                    = trackPlaybackService.resolvePatchAccess(uploader, track.getAccess(), request.access());
+                    = trackPlaybackService.resolvePatchAccess(user, track.getAccess(), request.access());
 
             // update free tracks left based on initial access and final access
-            trackPlaybackService.updateFreeTracksLeft(uploader, track.getAccess(), finalAccess);
+            trackPlaybackService.updateFreeTracksLeft(user, track.getAccess(), finalAccess);
             track.setAccess(finalAccess);
         }
 
@@ -332,7 +445,7 @@ public class TrackService {
     }
 
     public TrackWaveFormUrlResponse getTrackWaveformUrl(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
         return trackMapper.toTrackWaveFormUrlResponse(track);
     }
 
@@ -372,10 +485,11 @@ public class TrackService {
 
     @Transactional
     public TrackPublishResponse publishTrack(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
 
         if (!track.getUploader().getId().equals(JwtService.getCurrentUserId())) {
-            throw new UnauthorizedActionException("You are not allowed to publish this track.");
+            throw new UnauthorizedActionException(
+                    "You are not allowed to publish a track you didn't upload.");
         }
 
         if (track.isPublished()) {
@@ -391,14 +505,27 @@ public class TrackService {
         return trackMapper.toTrackPublishResponse(trackRepository.save(track));
     }
 
+    public Resource resolveTrackSlug(String slug) {
+        Long id = trackRepository.findTrackIdBySlug(slug)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                "No track found with slug: " + slug));
+
+        return new Resource(ResourceType.TRACK, id);
+    }
+
     public TrackPageResponse getTrendingTracks(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<Track> trendingTracks = trackRepository.findAllTrending(pageable);
 
         Long currentUserId = null;
         try {
             currentUserId = JwtService.getCurrentUserId();
         } catch (Exception e) {
+        }
+
+        Page<Track> trendingTracks = trackRepository.findAllTrending(currentUserId, pageable);
+
+        if (trendingTracks.isEmpty()) {
+            throw new NoStationResultsException();
         }
 
         Set<Long> likedTrackIds = (currentUserId != null) ? likeService.getLikedTrackIds(currentUserId) : Set.of();
@@ -409,7 +536,7 @@ public class TrackService {
     }
 
     public TrackResponse getTrackData(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
         Long currentUserId = null;
         try {
             currentUserId = JwtService.getCurrentUserId();
@@ -424,7 +551,7 @@ public class TrackService {
     }
 
     public TrackResponse getCurrentUserTrackData(Long trackId) {
-        Track track = getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
         Long currentUserId = JwtService.getCurrentUserId();
 
         if (!track.getUploader().getId().equals(currentUserId)) {
@@ -449,40 +576,6 @@ public class TrackService {
         return trackMapper.toTrackResponseSingle(track, tier, isLiked, isReposted);
     }
 
-    public Track getTrackIfExistsById(Long trackId) {
-        Long currentUserId = null;
-        try {
-            currentUserId = JwtService.getCurrentUserId();
-        } catch (Exception e) {
-
-        }
-        Track track = trackRepository.findById(trackId)
-                .orElseThrow(() -> new ResourceNotFoundException("Track with id " + trackId + " not found"));
-
-        if (isUserBlocked(currentUserId, track.getUploader().getId())) {
-            throw new ResourceNotFoundException("Track with id " + trackId + " not found");
-        }
-        checkTrackVisibility(track, currentUserId);
-        return track;
-    }
-
-    private void checkTrackVisibility(Track track, Long currentUserId) {
-        if (track.getVisibility() == Visibility.PRIVATE) {
-            if (currentUserId == null || !track.getUploader().getId().equals(currentUserId)) {
-                throw new ResourceNotFoundException("Track with id " + track.getId() + " not found");
-            }
-        }
-    }
-
-    private boolean isUserBlocked(Long currentUserId, Long targetUserId) {
-        if (currentUserId == null) {
-            return false;
-        }
-        boolean hasBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(currentUserId, targetUserId);
-        boolean isBlockedBy = blockRepository.existsByBlocker_IdAndBlocked_Id(targetUserId, currentUserId);
-        return hasBlocked || isBlockedBy;
-    }
-
     private Track initializeTrackUpload(TrackUploadRequest request, String uploadId) {
         Long userId = JwtService.getCurrentUserId();
         User uploader = userService.getUserIfExistsById(userId);
@@ -499,6 +592,31 @@ public class TrackService {
 
         track.setGenre(WordUtils.capitalize(track.getGenre().trim().toLowerCase().replaceAll("\\s+", " ")));
 
+        // Generate unique slug
+        String slug = SlugUtility.generateUniqueSlug(track.getTitle(), s -> trackRepository.existsBySlug(s));
+        track.setSlug(slug);
+
         return createUploadingTrack(track, uploadId);
+    }
+
+    private Track getTrackIfExistsById(Long trackId) {
+        return trackChecksUtil.getTrackIfExistsById(trackId);
+    }
+
+    private void enforcePlayCooldown(Long userId, Track track) {
+        listeningHistoryRepository.findTopByUserIdAndTrackIdOrderByPlayedAtDesc(userId, track.getId())
+                .ifPresent(lastPlay -> {
+                    int cooldownSeconds = Math.max(track.getDurationSeconds(), 0);
+                    if (cooldownSeconds == 0 || lastPlay.getPlayedAt() == null) {
+                        return;
+                    }
+
+                    LocalDateTime nextAllowedPlayAt = lastPlay.getPlayedAt().plusSeconds(cooldownSeconds);
+                    if (nextAllowedPlayAt.isAfter(LocalDateTime.now())) {
+                        long secondsLeft = Duration.between(LocalDateTime.now(), nextAllowedPlayAt).toSeconds();
+                        throw new CooldownActiveException(
+                                "Please wait " + Math.max(secondsLeft, 1) + " seconds before recording another play.");
+                    }
+                });
     }
 }

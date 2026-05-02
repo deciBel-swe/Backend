@@ -1,6 +1,7 @@
 package software.decibel.services;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -12,6 +13,7 @@ import software.decibel.dtos.auth.IssuedToken;
 import software.decibel.entities.Token;
 import software.decibel.entities.User;
 import software.decibel.enums.TokenType;
+import software.decibel.repositories.PendingEmailChangeRepository;
 import software.decibel.repositories.TokenRepository;
 import software.decibel.utils.TokenUtility;
 
@@ -28,6 +30,7 @@ public class TokenService {
 
     private final TokenRepository tokenRepository;
     private final TokenUtility tokenUtility;
+    private final PendingEmailChangeRepository pendingEmailChangeRepository;
 
     // public TokenService(TokenRepository tokenRepository, TokenUtility tokenUtility) {
     //     this.tokenRepository = tokenRepository;
@@ -74,17 +77,28 @@ public class TokenService {
 
     @Transactional
     public void deleteToken(Token token) {
+        // Delete PendingEmailChange records first to avoid FK constraint violation
+        pendingEmailChangeRepository.findByToken(token).ifPresent(pendingEmailChangeRepository::delete);
         tokenRepository.delete(token);
     }
 
     @Transactional
     public void deleteExpiredTokens() {
-        tokenRepository.deleteByExpiresAtBefore(LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+
+        pendingEmailChangeRepository.deleteByToken_ExpiresAtBefore(now);
+
+        //Bulk delete the expired tokens themselves
+        tokenRepository.deleteByExpiresAtBefore(now);
     }
 
     @Transactional
     public void deleteTokensForUserAndType(User user, TokenType tokenType) {
-        tokenRepository.deleteByUserAndTokenType(user, tokenType);
+        //Bulk delete all pending email changes tied to this user's tokens of this type
+        pendingEmailChangeRepository.deleteByToken_UserAndToken_TokenType(user, tokenType);
+
+        //Bulk delete the tokens themselves
+        tokenRepository.deleteByUserAndTokenType(user, tokenType); // Ensure this method exists in TokenRepository!
     }
 
     private IssuedToken issueToken(User user, TokenType tokenType, int bytesLength, long expirationMinutes) {

@@ -1,11 +1,12 @@
 package software.decibel.services.engagement;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import lombok.RequiredArgsConstructor;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -14,6 +15,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
+import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.engagement.RepostItemResponse;
 import software.decibel.dtos.track.responses.RepostResponse;
 import software.decibel.dtos.user.UserProfile;
@@ -28,12 +31,12 @@ import software.decibel.enums.Visibility;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.RepostMapper;
 import software.decibel.mappers.UserMapper;
-import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.PlaylistRepository;
 import software.decibel.repositories.PlaylistRepostRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
+import software.decibel.services.BlockService;
 import software.decibel.services.JwtService;
 import software.decibel.services.notification.InAppNotificationService;
 import software.decibel.services.user.UserService;
@@ -47,13 +50,13 @@ public class RepostService {
     private final TrackRepostRepository trackRepostRepository;
     private final TrackRepository trackRepository;
     private final UserService userService;
+    private final BlockService blockService;
     private final InAppNotificationService inAppNotificationService;
     private final RepostMapper repostMapper;
     private final PlaylistRepostRepository playlistRepostRepository;
     private final PlaylistRepository playlistRepository;
     private final UserMappingUtility userMappingUtility;
     private final FollowRepository followRepository;
-    private final BlockRepository blockRepository;
     private final UserMapper userMapper;
 
     @Transactional
@@ -167,7 +170,12 @@ public class RepostService {
 
     // Mixed feed of track + playlist reposts in chronological order
     public Page<RepostItemResponse> getUserReposts(String username, Pageable pageable) {
+        Long currentUserId = JwtService.getCurrentUserId();
         User user = userService.getUserIfExistsByUsername(username);
+
+        if (blockService.isBlockRelationshipActive(currentUserId, user.getId())) {
+            throw new ResourceNotFoundException("User not found: " + username);
+        }
 
         List<RepostItemResponse> all = new ArrayList<>();
 
@@ -209,7 +217,7 @@ public class RepostService {
         User currentViewer = resolveCurrentViewer();
         return trackRepostRepository
                 .findUsersByTrackId(trackId, pageable)
-                .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, blockRepository));
+                .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, blockService));
     }
 
     // used for getting all playlist reposters
@@ -219,7 +227,7 @@ public class RepostService {
         User currentViewer = resolveCurrentViewer();
         return playlistRepostRepository
                 .findUsersByPlaylistId(playlistId, pageable)
-                .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, blockRepository));
+                .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, blockService));
     }
 
     private User findUser(Long userId) {
@@ -235,4 +243,12 @@ public class RepostService {
             return null;
         }
     }
+
+    public Set<Long> getRepostedPlaylistIds(Long userId) {
+        if (userId == null) {
+            return Collections.emptySet();
+        }
+        return playlistRepostRepository.findPlaylistIdsByUserId(userId);
+    }
+
 }

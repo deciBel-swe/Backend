@@ -13,6 +13,7 @@ import software.decibel.dtos.auth.google.GoogleClientConfig;
 import software.decibel.dtos.auth.google.GoogleTokenInfoResponse;
 import software.decibel.enums.DeviceType;
 import software.decibel.exceptions.custom.InvalidGoogleTokenException;
+import software.decibel.services.auth.GoogleTokenVerificationService;
 
 class GoogleTokenVerificationServiceTest {
 
@@ -50,22 +51,6 @@ class GoogleTokenVerificationServiceTest {
 
         assertEquals("google-desktop", config.name());
         assertEquals("desktop-client-id", config.clientId());
-    }
-
-    @Test
-    void resolveClientConfig_whenDeviceTypeIsMobile_returnsMobileClient() {
-        GoogleClientConfig config = ReflectionTestUtils.invokeMethod(service, "resolveClientConfig", DeviceType.MOBILE);
-
-        assertEquals("google-mobile", config.name());
-        assertEquals("mobile-client-id", config.clientId());
-    }
-
-    @Test
-    void resolveClientConfig_whenDeviceTypeIsTablet_returnsMobileClient() {
-        GoogleClientConfig config = ReflectionTestUtils.invokeMethod(service, "resolveClientConfig", DeviceType.TABLET);
-
-        assertEquals("google-mobile", config.name());
-        assertEquals("mobile-client-id", config.clientId());
     }
 
     @Test

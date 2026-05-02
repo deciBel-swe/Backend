@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import software.decibel.dtos.Resource;
+import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.track.InitialTrackResponse;
 import software.decibel.dtos.track.requests.TrackPatchRequest;
 import software.decibel.dtos.track.requests.TrackUploadRequest;
@@ -94,9 +96,25 @@ public class TrackController {
         return ResponseEntity.status(HttpStatus.OK).body(trackService.publishTrack(trackId));
     }
 
+    @PostMapping("/{trackId}/play")
+    public ResponseEntity<MessageResponse> playTrack(@PathVariable Long trackId) {
+        return ResponseEntity.ok(trackService.recordTrackPlay(trackId));
+    }
+
+    @PostMapping("/{trackId}/complete")
+    public ResponseEntity<MessageResponse> completeTrackListen(@PathVariable Long trackId) {
+        return ResponseEntity.ok(trackService.recordTrackCompletion(trackId));
+    }
+
     // GET /tracks/{trackId} to get track data
     @GetMapping("/{trackId}")
     public ResponseEntity<TrackResponse> getTrack(@PathVariable Long trackId) {
         return ResponseEntity.ok(trackService.getTrackData(trackId));
+    }
+
+    @GetMapping("/resolve/{trackSlug}")
+    public ResponseEntity<Resource> resolveTrackSlug(
+            @PathVariable String trackSlug) {
+        return ResponseEntity.ok(trackService.resolveTrackSlug(trackSlug));
     }
 }

@@ -1,11 +1,12 @@
 package software.decibel.services;
 
-import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.comment.CommentPageResponse;
 import software.decibel.dtos.comment.CommentResponse;
 import software.decibel.dtos.comment.CreateCommentRequest;
@@ -16,6 +17,7 @@ import software.decibel.entities.Track;
 import software.decibel.entities.User;
 import software.decibel.enums.NotificationType;
 import software.decibel.enums.ResourceType;
+import software.decibel.exceptions.custom.AccessDeniedException;
 import software.decibel.exceptions.custom.InvalidTimestampException;
 import software.decibel.exceptions.custom.ReplyToReplyNotAllowedException;
 import software.decibel.exceptions.custom.ResourceNotFoundException;
@@ -23,8 +25,8 @@ import software.decibel.mappers.CommentMapper;
 import software.decibel.repositories.CommentRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.services.notification.InAppNotificationService;
-import software.decibel.services.track.TrackService;
 import software.decibel.services.user.UserService;
+import software.decibel.utils.TrackChecksUtil;
 
 @Service
 @RequiredArgsConstructor
@@ -34,7 +36,8 @@ public class CommentService {
     private final CommentRepository commentRepository;
     private final TrackRepository trackRepository;
     private final UserService userService;
-    private final TrackService trackService;
+    private final BlockService blockService;
+    private final TrackChecksUtil trackChecksUtil;
     private final CommentMapper commentMapper;
 
     // Add comment to a track
@@ -44,11 +47,21 @@ public class CommentService {
 
         User user = userService.getUserIfExistsById(userId);
 
-        Track track = trackService.getTrackIfExistsById(trackId);
+        Track track = trackChecksUtil.getTrackIfExistsById(trackId);
         // check that timestamp (if given) is not greater than track duration
         if (request.timestampSeconds() != null
                 && request.timestampSeconds() > track.getDurationSeconds()) {
             throw new InvalidTimestampException(request.timestampSeconds(), track.getDurationSeconds());
+        }
+
+        // Check if user is blocked by track uploader
+        if (blockService.hasUserBlocked(track.getUploader().getId(), userId)) {
+            throw new AccessDeniedException("You cannot comment on tracks from users who blocked you.");
+        }
+
+        // Check if user has blocked the track uploader
+        if (blockService.hasUserBlocked(userId, track.getUploader().getId())) {
+            throw new AccessDeniedException("You cannot comment on tracks from user you blocked.");
         }
 
         // update comment count
@@ -72,7 +85,7 @@ public class CommentService {
 
     @Transactional
     public CommentPageResponse getTrackComments(Long trackId, int page, int size) {
-        trackService.getTrackIfExistsById(trackId);
+        trackChecksUtil.getTrackIfExistsById(trackId);
 
         PageRequest pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Page<Comment> result = commentRepository.findByTrackId(trackId, pageable);
@@ -94,6 +107,16 @@ public class CommentService {
             throw new ReplyToReplyNotAllowedException();
         }
 
+        // Check if user is blocked by track uploader
+        if (blockService.hasUserBlocked(parentComment.getTrack().getUploader().getId(), userId)) {
+            throw new AccessDeniedException("You cannot reply on tracks from users who blocked you.");
+        }
+
+        // Check if user has blocked the track uploader
+        if (blockService.hasUserBlocked(userId, parentComment.getTrack().getUploader().getId())) {
+            throw new AccessDeniedException("You cannot reply on tracks from user you blocked.");
+        }
+
         Comment reply
                 = commentMapper.toReplyEntity(request, user, parentComment.getTrack(), parentComment);
 
@@ -101,6 +124,7 @@ public class CommentService {
         Track track = reply.getTrack();
         track.setCommentCount(track.getCommentCount() + 1);
         trackRepository.save(track);
+        // notification
         if (parentComment.getUser() != null) {
             inAppNotificationService.createNotification(
                     parentComment.getUser().getId(), // Recipient (Author of the parent comment)

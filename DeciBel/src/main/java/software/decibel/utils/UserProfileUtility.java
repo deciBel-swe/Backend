@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.auth.google.VerifiedGoogleToken;
 import software.decibel.repositories.UserRepository;
 import software.decibel.entities.User;
+import software.decibel.services.user.UserService;
 import org.springframework.security.core.Authentication;
 
 @Component
@@ -17,6 +18,7 @@ import org.springframework.security.core.Authentication;
 public class UserProfileUtility {
 
     private final UserRepository userRepository;
+    private final UserService userService;
 
     public String generateUniqueUsername(VerifiedGoogleToken verifiedToken) {
         String baseUsername = sanitizeUsername(resolveBaseUsername(verifiedToken));
@@ -114,8 +116,6 @@ public class UserProfileUtility {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid ID format");
         }
 
-        // Always load from DB to ensure we are working with a managed entity for updates
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        return userService.getUserIfExistsById(userId);
     }
 }

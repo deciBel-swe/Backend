@@ -3,12 +3,14 @@ package software.decibel.entities;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(name = "playlist_tokens")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -22,6 +24,7 @@ public class PlaylistToken {
     private String token;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean isDeleted = false;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

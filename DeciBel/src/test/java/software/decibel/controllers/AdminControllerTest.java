@@ -26,8 +26,8 @@ import software.decibel.enums.DeviceType;
 import software.decibel.enums.ReportStatus;
 import software.decibel.exceptions.AdminExceptionHandler;
 import software.decibel.exceptions.custom.InvalidAdminCredentialsException;
-import software.decibel.services.AdminAuthService;
-import software.decibel.services.AdminModerationService;
+import software.decibel.services.admin.AdminAuthService;
+import software.decibel.services.admin.AdminModerationService;
 
 import java.util.List;
 
@@ -169,6 +169,21 @@ class AdminControllerTest {
     }
 
     @Test
+    void getReportById_returnsOkAndJson() throws Exception {
+        software.decibel.dtos.admin.DetailedReportResponse report = software.decibel.dtos.admin.DetailedReportResponse.builder()
+                .id(1L)
+                .reporterId(100L)
+                .status(ReportStatus.OPEN)
+                .build();
+        when(adminModerationService.getReportById(1L)).thenReturn(report);
+
+        mockMvc.perform(get("/admin/reports/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.status").value("OPEN"));
+    }
+
+    @Test
     void updateReportStatus_whenValidRequest_returnsOk() throws Exception {
         UpdateReportStatusRequest request = new UpdateReportStatusRequest(ReportStatus.RESOLVED);
         when(adminModerationService.updateReportStatus(eq(1L), any())).thenReturn(new MessageResponse("Success"));
@@ -242,12 +257,13 @@ class AdminControllerTest {
     @Test
     void getPlatformAnalytics_returnsOkAndJson() throws Exception {
         when(adminModerationService.getPlatformAnalytics())
-                .thenReturn(new AnalyticsResponse(10L, 4L, 120L, 73.5, 0L));
+                .thenReturn(new AnalyticsResponse(10L, 4L, 120L, 73.5, 0L, 53687091200L));
 
         mockMvc.perform(get("/admin/analytics"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalUsers").value(10))
                 .andExpect(jsonPath("$.totalTracks").value(4))
-                .andExpect(jsonPath("$.totalPlays").value(120));
+                .andExpect(jsonPath("$.totalPlays").value(120))
+                .andExpect(jsonPath("$.totalStorageCapacityBytes").value(53687091200L));
     }
 }

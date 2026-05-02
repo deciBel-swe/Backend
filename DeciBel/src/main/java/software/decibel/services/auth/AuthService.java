@@ -1,4 +1,4 @@
-package software.decibel.services;
+package software.decibel.services.auth;
 
 import java.time.LocalDateTime;
 
@@ -34,6 +34,12 @@ import software.decibel.exceptions.custom.DuplicateResourceException;
 import software.decibel.repositories.AuthIdentityRepository;
 import software.decibel.repositories.TokenRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.CaptchaService;
+import software.decibel.services.EmailService;
+import software.decibel.services.FrontendLinkService;
+import software.decibel.services.JwtService;
+import software.decibel.services.SessionService;
+import software.decibel.services.TokenService;
 import software.decibel.utils.UserProfileUtility;
 
 @Service
@@ -61,7 +67,7 @@ public class AuthService {
 
     @Transactional
     public MessageResponse registerLocal(RegisterLocalRequest request) {
-        captchaService.validateCaptcha(request.captchaToken());
+        captchaService.validateCaptcha(request.captchaToken(), request.email());
         if (authIdentityRepository.existsByEmailIgnoreCase(request.email())
                 || authIdentityRepository.existsByEmailIgnoreCaseAndProviderAndType(
                         request.email(), AuthProvider.LOCAL, AuthType.PASSWORD)) {
@@ -96,7 +102,6 @@ public class AuthService {
         IssuedToken verificationToken = tokenService.createEmailVerificationToken(savedUser);
         String verificationLink = frontendLinkService.buildEmailVerificationLink(verificationToken.rawToken());
         emailService.sendEmailVerificationEmail(request.email(), verificationLink);
-
         return new MessageResponse("User Generated successfully");
     }
 
@@ -113,6 +118,8 @@ public class AuthService {
         if (!identity.isEmailVerified()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Email is not verified");
         }
+
+        ensureUserIsNotBanned(identity.getUser());
 
         return issueLoginTokens(identity, request.deviceInfo(), false);
     }
@@ -151,6 +158,8 @@ public class AuthService {
                     isNew[0] = true;
                     return registerGoogleIdentity(verifiedToken);
                 });
+
+        ensureUserIsNotBanned(identity.getUser());
 
         return issueLoginTokens(identity, request.deviceInfo(), isNew[0]);
     }
@@ -282,6 +291,12 @@ public class AuthService {
     private AuthRefreshTokenResult issueRefreshToken(User user) {
         IssuedToken issuedToken = tokenService.createRefreshToken(user);
         return new AuthRefreshTokenResult(issuedToken.rawToken(), REFRESH_TOKEN_EXPIRES_IN_SECONDS);
+    }
+
+    private void ensureUserIsNotBanned(User user) {
+        if (Boolean.TRUE.equals(user.isBanned())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Your account is banned");
+        }
     }
 
     private AuthIdentity registerGoogleIdentity(VerifiedGoogleToken verifiedToken) {

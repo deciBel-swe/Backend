@@ -3,109 +3,151 @@ package software.decibel.services.search;
 import java.util.Collections;
 import java.util.List;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.server.ResponseStatusException;
 
 import software.decibel.dtos.search.SearchResponse;
 import software.decibel.dtos.track.responses.TrackResponse;
-import software.decibel.dtos.user.UserSummary;
+import software.decibel.dtos.user.UserSummaryDTO;
 import software.decibel.entities.Track;
 import software.decibel.entities.User;
+import software.decibel.enums.AccountTier;
 import software.decibel.mappers.PlaylistMapper;
 import software.decibel.mappers.TrackMapper;
 import software.decibel.mappers.UserMapper;
+import software.decibel.repositories.PlaylistLikeRepository;
 import software.decibel.repositories.PlaylistRepository;
+import software.decibel.repositories.PlaylistRepostRepository;
+import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
+import software.decibel.repositories.TrackRepostRepository;
 import software.decibel.repositories.UserRepository;
+import software.decibel.services.playlist.PlaylistTokenService;
+import software.decibel.services.user.UserService;
 
 @ExtendWith(MockitoExtension.class)
 class SearchServiceTest {
 
     @Mock
-    private TrackRepository trackRepository;
+    private software.decibel.repositories.TrackRepository trackRepository;
     @Mock
-    private PlaylistRepository playlistRepository;
+    private software.decibel.repositories.PlaylistRepository playlistRepository;
     @Mock
-    private UserRepository userRepository;
+    private software.decibel.repositories.UserRepository userRepository;
+
     @Mock
     private TrackMapper trackMapper;
     @Mock
     private PlaylistMapper playlistMapper;
     @Mock
     private UserMapper userMapper;
-
+    @Mock
+    private TrackLikeRepository trackLikeRepository;
+    @Mock
+    private TrackRepostRepository trackRepostRepository;
+    @Mock
+    private PlaylistLikeRepository playlistLikeRepository;
+    @Mock
+    private PlaylistRepostRepository playlistRepostRepository;
+    @Mock
+    private PlaylistTokenService playlistTokenService;
+    @Mock
+    private UserService userService;
     @InjectMocks
     private SearchService searchService;
 
     @Test
-    void search_withShortQuery_throwsException() {
-        assertThrows(ResponseStatusException.class, () -> searchService.search("a", "all", 0, 10));
+    void search_withInvalidType_throwsException() {
+        assertThrows(ResponseStatusException.class, () -> searchService.search("test", "invalid_type", 0, 10));
     }
 
     @Test
-    void search_withTracks_callsTrackRepository() {
+    void search_withTrackType_returnsTracks() {
+        User mockUser = new User();
+        mockUser.setTier(AccountTier.FREE);
         Track track = new Track();
-        track.setTitle("Test Track");
-        Page<Track> trackPage = new PageImpl<>(List.of(track));
-        
-        when(trackRepository.searchPublicTracks(anyString(), any(Pageable.class))).thenReturn(trackPage);
-        when(trackMapper.toTrackResponse(any(), any(Boolean.class), any(Boolean.class)))
-                .thenReturn(new TrackResponse(1L, "Test Track", null, null, null, null, null, null, false, false, null, null, 0, 0, 0, 0, false, 0, null, null, null, null));
+        track.setId(1L);
+        Page<Track> trackPage = new PageImpl<>(List.of(track), PageRequest.of(0, 10), 1);
+
+        when(trackRepository.searchPublicTracks(eq("test"), any(), any(Pageable.class))).thenReturn(trackPage);
+
+        // Create a mock TrackResponse to prevent NPEs when SearchService calls .id()
+        TrackResponse mockTrackResponse = mock(TrackResponse.class);
+        lenient().when(mockTrackResponse.id()).thenReturn(1L);
+        lenient().when(userService.getUserIfExistsById(any())).thenReturn(mockUser);
+        // Mock both potential overloaded signatures of toTrackResponse
+        lenient().when(trackMapper.toTrackResponse(
+                any(Track.class), any(AccountTier.class), any(), any())
+        ).thenReturn(mockTrackResponse);
+
+        lenient().when(trackMapper.toTrackResponse(
+                any(Track.class), anyBoolean(), anyBoolean(), any(AccountTier.class))
+        ).thenReturn(mockTrackResponse);
 
         SearchResponse response = searchService.search("test", "track", 0, 10);
 
         assertNotNull(response);
         assertEquals(1, response.content().size());
         assertEquals("TRACK", response.content().get(0).type());
-        verify(trackRepository, times(1)).searchPublicTracks(eq("test"), any(Pageable.class));
+        verify(trackRepository, times(1)).searchPublicTracks(eq("test"), any(), any(Pageable.class));
     }
 
     @Test
-    void search_withUsers_callsUserRepository() {
+    void search_withUserType_returnsUsers() {
         User user = new User();
-        user.setUsername("testuser");
-        Page<User> userPage = new PageImpl<>(List.of(user));
+        user.setId(1L);
+        user.setTier(AccountTier.FREE);
+        Page<User> userPage = new PageImpl<>(List.of(user), PageRequest.of(0, 10), 1);
+        lenient().when(userService.getUserIfExistsById(any())).thenReturn(user);
+        when(userRepository.searchPublicUsers(eq("test"), any(), any(Pageable.class))).thenReturn(userPage);
 
-        when(userRepository.searchPublicUsers(anyString(), any(Pageable.class))).thenReturn(userPage);
-        when(userMapper.toUserSummary(any())).thenReturn(new UserSummary(1L, "testuser", "Test User", "avatar.png"));
+        // Mock UserMapper
+        when(userMapper.toUserSummaryDto(any(User.class))).thenReturn(
+                new UserSummaryDTO(1L, "username", "Display", "url", false, 0, 0)
+        );
 
         SearchResponse response = searchService.search("test", "user", 0, 10);
 
         assertNotNull(response);
         assertEquals(1, response.content().size());
         assertEquals("USER", response.content().get(0).type());
-        verify(userRepository, times(1)).searchPublicUsers(eq("test"), any(Pageable.class));
+        verify(userRepository, times(1)).searchPublicUsers(eq("test"), any(), any(Pageable.class));
     }
 
     @Test
     void search_withAll_callsAllRepositories() {
-        when(trackRepository.searchPublicTracks(anyString(), any(Pageable.class))).thenReturn(new PageImpl<>(Collections.emptyList()));
-        when(playlistRepository.searchPublicPlaylists(anyString(), any(Pageable.class))).thenReturn(new PageImpl<>(Collections.emptyList()));
-        when(userRepository.searchPublicUsers(anyString(), any(Pageable.class))).thenReturn(new PageImpl<>(Collections.emptyList()));
+        User mockUser = new User();
+        mockUser.setTier(AccountTier.FREE);
+        lenient().when(userService.getUserIfExistsById(any())).thenReturn(mockUser);
+
+        when(trackRepository.searchPublicTracks(anyString(), any(), any(Pageable.class))).thenReturn(new PageImpl<>(Collections.emptyList()));
+        when(playlistRepository.searchPublicPlaylists(anyString(), any(), any(Pageable.class))).thenReturn(new PageImpl<>(Collections.emptyList()));
+        when(userRepository.searchPublicUsers(anyString(), any(), any(Pageable.class))).thenReturn(new PageImpl<>(Collections.emptyList()));
 
         searchService.search("test", "all", 0, 30);
 
-        verify(trackRepository).searchPublicTracks(eq("test"), any(Pageable.class));
-        verify(playlistRepository).searchPublicPlaylists(eq("test"), any(Pageable.class));
-        verify(userRepository).searchPublicUsers(eq("test"), any(Pageable.class));
-    }
-
-    private String eq(String test) {
-        return org.mockito.ArgumentMatchers.eq(test);
+        verify(trackRepository).searchPublicTracks(eq("test"), any(), any(Pageable.class));
+        verify(playlistRepository).searchPublicPlaylists(eq("test"), any(), any(Pageable.class));
+        verify(userRepository).searchPublicUsers(eq("test"), any(), any(Pageable.class));
     }
 }

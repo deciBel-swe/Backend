@@ -9,11 +9,12 @@ import lombok.RequiredArgsConstructor;
 import software.decibel.dtos.auth.MessageResponse;
 import software.decibel.dtos.moderation.ReportRequest;
 import software.decibel.entities.Report;
+import software.decibel.enums.ReportStatus;
 import software.decibel.enums.ReportTargetType;
 import software.decibel.mappers.ReportSubmissionMapper;
 import software.decibel.repositories.ReportRepository;
-import software.decibel.services.track.TrackService;
 import software.decibel.services.user.UserService;
+import software.decibel.utils.TrackChecksUtil;
 
 @Service
 @RequiredArgsConstructor
@@ -21,7 +22,7 @@ public class ReportService {
 
     private final ReportRepository reportRepository;
     private final UserService userService;
-    private final TrackService trackService;
+    private final TrackChecksUtil trackChecksUtil;
     private final CommentService commentService;
     private final ReportSubmissionMapper reportSubmissionMapper;
 
@@ -29,7 +30,8 @@ public class ReportService {
     public MessageResponse reportTrack(Long trackId, ReportRequest request) {
         Long reporterId = requireAuthenticatedUserId();
         userService.getUserIfExistsById(reporterId);
-        trackService.getTrackIfExistsById(trackId);
+        trackChecksUtil.getTrackIfExistsById(trackId);
+        ensureNoOpenReportExists(reporterId, trackId, ReportTargetType.TRACK);
 
         reportRepository.save(buildReport(reporterId, trackId, ReportTargetType.TRACK, request));
         return reportSubmissionMapper.toTrackReportSubmittedResponse();
@@ -40,6 +42,7 @@ public class ReportService {
         Long reporterId = requireAuthenticatedUserId();
         userService.getUserIfExistsById(reporterId);
         commentService.getCommentIfExistsById(commentId);
+        ensureNoOpenReportExists(reporterId, commentId, ReportTargetType.COMMENT);
 
         reportRepository.save(buildReport(reporterId, commentId, ReportTargetType.COMMENT, request));
         return reportSubmissionMapper.toCommentReportSubmittedResponse();
@@ -61,5 +64,14 @@ public class ReportService {
                 .reason(request.reason().trim())
                 .description(request.description())
                 .build();
+    }
+
+    private void ensureNoOpenReportExists(Long reporterId, Long targetId, ReportTargetType targetType) {
+        if (reportRepository.existsByReporterIdAndTargetIdAndTargetTypeAndStatus(
+                reporterId, targetId, targetType, ReportStatus.OPEN)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "An open report already exists for this target");
+        }
     }
 }

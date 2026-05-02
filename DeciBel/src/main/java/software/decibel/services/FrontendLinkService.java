@@ -8,12 +8,12 @@ public class FrontendLinkService {
 
     private final String frontendBaseUrl;
 
-    public FrontendLinkService(@Value("${https://decibel.foo}") String frontendBaseUrl) {
+    public FrontendLinkService(@Value("${frontend.base.url:https://decibel.foo}") String frontendBaseUrl) {
         this.frontendBaseUrl = frontendBaseUrl;
     }
 
     public String buildPasswordResetLink(String token) {
-        return frontendBaseUrl + "/reset-password?token=" + token;
+        return frontendBaseUrl + "/change-password?token=" + token;
     }
 
     public String buildEmailVerificationLink(String token) {

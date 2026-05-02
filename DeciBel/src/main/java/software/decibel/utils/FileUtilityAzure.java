@@ -13,6 +13,7 @@ import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.blob.models.BlobHttpHeaders;
+import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.BlobStorageException;
 
 import software.decibel.enums.FileType;
@@ -27,11 +28,13 @@ public class FileUtilityAzure {
     // Client that connects to your specific container in Azure
     private final BlobContainerClient blobContainerClient;
     private final Tika tika;
+    private final long totalStorageCapacityBytes;
 
     // Constructor (get values from application.properties)
     public FileUtilityAzure(
             @Value("${azure.storage.connection-string}") String connectionString,
-            @Value("${azure.storage.blob-container-name}") String containerName) {
+            @Value("${azure.storage.blob-container-name}") String containerName,
+            @Value("${azure.storage.capacity-bytes:53687091200}") long totalStorageCapacityBytes) {
 
         // Build the connection using connection string and container name
         this.blobContainerClient
@@ -40,6 +43,7 @@ public class FileUtilityAzure {
                         .containerName(containerName)
                         .buildClient();
         this.tika = new Tika();
+        this.totalStorageCapacityBytes = totalStorageCapacityBytes;
     }
 
     // Saves file to azure and returns the URL of the uploaded file
@@ -125,5 +129,26 @@ public class FileUtilityAzure {
     // file title -> file_title
     private String cleanFileName(String fileName) {
         return fileName.trim().replaceAll("\\s+", "_");
+    }
+
+    public long getTotalStorageUsed() {
+        long totalSizeBytes = 0;
+
+        try {
+            // listBlobs() iterates through all files in the container
+            for (BlobItem blobItem : blobContainerClient.listBlobs()) {
+                if (blobItem.getProperties() != null && blobItem.getProperties().getContentLength() != null) {
+                    totalSizeBytes += blobItem.getProperties().getContentLength();
+                }
+            }
+        } catch (Exception e) {
+            throw new AzureFileStorageException("Could not calculate total storage from Azure", e);
+        }
+
+        return totalSizeBytes;
+    }
+
+    public long getTotalStorageCapacity() {
+        return this.totalStorageCapacityBytes;
     }
 }

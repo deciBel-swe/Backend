@@ -1,14 +1,13 @@
-package software.decibel.config;
+package software.decibel.component.seeders;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
-import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import software.decibel.entities.AuthIdentity;
 import software.decibel.entities.User;
 import software.decibel.enums.AuthProvider;
@@ -17,8 +16,8 @@ import software.decibel.repositories.AuthIdentityRepository;
 import software.decibel.repositories.UserRepository;
 
 /**
- * Seeds a default regular user for development and testing.
- * The seeded user is pre-verified to skip the registration flow.
+ * Seeds a default regular user for development and testing. The seeded user is
+ * pre-verified to skip the registration flow.
  */
 @Component
 @Order(1)

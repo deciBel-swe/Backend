@@ -3,15 +3,16 @@ package software.decibel.services.engagement;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
-import lombok.RequiredArgsConstructor;
+
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import software.decibel.dtos.playlist.PlaylistResponse;
+
+import lombok.RequiredArgsConstructor;
+import software.decibel.dtos.playlist.PlaylistSummaryResponse;
 import software.decibel.dtos.track.responses.LikeResponse;
 import software.decibel.dtos.user.UserProfile;
 import software.decibel.entities.Playlist;
@@ -26,15 +27,17 @@ import software.decibel.exceptions.custom.ResourceNotFoundException;
 import software.decibel.mappers.LikeMapper;
 import software.decibel.mappers.PlaylistMapper;
 import software.decibel.mappers.UserMapper;
-import software.decibel.repositories.BlockRepository;
 import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.PlaylistLikeRepository;
 import software.decibel.repositories.PlaylistRepository;
+import software.decibel.repositories.PlaylistRepostRepository;
 import software.decibel.repositories.TrackLikeRepository;
 import software.decibel.repositories.TrackRepository;
 import software.decibel.repositories.TrackRepostRepository;
+import software.decibel.services.BlockService;
 import software.decibel.services.JwtService;
 import software.decibel.services.notification.InAppNotificationService;
+import software.decibel.services.playlist.PlaylistTokenService;
 import software.decibel.services.user.UserService;
 import software.decibel.utils.UserMappingUtility;
 
@@ -47,16 +50,18 @@ public class LikeService {
     private final TrackRepostRepository trackRepostRepository;
     private final TrackRepository trackRepository;
     private final UserService userService;
+    private final BlockService blockService;
     private final InAppNotificationService inAppNotificationService;
     private final LikeMapper likeMapper;
     private final UserMapper userMapper;
     private final FollowRepository followRepository;
-    private final BlockRepository blockRepository;
 
     private final PlaylistLikeRepository playlistLikeRepository;
+    private final PlaylistRepostRepository playlistRepostRepository;
     private final PlaylistRepository playlistRepository;
     private final PlaylistMapper playlistMapper;
     private final UserMappingUtility userMappingUtility;
+    private final PlaylistTokenService playlistTokenService;
 
     // track like methods
     @Transactional
@@ -160,44 +165,39 @@ public class LikeService {
         playlistRepository.save(playlist);
     }
 
-    public Page<PlaylistResponse> getLikedPlaylists(String username, Pageable playlistPageable) {
-        Long currentUserId = JwtService.getCurrentUserId();
+    public Page<PlaylistSummaryResponse> getLikedPlaylists(String username, Pageable pageable) {
+        // 1. Get the target user
         User user = userService.getUserIfExistsByUsername(username);
 
-        //check if user has been blocked 
-        if (currentUserId != null && !currentUserId.equals(user.getId())) {
-            boolean hasBlocked = blockRepository.existsByBlocker_IdAndBlocked_Id(currentUserId, user.getId());
-            boolean isBlockedBy = blockRepository.existsByBlocker_IdAndBlocked_Id(user.getId(), currentUserId);
+        // 2. Fetch the page of liked playlists
+        Page<Playlist> likedPlaylists = playlistLikeRepository.findPlaylistsByUserId(user.getId(), pageable);
 
-            if (hasBlocked || isBlockedBy) {
-                // Hide the fact that the user exists/has playlists by throwing a 404
-                throw new ResourceNotFoundException("User not found: " + username);
+        // 3. Get the CURRENT logged-in user context
+        Long currentUserId = JwtService.getCurrentUserId();
+        User currentUser = currentUserId != null ? userService.getUserIfExistsById(currentUserId) : null;
+        AccountTier tier = currentUser != null ? currentUser.getTier() : AccountTier.FREE;
+
+        // 4. Map EACH playlist individually and attach the token for EVERYONE
+        return likedPlaylists.map(playlist -> {
+
+            // Fetch the token universally, no matter who is looking
+            String token = playlistTokenService.resolveToken(playlist.getId());
+
+            if (currentUserId == null) {
+                return playlistMapper.toSummaryResponse(playlist, token);
             }
-        }
 
-        Page<Playlist> likedPlaylists = playlistLikeRepository.findLikedPlaylistsByUserId(user.getId(), playlistPageable);
-
-        Pageable trackPageable = PageRequest.of(0, 15);
-
-        Set<Long> trackLikes = currentUserId != null
-                ? trackLikeRepository.findTrackIdsByUserId(currentUserId)
-                : Collections.emptySet();
-
-        Set<Long> trackReposts = currentUserId != null
-                ? trackRepostRepository.findTrackIdsByUserId(currentUserId)
-                : Collections.emptySet();
-
-        AccountTier currentViewerTier = currentUserId != null
-                ? userService.getUserIfExistsById(currentUserId).getTier()
-                : AccountTier.FREE;
-
-        return likedPlaylists.map(
-                playlist -> playlistMapper.toResponse(
-                        playlist,
-                        trackLikes,
-                        trackReposts,
-                        trackPageable,
-                        currentViewerTier));
+            // Return the fully mapped DTO with the universally fetched token
+            return playlistMapper.toSummaryResponse(
+                    playlist,
+                    trackLikeRepository.findTrackIdsByUserId(currentUserId),
+                    trackRepostRepository.findTrackIdsByUserId(currentUserId),
+                    true, // We know it's true because it's the liked playlists endpoint
+                    playlistRepostRepository.existsByUserAndPlaylist(currentUser, playlist),
+                    tier,
+                    token // <-- Pass the token here
+            );
+        });
     }
 
     private User findUser(Long userId) {
@@ -216,7 +216,7 @@ public class LikeService {
         User currentViewer = resolveCurrentViewer();
         return trackLikeRepository
                 .findUsersByTrackId(trackId, pageable)
-                .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, blockRepository));
+                .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, blockService));
     }
 
     // used to get the users who liked a playlist, for the GET /playlists/{playlistId}/likes endpoint
@@ -226,7 +226,7 @@ public class LikeService {
         User currentViewer = resolveCurrentViewer();
         return playlistLikeRepository
                 .findUsersByPlaylistId(playlistId, pageable)
-                .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, blockRepository));
+                .map(u -> userMapper.toUserProfile(u, currentViewer, userMappingUtility, followRepository, blockService));
     }
 
     // Resolves the currently authenticated user, or null for anonymous requests
@@ -237,5 +237,12 @@ public class LikeService {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    public Set<Long> getLikedPlaylistIds(Long userId) {
+        if (userId == null) {
+            return Collections.emptySet();
+        }
+        return playlistLikeRepository.findPlaylistIdsByUserId(userId);
     }
 }

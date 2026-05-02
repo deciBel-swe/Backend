@@ -6,7 +6,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import software.decibel.dtos.notifications.*;
 import software.decibel.dtos.user.UserSummary;
 
 import lombok.RequiredArgsConstructor;
@@ -17,17 +16,13 @@ import software.decibel.dtos.notifications.NotificationResourceDto;
 import software.decibel.dtos.notifications.NotificationSettingsDto;
 import software.decibel.dtos.notifications.UnreadCountResponse;
 import software.decibel.dtos.notifications.UpdateNotificationSettingsRequest;
-import software.decibel.dtos.user.UserSummaryDTO;
 import software.decibel.entities.Notification;
 import software.decibel.entities.NotificationPreferences;
 import software.decibel.entities.User;
 import software.decibel.enums.NotificationType;
 import software.decibel.enums.ResourceType;
-import software.decibel.exceptions.custom.ResourceNotFoundException;
-import software.decibel.repositories.FollowRepository;
 import software.decibel.repositories.NotificationPreferencesRepository;
 import software.decibel.repositories.NotificationRepository;
-import software.decibel.repositories.UserRepository;
 import software.decibel.services.user.UserService;
 
 @Slf4j
@@ -37,8 +32,6 @@ public class InAppNotificationService {
 
     private final NotificationRepository notificationRepository;
     private final NotificationPreferencesRepository preferencesRepository;
-    private final UserRepository userRepository;
-    private final FollowRepository followRepository;
     private final FcmNotificationService fcmNotificationService;
     private final UserService userService;
 
@@ -167,8 +160,6 @@ public class InAppNotificationService {
     //--------------------------helpers--------------------------------------
     private NotificationDto toDto(Notification n, Long viewerUserId) {
         User actor = n.getActor();
-        boolean isFollowing = followRepository.existsByFollowerIdAndFollowingId(
-                viewerUserId, actor.getId());
 
         return new NotificationDto(
                 n.getId(),

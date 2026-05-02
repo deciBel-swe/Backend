@@ -1,6 +1,7 @@
 package software.decibel.dtos.track.responses;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import software.decibel.enums.TrackAccess;
@@ -19,14 +20,16 @@ public record TrackResponse(
         List<String> tags,
         LocalDate releaseDate,
         int playCount,
+        int completedPlayCount,
         int likeCount,
         int repostCount,
         int commentCount,
         boolean isPrivate,
         int trackDurationSeconds,
-        LocalDate uploadDate,
+        LocalDateTime uploadDate,
         String description,
         String secretToken,
-        TrackAccess access) {
+        TrackAccess access,
+        String trackSlug) {
 
 }
