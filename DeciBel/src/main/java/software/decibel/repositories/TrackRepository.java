@@ -6,6 +6,7 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -261,6 +262,10 @@ public interface TrackRepository extends JpaRepository<Track, Long> {
         ORDER BY t.likeCount DESC, t.playCount DESC
     """)
     Page<Track> findMostLikedTracks(Pageable pageable);
+
+    @Modifying
+    @Query("UPDATE Track t SET t.playCount = t.playCount + 1 WHERE t.id = :trackId")
+    void incrementPlayCount(@Param("trackId") Long trackId);
 
     //searching by tags
     @Query("""

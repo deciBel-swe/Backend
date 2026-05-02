@@ -111,12 +111,20 @@ public class TrackService {
         if (currentUserId != null) {
             User user = userService.getUserIfExistsById(currentUserId);
             enforcePlayCooldown(currentUserId, track);
-            listeningHistoryRepository.save(
-                    ListeningHistory.builder()
-                            .user(user)
-                            .track(track)
-                            .completed(false)
-                            .build());
+
+            boolean isRepeat = listeningHistoryRepository
+                    .findTopByUserIdOrderByPlayedAtDesc(currentUserId)
+                    .map(last -> last.getTrack().getId().equals(trackId))
+                    .orElse(false);
+
+            if (!isRepeat) {
+                listeningHistoryRepository.save(
+                        ListeningHistory.builder()
+                                .user(user)
+                                .track(track)
+                                .completed(false)
+                                .build());
+            }
         }
         /*
         Assumed that Guest users can also play tracks, but we won't record their plays in listening history 
