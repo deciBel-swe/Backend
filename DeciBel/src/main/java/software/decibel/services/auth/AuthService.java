@@ -102,7 +102,6 @@ public class AuthService {
         IssuedToken verificationToken = tokenService.createEmailVerificationToken(savedUser);
         String verificationLink = frontendLinkService.buildEmailVerificationLink(verificationToken.rawToken());
         emailService.sendEmailVerificationEmail(request.email(), verificationLink);
-
         return new MessageResponse("User Generated successfully");
     }
 

@@ -9,9 +9,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
-import org.springframework.util.StringUtils;
 
 import software.decibel.dtos.auth.DeviceInfo;
 import software.decibel.dtos.auth.google.GoogleClientConfig;
@@ -50,8 +50,8 @@ public class GoogleTokenVerificationService {
                 new GoogleClientConfig("google-web", googleClientId, googleClientSecret, googleRedirectUri),
                 new GoogleClientConfig("google-desktop", googleDesktopClientId, googleDesktopClientSecret,
                         googleDesktopRedirectUri),
-                new GoogleClientConfig("google-mobile", googleMobileClientId, googleMobileClientSecret,
-                        googleMobileRedirectUri))
+                new GoogleClientConfig("google-mobile", googleClientId, googleClientSecret,
+                        googleRedirectUri))
                 .stream()
                 .filter(client -> StringUtils.hasText(client.clientId()))
                 .toList();
@@ -121,16 +121,19 @@ public class GoogleTokenVerificationService {
 
     private GoogleClientConfig resolveClientConfig(DeviceType deviceType) {
         String clientName = switch (deviceType == null ? DeviceType.WEB : deviceType) {
-            case DESKTOP -> "google-desktop";
-            case MOBILE, TABLET -> "google-mobile";
-            case WEB -> "google-web";
+            case DESKTOP ->
+                "google-desktop";
+            case MOBILE, TABLET ->
+                "google-mobile";
+            case WEB ->
+                "google-web";
         };
 
         return googleClients.stream()
                 .filter(client -> client.name().equals(clientName))
                 .findFirst()
                 .orElseThrow(() -> new InvalidGoogleTokenException(
-                        "Google OAuth is not configured for client " + clientName));
+                "Google OAuth is not configured for client " + clientName));
     }
 
     private GoogleTokenInfoResponse fetchTokenInfo(String idToken) {

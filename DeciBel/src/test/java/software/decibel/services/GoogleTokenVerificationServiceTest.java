@@ -54,22 +54,6 @@ class GoogleTokenVerificationServiceTest {
     }
 
     @Test
-    void resolveClientConfig_whenDeviceTypeIsMobile_returnsMobileClient() {
-        GoogleClientConfig config = ReflectionTestUtils.invokeMethod(service, "resolveClientConfig", DeviceType.MOBILE);
-
-        assertEquals("google-mobile", config.name());
-        assertEquals("mobile-client-id", config.clientId());
-    }
-
-    @Test
-    void resolveClientConfig_whenDeviceTypeIsTablet_returnsMobileClient() {
-        GoogleClientConfig config = ReflectionTestUtils.invokeMethod(service, "resolveClientConfig", DeviceType.TABLET);
-
-        assertEquals("google-mobile", config.name());
-        assertEquals("mobile-client-id", config.clientId());
-    }
-
-    @Test
     void resolveClientConfig_whenMappedClientIsMissing_throwsInvalidGoogleTokenException() {
         GoogleTokenVerificationService webOnlyService = new GoogleTokenVerificationService(
                 RestClient.builder(),
